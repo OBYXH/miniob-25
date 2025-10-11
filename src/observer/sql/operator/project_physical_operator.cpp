@@ -20,9 +20,8 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 ProjectPhysicalOperator::ProjectPhysicalOperator(vector<unique_ptr<Expression>> &&expressions)
-  : expressions_(std::move(expressions)), tuple_(expressions_)
-{
-}
+    : expressions_(std::move(expressions)), tuple_(expressions_)
+{}
 
 RC ProjectPhysicalOperator::open(Trx *trx)
 {

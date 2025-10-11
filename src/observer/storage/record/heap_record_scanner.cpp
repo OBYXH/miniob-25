@@ -12,7 +12,6 @@ See the Mulan PSL v2 for more details. */
 
 ////////////////////////////////////////////////////////////////////////////////
 
-
 RC HeapRecordScanner::open_scan()
 {
   ASSERT(disk_buffer_pool_ != nullptr, "disk buffer pool is null");

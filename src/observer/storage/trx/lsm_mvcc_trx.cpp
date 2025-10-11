@@ -27,15 +27,9 @@ LogReplayer *LsmMvccTrxKit::create_log_replayer(Db &, LogHandler &) { return new
 
 ////////////////////////////////////////////////////////////////////////////////
 
-RC LsmMvccTrx::insert_record(Table *table, Record &record)
-{
-   return table->insert_record_with_trx(record, this);
-}
+RC LsmMvccTrx::insert_record(Table *table, Record &record) { return table->insert_record_with_trx(record, this); }
 
-RC LsmMvccTrx::delete_record(Table *table, Record &record)
-{
-  return table->delete_record_with_trx(record, this);
-}
+RC LsmMvccTrx::delete_record(Table *table, Record &record) { return table->delete_record_with_trx(record, this); }
 
 RC LsmMvccTrx::update_record(Table *table, Record &old_record, Record &new_record)
 {
@@ -63,10 +57,7 @@ RC LsmMvccTrx::commit()
   return trx_->commit();
 }
 
-RC LsmMvccTrx::rollback()
-{
-  return trx_->rollback();
-}
+RC LsmMvccTrx::rollback() { return trx_->rollback(); }
 
 /**
  * 实际没有使用
