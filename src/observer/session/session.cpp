@@ -77,12 +77,12 @@ Trx *Session::current_trx()
 }
 
 void Session::destroy_trx()
-  {
-    if (trx_ != nullptr) {
-      db_->trx_kit().destroy_trx(trx_);
-      trx_ = nullptr;
-    }
+{
+  if (trx_ != nullptr) {
+    db_->trx_kit().destroy_trx(trx_);
+    trx_ = nullptr;
   }
+}
 
 thread_local Session *thread_session = nullptr;
 

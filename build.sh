@@ -12,7 +12,7 @@ CMAKE_COMMAND_MINIOB="$CMAKE_COMMAND"
 
 ALL_ARGS=("$@")
 BUILD_ARGS=()
-MAKE_ARGS=()
+MAKE_ARGS=("-j`nproc`")
 MAKE=make
 
 echo "$0 ${ALL_ARGS[@]}"

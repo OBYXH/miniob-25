@@ -14,7 +14,8 @@ uint64_t GroupExpr::hash() const
 {
   auto hash = contents_->hash();
   for (const auto &child : child_groups_) {
-    hash ^= std::hash<int>()(child) + 0x9e3779b9 + (hash << 6) + (hash >> 2);;
+    hash ^= std::hash<int>()(child) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    ;
   }
   return hash;
 }

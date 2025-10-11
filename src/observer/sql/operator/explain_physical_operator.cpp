@@ -53,12 +53,11 @@ RC ExplainPhysicalOperator::next(Chunk &chunk)
   }
   generate_physical_plan();
 
-  Value         cell(physical_plan_.c_str());
-  auto column = make_unique<Column>();
+  Value cell(physical_plan_.c_str());
+  auto  column = make_unique<Column>();
   column->init(cell);
   chunk.add_column(std::move(column), 0);
   return RC::SUCCESS;
 }
 
 Tuple *ExplainPhysicalOperator::current_tuple() { return &tuple_; }
-
