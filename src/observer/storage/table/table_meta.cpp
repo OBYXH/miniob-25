@@ -296,7 +296,11 @@ int TableMeta::deserialize(istream &is)
   storage_engine_ = static_cast<StorageEngine>(storage_engine);
   name_.swap(table_name);
   fields_.swap(fields);
-  record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  if (fields_.back().type() == AttrType::VECTORS) {
+    record_size_ = fields_.back().offset() + fields_.back().len()*sizeof(float) - fields_.begin()->offset();
+  } else {
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  }
 
   for (const FieldMeta &field_meta : fields_) {
     if (!field_meta.visible()) {

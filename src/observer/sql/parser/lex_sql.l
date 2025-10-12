@@ -80,8 +80,8 @@ QUOTE            [\'\"]
 {QUOTE}(L2|COSINE|INNER){QUOTE}     yylval->cstring = strdup(yytext);RETURN_TOKEN(DISTANCE_TYPE);
 {DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 {DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
-{QUOTE}\[{WHITE_SPACE}*([\-]?{DIGIT}+(DOT{DIGIT})?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+(DOT{DIGIT})?)*){WHITE_SPACE}*\]{QUOTE}   yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
-\[{WHITE_SPACE}*([\-]?{DIGIT}+(DOT{DIGIT})?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+(DOT{DIGIT})?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
+{QUOTE}\[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]{QUOTE}   yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
+\[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
