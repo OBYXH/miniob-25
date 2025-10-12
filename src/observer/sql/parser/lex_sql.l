@@ -131,7 +131,7 @@ FROM_VECTOR_STRING                  RETURN_TOKEN(VECTOR_TO_STRING);
 STRING_TO_VECTOR                    RETURN_TOKEN(STRING_TO_VECTOR);
 L2_DISTANCE                          RETURN_TOKEN(L2_DISTANCE);
 COSINE_DISTANCE                     RETURN_TOKEN(COSINE_DISTANCE);
-INNER_PRODUCT_DISTANCE              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
+INNER_PRODUCT              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 
 {ID}                                    yylval->cstring=strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
