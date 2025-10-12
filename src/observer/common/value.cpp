@@ -19,6 +19,9 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/sstream.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/type/attr_type.h"
+#include <cstring>
+#include <string>
 
 Value::Value(int val) { set_int(val); }
 
@@ -125,6 +128,18 @@ void Value::set_data(char *data, int length)
       value_.bool_value_ = *(int *)data != 0;
       length_            = length;
     } break;
+    case AttrType::VECTORS: {
+      float              vec_data;
+      int                offset = 0;
+      std::vector<float> vec_;
+      while (offset < length * sizeof(float)) {
+        memcpy(&vec_data, data + offset, sizeof(float));
+        vec_.push_back(vec_data);
+        offset += sizeof(float);
+      }
+      value_.vector_value_ = new std::vector<float>(vec_);
+      length_              = value_.vector_value_->size();
+    } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -175,6 +190,37 @@ void Value::set_string(const char *s, int len /*= 0*/)
   }
 }
 
+void Value::set_vector(const std::vector<float> &vec)
+{
+  reset();
+  attr_type_           = AttrType::VECTORS;
+  value_.vector_value_ = new std::vector<float>(vec);
+  length_              = value_.vector_value_->size();
+}
+
+void Value::set_vector(const char *s)
+{
+  reset();
+  attr_type_                 = AttrType::VECTORS;
+  string             vector_ = s;
+  std::vector<float> vec_;
+  vector_ = vector_.substr(1, vector_.size() - 2);
+  std::istringstream iss(vector_);
+  string             token;
+  while (std::getline(iss, token, ',')) {
+    vec_.push_back(stof(token));
+  }
+  value_.vector_value_ = new std::vector<float>(vec_);
+  length_              = value_.vector_value_->size();
+}
+
+Value *Value::string_to_vector(const char *s)
+{
+  Value *val = new Value();
+  val->set_vector(s);
+  return val;
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -189,6 +235,9 @@ void Value::set_value(const Value &value)
     } break;
     case AttrType::BOOLEANS: {
       set_boolean(value.get_boolean());
+    } break;
+    case AttrType::VECTORS: {
+      set_vector(value.get_vector());
     } break;
     default: {
       ASSERT(false, "got an invalid value type");
@@ -211,6 +260,15 @@ const char *Value::data() const
   switch (attr_type_) {
     case AttrType::CHARS: {
       return value_.pointer_value_;
+    } break;
+    case AttrType::VECTORS: {
+      char *data   = new char[value_.vector_value_->size() * sizeof(float)];
+      int   offset = 0;
+      for (float val : *value_.vector_value_) {
+        memcpy(data + offset, (const char *)&val, sizeof(float));
+        offset += sizeof(float);
+      }
+      return data;
     } break;
     default: {
       return (const char *)&value_;
@@ -291,6 +349,19 @@ float Value::get_float() const
 }
 
 string Value::get_string() const { return this->to_string(); }
+
+std::vector<float> Value::get_vector() const
+{
+  switch (attr_type_) {
+    case AttrType::VECTORS: {
+      return *value_.vector_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return std::vector<float>{};
+    }
+  }
+}
 
 bool Value::get_boolean() const
 {

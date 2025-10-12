@@ -140,6 +140,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <floats> FLOAT
 %token <cstring> ID
 %token <cstring> SSS
+%token <cstring> VECTOR
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -442,6 +443,12 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
+    }
+    |VECTOR{
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = Value::string_to_vector(tmp);
+      free(tmp);
+      free($1);
     }
     ;
 storage_format:

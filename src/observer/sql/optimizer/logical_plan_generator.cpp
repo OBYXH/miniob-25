@@ -88,6 +88,8 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, unique_ptr<LogicalOper
 
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
+  // 整体是在构建一个最简易的逻辑计划，其中join连接是一个左深树，整个逻辑计划树从上到下依次是project -> group by ->
+  // predicate -> join -> table get
   unique_ptr<LogicalOperator> *last_oper = nullptr;
 
   unique_ptr<LogicalOperator> table_oper(nullptr);
