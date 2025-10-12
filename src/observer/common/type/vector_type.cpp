@@ -2,6 +2,7 @@
 #include "common/log/log.h"
 #include "common/lang/comparator.h"
 #include <sstream>
+#include <cmath>
 
 int VectorType::compare(const Value &left, const Value &right) const
 {
@@ -24,7 +25,7 @@ RC VectorType::add(const Value &left, const Value &right, Value &result) const
          right.get_vector().size());
   std::vector<float> vec;
   for (int i = 0; i < left.get_vector().size(); i++) {
-    vec.push_back(left.get_vector()[i] + right.get_vector()[i]);
+    vec.push_back(round((left.get_vector()[i] + right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
   return RC::SUCCESS;
@@ -36,7 +37,7 @@ RC VectorType::subtract(const Value &left, const Value &right, Value &result) co
          right.get_vector().size());
   std::vector<float> vec;
   for (int i = 0; i < left.get_vector().size(); i++) {
-    vec.push_back(left.get_vector()[i] - right.get_vector()[i]);
+    vec.push_back(round((left.get_vector()[i] - right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
   return RC::SUCCESS;
@@ -48,7 +49,7 @@ RC VectorType::multiply(const Value &left, const Value &right, Value &result) co
          right.get_vector().size());
   std::vector<float> vec;
   for (int i = 0; i < left.get_vector().size(); i++) {
-    vec.push_back(left.get_vector()[i] * right.get_vector()[i]);
+    vec.push_back(round((left.get_vector()[i] * right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
   return RC::SUCCESS;

@@ -51,7 +51,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
         float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
         sum += diff * diff;
       }
-      value.set_float(sqrt(sum));
+      value.set_float(round(sqrt(sum) * 100) / 100);
     } break;
     case Type::COSINE: {
       float dot_product = 0.0;
@@ -66,14 +66,14 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
         LOG_WARN("vector norm is zero");
         return RC::VECTOR_NORM_ZERO;
       }
-      value.set_float(1 - dot_product / (sqrt(left_norm) * sqrt(right_norm)));
+      value.set_float(round((1 - dot_product / (sqrt(left_norm) * sqrt(right_norm))) * 100) / 100);
     } break;
     case Type::INNER: {
       float dot_product = 0.0;
       for (int i = 0; i < left_value.get_vector().size(); i++) {
         dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
       }
-      value.set_float(dot_product);
+      value.set_float(round(dot_product * 100) / 100);
     } break;
     default: return RC::UNSUPPORTED;
   }
