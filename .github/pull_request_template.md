@@ -1,9 +1,3 @@
-### What problem were solved in this pull request?
+### 关联的Issue（必填，可多个）
 
-Issue Number: close #xxx
-
-Problem:
-
-### What is changed and how it works?
-
-### Other information
+Issue Number: #xxx

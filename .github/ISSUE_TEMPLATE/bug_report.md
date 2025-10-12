@@ -1,30 +1,12 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: 报告Bug
+about: 描述你碰到的Bug
 title: "[BUG]"
 labels: bug
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**简单描述Bug**
 
-** Environment**
-Environment Details sometimes important
-- OS Version:
-- CPU Arch(x86/arm):
-- Compiler: 
-- Others:
-
-**Fast Reproduce Steps(Required)**
-Steps to reproduce the behavior:
-
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
-**Actual Behavior**
-What is the result? picture is allowed
-
-**Additional context**
-Add any other context about the problem here.
+**预期表现**
