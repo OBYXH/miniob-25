@@ -180,40 +180,35 @@ extern Log *g_log;
 
 #define LOG_HEAD_SIZE 128
 
-#define LOG_HEAD(prefix, level)                                            \
-  if (common::g_log) {                                                     \
-    struct timeval tv;                                                     \
-    gettimeofday(&tv, NULL);                                               \
-    struct tm  curr_time;                                                  \
-    struct tm *p = localtime_r(&tv.tv_sec, &curr_time);                    \
-                                                                           \
-    char sz_head[LOG_HEAD_SIZE] = {0};                                     \
-    if (p) {                                                               \
-      int usec = (int)tv.tv_usec;                                          \
-      snprintf(sz_head,                                                    \
-          LOG_HEAD_SIZE,                                                   \
-          "%04d-%02d-%02d %02d:%02d:%02u.%06d pid:%u tid:%llx ctx:%lx",    \
-          p->tm_year + 1900,                                               \
-          p->tm_mon + 1,                                                   \
-          p->tm_mday,                                                      \
-          p->tm_hour,                                                      \
-          p->tm_min,                                                       \
-          p->tm_sec,                                                       \
-          usec,                                                            \
-          (int32_t)getpid(),                                               \
-          gettid(),                                                        \
-          common::g_log->context_id());                                    \
-      common::g_log->rotate(p->tm_year + 1900, p->tm_mon + 1, p->tm_mday); \
-    }                                                                      \
-    snprintf(prefix,                                                       \
-        sizeof(prefix),                                                    \
-        "[%s %s %s@%s:%u] >> ",                                            \
-        sz_head,                                                           \
-        (common::g_log)->prefix_msg(level),                                \
-        __FUNCTION__,                                                      \
-        __FILE_NAME__,                                                     \
-        (int32_t)__LINE__);                                                \
-  }
+#define LOG_HEAD(prefix, level)                                                                      \
+  do {                                                                                               \
+    /* The following block is commented out to remove the detailed log prefix (timestamp, pid, etc.) \
+    timeval         tv;                                                                              \
+    gettimeofday(&tv, nullptr);                                                                      \
+    struct tm *ptm = localtime(&tv.tv_sec);                                                          \
+    char       sz_head[256];                                                                         \
+    snprintf(sz_head,                                                                                \
+             sizeof(sz_head),                                                                        \
+             "[%04d-%02d-%02d %02d:%02d:%02d.%06ld pid:%d tid:%lx ctx:%ld]",                         \
+             ptm->tm_year + 1900,                                                                    \
+             ptm->tm_mon + 1,                                                                        \
+             ptm->tm_mday,                                                                           \
+             ptm->tm_hour,                                                                           \
+             ptm->tm_min,                                                                            \
+             ptm->tm_sec,                                                                            \
+             tv.tv_usec,                                                                             \
+             getpid(),                                                                               \
+             pthread_self(),                                                                         \
+             (common::g_log)->context_id());                                                         \
+    */                                                                                               \
+    snprintf(prefix,                                                                                 \
+        ONE_KILO,                                                                                    \
+        "%s [%s@%s:%u] >> ",                                                                         \
+        (common::g_log)->prefix_msg(level),                                                          \
+        __FUNCTION__,                                                                                \
+        __FILE_NAME__,                                                                               \
+        (int32_t)__LINE__);                                                                          \
+  } while (0)
 
 #define LOG_OUTPUT(level, fmt, ...)                                    \
   do {                                                                 \
