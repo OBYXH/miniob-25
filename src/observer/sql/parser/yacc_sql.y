@@ -29,6 +29,33 @@ int yyerror(YYLTYPE *llocp, const char *sql_string, ParsedSqlResult *sql_result,
   return 0;
 }
 
+VecDistanceExpr *create_distance_expression(const char *distance_type,
+                                             Expression *left,
+                                             Expression *right,
+                                             const char *sql_string,
+                                             YYLTYPE *llocp)
+{
+  std::string type_str(distance_type);
+  std::cout<<"Distance type: " << type_str << std::endl;
+  VecDistanceExpr::Type type;
+  if(type_str == "L2") {
+    // L2
+    type = VecDistanceExpr::Type::L2;
+  } else if(type_str == "COSINE") {
+    // COSINE
+    type = VecDistanceExpr::Type::COSINE;
+  } else if(type_str == "INNER") {
+    // INNER
+    type = VecDistanceExpr::Type::INNER;
+  } else {
+    LOG_ERROR("Unsupported distance type: %s", distance_type);
+    return nullptr;
+  }
+  VecDistanceExpr *expr = new VecDistanceExpr(type, left, right);
+  expr->set_name(token_name(sql_string, llocp));
+  return expr;
+}
+
 ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
                                              Expression *left,
                                              Expression *right,
@@ -114,6 +141,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         LE
         GE
         NE
+        DISTANCE
+        VECTOR_TO_STRING
+        STRING_TO_VECTOR
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -141,6 +171,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <cstring> ID
 %token <cstring> SSS
 %token <cstring> VECTOR
+%token <cstring> DISTANCE_TYPE
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -445,10 +476,14 @@ value:
       free(tmp);
     }
     |VECTOR{
-      char *tmp = common::substr($1,1,strlen($1)-2);
-      $$ = Value::string_to_vector(tmp);
-      free(tmp);
-      free($1);
+      if ($1[0] =='\'' || $1[0] == '\"') {
+        // 去掉引号
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        $$ = Value::string_to_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::string_to_vector($1);
+      }
     }
     ;
 storage_format:
@@ -569,6 +604,12 @@ expression:
     }
     | '*' {
       $$ = new StarExpr();
+    }
+    | DISTANCE LBRACE expression COMMA expression COMMA DISTANCE_TYPE RBRACE
+    {
+      char * tmp = common::substr($7,1,strlen($7)-2);
+      $$ = create_distance_expression(tmp, $3, $5, sql_string, &@$);
+      free(tmp);
     }
     // your code here
     ;

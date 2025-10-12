@@ -13,10 +13,72 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/expr/expression.h"
+#include "common/sys/rc.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
+#include <cmath>
 
 using namespace std;
+
+RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value left_value;
+  Value right_value;
+  rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
+    LOG_WARN("vector distance expr only support vector type");
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  if (left_value.get_vector().size() != right_value.get_vector().size()) {
+    LOG_WARN("vector dimension mismatch, left size: %d, right size: %d", left_value.get_vector().size(),
+             right_value.get_vector().size());
+    return RC::VECTOR_DIMENSION_MISMATCH;
+  }
+  switch (distance_type_) {
+    case Type::L2: {
+      float sum = 0.0;
+      for (int i = 0; i < left_value.get_vector().size(); i++) {
+        float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
+        sum += diff * diff;
+      }
+      value.set_float(sqrt(sum));
+    } break;
+    case Type::COSINE: {
+      float dot_product = 0.0;
+      float left_norm   = 0.0;
+      float right_norm  = 0.0;
+      for (int i = 0; i < left_value.get_vector().size(); i++) {
+        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
+        left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
+        right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
+      }
+      if (left_norm == 0 || right_norm == 0) {
+        LOG_WARN("vector norm is zero");
+        return RC::VECTOR_NORM_ZERO;
+      }
+      value.set_float(1 - dot_product / (sqrt(left_norm) * sqrt(right_norm)));
+    } break;
+    case Type::INNER: {
+      float dot_product = 0.0;
+      for (int i = 0; i < left_value.get_vector().size(); i++) {
+        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
+      }
+      value.set_float(dot_product);
+    } break;
+    default: return RC::UNSUPPORTED;
+  }
+  return RC::SUCCESS;
+}
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
 {
@@ -310,9 +372,13 @@ AttrType ArithmeticExpr::value_type() const
   if (left_->value_type() == AttrType::INTS && right_->value_type() == AttrType::INTS &&
       arithmetic_type_ != Type::DIV) {
     return AttrType::INTS;
+  } else if (left_->value_type() == AttrType::FLOATS && right_->value_type() == AttrType::FLOATS) {
+    return AttrType::FLOATS;
+  } else if (left_->value_type() == AttrType::VECTORS && right_->value_type() == AttrType::VECTORS) {
+    return AttrType::VECTORS;
+  } else {
+    return AttrType::FLOATS;
   }
-
-  return AttrType::FLOATS;
 }
 
 RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value, Value &value) const

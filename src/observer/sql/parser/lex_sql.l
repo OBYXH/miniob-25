@@ -77,10 +77,11 @@ QUOTE            [\'\"]
 
 {WHITE_SPACE}                                        // ignore whitespace
 \n                                                   ;
-
+{QUOTE}(L2|COSINE|INNER){QUOTE}     yylval->cstring = strdup(yytext);RETURN_TOKEN(DISTANCE_TYPE);
 {DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 {DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 {QUOTE}\[{WHITE_SPACE}*([\-]?{DIGIT}+(DOT{DIGIT})?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+(DOT{DIGIT})?)*){WHITE_SPACE}*\]{QUOTE}   yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
+\[{WHITE_SPACE}*([\-]?{DIGIT}+(DOT{DIGIT})?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+(DOT{DIGIT})?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -124,6 +125,11 @@ FORMAT                                  RETURN_TOKEN(FORMAT);
 PRIMARY                                 RETURN_TOKEN(PRIMARY);
 KEY                                     RETURN_TOKEN(KEY);
 ANALYZE                                 RETURN_TOKEN(ANALYZE);
+DISTANCE                             RETURN_TOKEN(DISTANCE);
+VECTOR_TO_STRING                    RETURN_TOKEN(VECTOR_TO_STRING);
+FROM_VECTOR_STRING                  RETURN_TOKEN(VECTOR_TO_STRING);
+STRING_TO_VECTOR                    RETURN_TOKEN(STRING_TO_VECTOR);
+
 {ID}                                    yylval->cstring=strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

@@ -47,6 +47,7 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
+  DISTANCE      ///< 向量距离计算
 };
 
 /**
@@ -139,6 +140,43 @@ protected:
 
 private:
   string name_;
+};
+
+class VecDistanceExpr : public Expression
+{
+public:
+  enum class Type
+  {
+    L2,
+    COSINE,
+    INNER
+  };
+  VecDistanceExpr(Type type, unique_ptr<Expression> left, unique_ptr<Expression> right)
+      : left_(std::move(left)), right_(std::move(right)), distance_type_(type)
+  {}
+  VecDistanceExpr(Type type, Expression *left, Expression *right) : left_(left), right_(right), distance_type_(type) {}
+  virtual ~VecDistanceExpr() = default;
+
+  unique_ptr<Expression> copy() const override
+  {
+    return make_unique<VecDistanceExpr>(distance_type_, left_->copy(), right_->copy());
+  }
+
+  ExprType type() const override { return ExprType::DISTANCE; }
+  RC       get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override { return AttrType::VECTORS; }
+
+  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
+
+  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+
+  unique_ptr<Expression> &left() { return left_; }
+  unique_ptr<Expression> &right() { return right_; }
+
+private:
+  unique_ptr<Expression> left_;
+  unique_ptr<Expression> right_;
+  Type                   distance_type_;
 };
 
 class StarExpr : public Expression

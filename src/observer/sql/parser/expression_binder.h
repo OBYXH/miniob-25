@@ -35,6 +35,8 @@ private:
 /**
  * @brief 绑定表达式
  * @details 绑定表达式，就是在SQL解析后，得到文本描述的表达式，将表达式解析为具体的数据库对象
+ * 主要是匹配字段名到具体的表和字段，还有通配符*展开检测aggerate函数等
+ * 其余的都只是递归建立新的表达式节点
  */
 class ExpressionBinder
 {
@@ -59,6 +61,8 @@ private:
       unique_ptr<Expression> &arithmetic_expr, vector<unique_ptr<Expression>> &bound_expressions);
   RC bind_aggregate_expression(
       unique_ptr<Expression> &aggregate_expr, vector<unique_ptr<Expression>> &bound_expressions);
+  RC bind_vector_distance_expression(
+      unique_ptr<Expression> &distance_expr, vector<unique_ptr<Expression>> &bound_expressions);
 
 private:
   BinderContext &context_;
