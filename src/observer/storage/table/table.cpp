@@ -274,7 +274,11 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
       copy_len = data_len + 1;
     }
   } else if (field->type() == AttrType::VECTORS) {
-    ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(), value.length());
+    // ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(),
+    // value.length());
+    if (field->len() != value.length()) {
+      return RC::VECTOR_DIMENSION_MISMATCH;
+    }
     copy_len = field->len() * sizeof(float);
   }
   memcpy(record_data + field->offset(), value.data(), copy_len);
