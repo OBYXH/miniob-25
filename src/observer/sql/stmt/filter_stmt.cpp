@@ -16,37 +16,67 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/sys/rc.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/expression_binder.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <cstddef>
+#include <memory>
+#include <vector>
 
-FilterStmt::~FilterStmt()
-{
-  for (FilterUnit *unit : filter_units_) {
-    delete unit;
-  }
-  filter_units_.clear();
-}
+FilterStmt::~FilterStmt() { conditions_.clear(); }
 
 RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt)
+    std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
 
-  FilterStmt *tmp_stmt = new FilterStmt();
-  for (int i = 0; i < condition_num; i++) {
-    FilterUnit *filter_unit = nullptr;
-
-    rc = create_filter_unit(db, default_table, tables, conditions[i], filter_unit);
-    if (rc != RC::SUCCESS) {
-      delete tmp_stmt;
-      LOG_WARN("failed to create filter unit. condition index=%d", i);
-      return rc;
+  vector<unique_ptr<Expression>> cond_exprs;
+  for (auto &condition : conditions) {
+    switch (condition.comp) {
+      case EQUAL_TO:
+      case LESS_EQUAL:
+      case NOT_EQUAL:
+      case LESS_THAN:
+      case GREAT_EQUAL:
+      case GREAT_THAN: 
+      case LIKE_OP: 
+      case NOT_LIKE_OP:
+      case IS_OP:
+      case IS_NOT_OP: {
+        cond_exprs.emplace_back(
+            new ComparisonExpr(condition.comp, std::move(condition.left), std::move(condition.right)));
+      } break;
+      default: {
+        LOG_WARN("unsupported condition comparison type: %d", condition.comp);
+        return RC::UNIMPLEMENTED;
+      }
     }
-    tmp_stmt->filter_units_.push_back(filter_unit);
+  }
+  
+  // 使用下面的绑定逻辑替代原本极其有限的过滤表达式处理
+  BinderContext context;
+  for (auto &table : *tables) {
+    context.add_table(table.second);
   }
 
-  stmt = tmp_stmt;
+  vector<unique_ptr<Expression>> bound_expressions;
+  ExpressionBinder expr_binder(context);
+
+  FilterStmt *final_stmt = new FilterStmt();
+  for (size_t i = 0; i < conditions.size(); i++) {
+     RC rc = expr_binder.bind_expression(cond_exprs[i],bound_expressions);
+     if (rc != RC::SUCCESS) {
+        delete final_stmt;
+        LOG_WARN("failed to bind expression in condition %d", i);
+        return rc;
+     }
+  }
+  
+  final_stmt->conditions_.swap(bound_expressions);
+  stmt = final_stmt;
   return rc;
 }
 
@@ -76,57 +106,4 @@ RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table
   }
 
   return RC::SUCCESS;
-}
-
-RC FilterStmt::create_filter_unit(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    const ConditionSqlNode &condition, FilterUnit *&filter_unit)
-{
-  RC rc = RC::SUCCESS;
-
-  CompOp comp = condition.comp;
-  if (comp < EQUAL_TO || comp >= NO_OP) {
-    LOG_WARN("invalid compare operator : %d", comp);
-    return RC::INVALID_ARGUMENT;
-  }
-
-  filter_unit = new FilterUnit;
-
-  if (condition.left_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_left(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.left_value);
-    filter_unit->set_left(filter_obj);
-  }
-
-  if (condition.right_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_right(filter_obj);
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.right_value);
-    filter_unit->set_right(filter_obj);
-  }
-
-  filter_unit->set_comp(comp);
-
-  // 检查两个类型是否能够比较
-  return rc;
 }

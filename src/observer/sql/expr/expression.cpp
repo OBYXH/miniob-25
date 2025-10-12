@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
 #include <cmath>
+#include <cstddef>
 
 using namespace std;
 
@@ -47,7 +48,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
   switch (distance_type_) {
     case Type::L2: {
       float sum = 0.0;
-      for (auto i = 0; i < left_value.get_vector().size(); i++) {
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
         float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
         sum += diff * diff;
       }
@@ -57,7 +58,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
       float dot_product = 0.0;
       float left_norm   = 0.0;
       float right_norm  = 0.0;
-      for (auto i = 0; i < left_value.get_vector().size(); i++) {
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
         dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
         left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
         right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
@@ -71,7 +72,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
     } break;
     case Type::INNER: {
       float dot_product = 0.0;
-      for (auto i = 0; i < left_value.get_vector().size(); i++) {
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
         dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
       }
       value.set_float(round(dot_product * 100) / 100);
@@ -423,6 +424,9 @@ AttrType ArithmeticExpr::value_type() const
   if (!right_) {
     return left_->value_type();
   }
+  if (!left_) {
+    return right_->value_type();
+  }
 
   if ((left_->value_type() == AttrType::INTS) && (right_->value_type() == AttrType::INTS) &&
       arithmetic_type_ != Type::DIV) {
@@ -465,7 +469,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     } break;
 
     case Type::NEGATIVE: {
-      rc = Value::negative(left_value, value);
+      rc = Value::negative(right_value, value);
     } break;
 
     default: {
@@ -551,16 +555,21 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const
   Value left_value;
   Value right_value;
 
-  rc = left_->get_value(tuple, left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
+  if (left_) {
+    rc = left_->get_value(tuple, left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
-  rc = right_->get_value(tuple, right_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
+  if (right_) {
+    rc = right_->get_value(tuple, right_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
+
   return calc_value(left_value, right_value, value);
 }
 
@@ -618,11 +627,15 @@ RC ArithmeticExpr::try_get_value(Value &value) const
   Value left_value;
   Value right_value;
 
-  rc = left_->try_get_value(left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
+  // 防止空指针问题
+  if (left_) {
+    rc = left_->try_get_value(left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
+
 
   if (right_) {
     rc = right_->try_get_value(right_value);
