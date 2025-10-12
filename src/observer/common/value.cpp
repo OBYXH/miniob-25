@@ -31,6 +31,14 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value *Value::from_date(const char *s)
+{
+  Value *val = new Value();
+  val->set_date(s);
+  return val;
+}
+
+
 Value::Value(const Value &other)
 {
   this->attr_type_ = other.attr_type_;
@@ -221,27 +229,46 @@ Value *Value::string_to_vector(const char *s)
   return val;
 }
 
+void Value::set_date(const char *s)
+{
+  reset();
+  attr_type_ = AttrType::DATES;
+  if (s == nullptr) {
+    value_.pointer_value_ = nullptr;
+    length_               = 0;
+  } else {
+    own_data_             = true;
+    length_               = strlen(s);
+    value_.pointer_value_ = new char[length_ + 1];
+    memcpy(value_.pointer_value_, s, length_);
+    value_.pointer_value_[length_] = '\0';
+  }
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
-    case AttrType::INTS: {
-      set_int(value.get_int());
-    } break;
-    case AttrType::FLOATS: {
-      set_float(value.get_float());
-    } break;
-    case AttrType::CHARS: {
-      set_string(value.get_string().c_str());
-    } break;
-    case AttrType::BOOLEANS: {
-      set_boolean(value.get_boolean());
-    } break;
-    case AttrType::VECTORS: {
-      set_vector(value.get_vector());
-    } break;
-    default: {
-      ASSERT(false, "got an invalid value type");
-    } break;
+      case AttrType::INTS: {
+        set_int(value.get_int());
+      } break;
+      case AttrType::FLOATS: {
+        set_float(value.get_float());
+      } break;
+      case AttrType::CHARS: {
+        set_string(value.get_string().c_str());
+      } break;
+      case AttrType::BOOLEANS: {
+        set_boolean(value.get_boolean());
+      } break;
+      case AttrType::VECTORS: {
+        set_vector(value.get_vector());
+      case AttrType::DATES: {
+        set_date(value.get_string().c_str());
+      } break;
+      default: {
+        ASSERT(false, "got an invalid value type");
+      } break;
+    }
   }
 }
 

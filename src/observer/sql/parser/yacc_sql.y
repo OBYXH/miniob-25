@@ -115,6 +115,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         INT_T
         STRING_T
         FLOAT_T
+        DATE_T
         VECTOR_T
         HELP
         EXIT
@@ -175,6 +176,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <cstring> SSS
 %token <cstring> VECTOR
 %token <cstring> DISTANCE_TYPE
+%token <cstring> DATE
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -406,6 +408,7 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | VECTOR_T { $$ = static_cast<int>(AttrType::VECTORS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     ;
 primary_key:
     /* empty */
@@ -487,6 +490,12 @@ value:
       } else {
         $$ = Value::string_to_vector($1);
       }
+    }
+    |DATE {
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = Value::from_date(tmp);
+      free(tmp);
+      free($1);
     }
     ;
 storage_format:

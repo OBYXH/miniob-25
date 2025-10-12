@@ -46,6 +46,7 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+  static Value *from_date(const char *s);
 
   Value(const Value &other);
   Value(Value &&other);
@@ -90,6 +91,7 @@ public:
   void set_data(const char *data, int length) { this->set_data(const_cast<char *>(data), length); }
   void set_value(const Value &value);
   void set_boolean(bool val);
+  void set_date(const char *s);  // 从 YYYY-MM-DD 格式的字符串设置日期
 
   string to_string() const;
 
