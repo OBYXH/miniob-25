@@ -142,6 +142,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         GE
         NE
         DISTANCE
+        L2_DISTANCE
+        COSINE_DISTANCE
+        INNER_PRODUCT_DISTANCE
         VECTOR_TO_STRING
         STRING_TO_VECTOR
 
@@ -610,6 +613,18 @@ expression:
       char * tmp = common::substr($7,1,strlen($7)-2);
       $$ = create_distance_expression(tmp, $3, $5, sql_string, &@$);
       free(tmp);
+    }
+    | L2_DISTANCE LBRACE expression COMMA expression RBRACE
+    {
+      $$ = create_distance_expression("L2", $3, $5, sql_string, &@$);
+    }
+    | COSINE_DISTANCE LBRACE expression COMMA expression RBRACE
+    {
+      $$ = create_distance_expression("COSINE", $3, $5, sql_string, &@$);
+    }
+    | INNER_PRODUCT_DISTANCE LBRACE expression COMMA expression RBRACE
+    {
+      $$ = create_distance_expression("INNER", $3, $5, sql_string, &@$);
     }
     // your code here
     ;
