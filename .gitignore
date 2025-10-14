@@ -23,6 +23,7 @@ GPATH
 GTAGS
 docs/book
 **/__pycache__
+.clangd
 #*#
 
 # ignore generated files
