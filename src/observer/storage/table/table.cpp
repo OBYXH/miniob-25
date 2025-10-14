@@ -128,6 +128,33 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   return rc;
 }
 
+RC Table::drop(Db *db, const char *table_name, const char *base_dir)
+{
+  std::string meta_file_path = table_meta_file(base_dir, table_name);
+  if (unlink(meta_file_path.c_str()) != 0) {
+    LOG_ERROR("Failed to remove table meta file. file name=%s, errmsg=%s", meta_file_path.c_str(), strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  std::string data_file_path = table_data_file(base_dir, table_name);
+  if (unlink(data_file_path.c_str()) != 0) {
+    LOG_ERROR("Failed to remove table data file. file name=%s, errmsg=%s", data_file_path.c_str(), strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  auto index_num = table_meta_.index_num();
+  for (int i = 0; i < index_num; i++) {
+    // ((BplusTreeIndex *)(indexes_[i]))->close();
+    auto        index_name      = table_meta_.index(i)->name();
+    std::string index_file_path = table_index_file(base_dir, table_name, index_name);
+    if (unlink(index_file_path.c_str()) != 0) {
+      LOG_ERROR("Failed to remove index file. file name=%s, errmsg=%s", index_file_path.c_str(), strerror(errno));
+      return RC::IOERR_WRITE;
+    }
+  }
+  return RC::SUCCESS;
+}
+
 RC Table::open(Db *db, const char *meta_file, const char *base_dir)
 {
   // 加载元数据文件

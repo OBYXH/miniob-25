@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/sys/rc.h"
+#include "common/types.h"
 #include "sql/parser/parse_defs.h"
 
 class Db;
