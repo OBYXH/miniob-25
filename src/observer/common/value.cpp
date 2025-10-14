@@ -22,6 +22,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include <cstring>
 #include <string>
+#include "common/type/date_type.h"
+#include <cstdio>
 
 Value::Value(int val) { set_int(val); }
 
@@ -37,7 +39,6 @@ Value *Value::from_date(const char *s)
   val->set_date(s);
   return val;
 }
-
 
 Value::Value(const Value &other)
 {
@@ -55,6 +56,7 @@ Value::Value(const Value &other)
   }
 }
 
+// 所有权转移机制
 Value::Value(Value &&other)
 {
   this->attr_type_ = other.attr_type_;
@@ -148,6 +150,10 @@ void Value::set_data(char *data, int length)
       value_.vector_value_ = new std::vector<float>(vec_);
       length_              = value_.vector_value_->size();
     } break;
+    case AttrType::DATES: {
+      value_.int_value_ = *(int *)data;
+      length_           = length;
+    } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -233,37 +239,46 @@ void Value::set_date(const char *s)
 {
   reset();
   attr_type_ = AttrType::DATES;
-  if (s == nullptr) {
-    value_.pointer_value_ = nullptr;
-    length_               = 0;
+
+  // 解析日期字符串 YYYY-M[M]-D[D] 格式
+  int year = 0, month = 0, day = 0;
+  if (sscanf(s, "%d-%d-%d", &year, &month, &day) == 3) {
+    // 将日期转换为8位整数格式 YYYYMMDD
+    LOG_DEBUG("%year: %d, month: %d, day: %d", year, month, day);
+    value_.int_value_ = year * 10000 + month * 100 + day;
   } else {
-    own_data_             = true;
-    length_               = strlen(s);
-    value_.pointer_value_ = new char[length_ + 1];
-    memcpy(value_.pointer_value_, s, length_);
-    value_.pointer_value_[length_] = '\0';
+    value_.int_value_ = -1;
   }
+  length_ = sizeof(value_.int_value_);
+}
+
+void Value::set_date(int val)
+{
+  reset();
+  attr_type_        = AttrType::DATES;
+  value_.int_value_ = val;
+  length_           = sizeof(val);
 }
 
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
-      case AttrType::INTS: {
-        set_int(value.get_int());
-      } break;
-      case AttrType::FLOATS: {
-        set_float(value.get_float());
-      } break;
-      case AttrType::CHARS: {
-        set_string(value.get_string().c_str());
-      } break;
-      case AttrType::BOOLEANS: {
-        set_boolean(value.get_boolean());
-      } break;
-      case AttrType::VECTORS: {
-        set_vector(value.get_vector());
+    case AttrType::INTS: {
+      set_int(value.get_int());
+    } break;
+    case AttrType::FLOATS: {
+      set_float(value.get_float());
+    } break;
+    case AttrType::CHARS: {
+      set_string(value.get_string().c_str());
+    } break;
+    case AttrType::BOOLEANS: {
+      set_boolean(value.get_boolean());
+    } break;
+    case AttrType::VECTORS: {
+      set_vector(value.get_vector());
       case AttrType::DATES: {
-        set_date(value.get_string().c_str());
+        set_date(value.get_int());
       } break;
       default: {
         ASSERT(false, "got an invalid value type");
@@ -338,6 +353,9 @@ int Value::get_int() const
     }
     case AttrType::BOOLEANS: {
       return (int)(value_.bool_value_);
+    }
+    case AttrType::DATES: {
+      return value_.int_value_;
     }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
