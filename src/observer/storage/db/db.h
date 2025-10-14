@@ -71,6 +71,13 @@ public:
       const StorageFormat storage_format = StorageFormat::ROW_FORMAT);
 
   /**
+   * @brief 删除一个表
+   * @param table_name 表名
+   * @note 这里没有做并发控制，需要调用者保证当前没有其他线程在访问这个表
+   */
+  RC drop_table(const char *table_name);
+
+  /**
    * @brief 根据表名查找表
    */
   Table *find_table(const char *table_name) const;

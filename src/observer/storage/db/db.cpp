@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/os/path.h"
 #include "common/global_context.h"
+#include "common/sys/rc.h"
 #include "storage/common/meta_util.h"
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
@@ -183,6 +184,24 @@ RC Db::create_table(const char *table_name, span<const AttrInfoSqlNode> attribut
   opened_tables_[table_name] = table;
   LOG_INFO("Create table success. table name=%s, table_id:%d", table_name, table_id);
   return RC::SUCCESS;
+}
+
+RC Db::drop_table(const char *table_name)
+{
+  RC     rc    = RC::SUCCESS;
+  Table *table = find_table(table_name);
+  if (table == nullptr) {
+    LOG_WARN("No such table: %s", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  rc = table->drop(this, table_name, path_.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop table %s.", table_name);
+    return rc;
+  }
+  opened_tables_.erase(table_name);
+  delete table;
+  return rc;
 }
 
 Table *Db::find_table(const char *table_name) const
