@@ -494,6 +494,10 @@ value:
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
+      // 在语法解析时检查，强制清空以触发FAILURE
+      if (!$$->is_valid_date()) {
+        $$->reset();
+      }
       free(tmp);
       free($1);
     }

@@ -40,6 +40,39 @@ Value *Value::from_date(const char *s)
   return val;
 }
 
+bool Value::is_valid_date() const
+{
+
+  ASSERT(attr_type_ == AttrType::DATES, "attr type is not DATES");
+  int date = get_int();
+
+  unsigned int year  = date / 10000;
+  unsigned int month = (date / 100) % 100;
+  unsigned int day   = date % 100;
+
+  if (year < 1900 || year > 2038) // 简单处理
+    return false;  //
+  if (month < 1 || month > 12)
+    return false;
+  if (day < 1 || day > 31)
+    return false;
+  if (month == 2) {
+    bool is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    if (is_leap) {
+      if (day > 29)
+        return false;
+    } else {
+      if (day > 28)
+        return false;
+    }
+  } else if (month == 4 || month == 6 || month == 9 || month == 11) {
+    if (day > 30)
+      return false;
+  }
+
+  return true;
+}
+
 Value::Value(const Value &other)
 {
   this->attr_type_ = other.attr_type_;

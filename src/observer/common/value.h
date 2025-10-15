@@ -18,7 +18,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
-#include "common/type/date_type.h"
 
 /**
  * @brief 属性的值
@@ -48,7 +47,8 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
-  static Value *from_date(const char *s);
+  static Value *from_date(const char *s); // 从字符串转换为 Date Value类型
+  bool is_valid_date() const; // 判断日期是否合法
 
   Value(const Value &other);
   Value(Value &&other);
