@@ -50,7 +50,7 @@ bool Value::is_valid_date() const
   unsigned int month = (date / 100) % 100;
   unsigned int day   = date % 100;
 
-  if (year < 1900 || year > 2038) // 简单处理
+  if (year < 1 || year > 9999) // 简单处理
     return false;  //
   if (month < 1 || month > 12)
     return false;
