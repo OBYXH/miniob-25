@@ -77,7 +77,11 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
           field_meta.len(),
           false /*visible*/,
           field_meta.field_id());
-      field_offset += field_meta.len();
+      if (field_meta.type() == AttrType::VECTORS) {
+        field_offset += (field_meta.len() * sizeof(float));
+      } else {
+        field_offset += field_meta.len();
+      }
     }
 
     trx_field_num = static_cast<int>(trx_fields->size());
@@ -94,8 +98,11 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
     }
-
-    field_offset += attr_info.length;
+    if (attr_info.type == AttrType::VECTORS) {
+      field_offset += (attr_info.length * sizeof(float));
+    } else {
+      field_offset += attr_info.length;
+    }
   }
 
   primary_keys_ = primary_keys;
@@ -289,7 +296,11 @@ int TableMeta::deserialize(istream &is)
   storage_engine_ = static_cast<StorageEngine>(storage_engine);
   name_.swap(table_name);
   fields_.swap(fields);
-  record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  if (fields_.back().type() == AttrType::VECTORS) {
+    record_size_ = fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset();
+  } else {
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  }
 
   for (const FieldMeta &field_meta : fields_) {
     if (!field_meta.visible()) {

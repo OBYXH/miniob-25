@@ -105,16 +105,20 @@ public:
    * 获取对应的值
    * 如果当前的类型与期望获取的类型不符，就会执行转换操作
    */
-  int    get_int() const;
-  float  get_float() const;
-  string get_string() const;
-  bool   get_boolean() const;
+  int                get_int() const;
+  float              get_float() const;
+  string             get_string() const;
+  std::vector<float> get_vector() const;
+  bool               get_boolean() const;
 
 public:
-  void set_int(int val);
-  void set_float(float val);
-  void set_string(const char *s, int len = 0);
-  void set_string_from_other(const Value &other);
+  void          set_int(int val);
+  void          set_float(float val);
+  void          set_string(const char *s, int len = 0);
+  void          set_vector(const std::vector<float> &vec);
+  void          set_vector(const char *s);
+  static Value *string_to_vector(const char *s);
+  void          set_string_from_other(const Value &other);
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
@@ -122,10 +126,11 @@ private:
 
   union Val
   {
-    int32_t int_value_;
-    float   float_value_;
-    bool    bool_value_;
-    char   *pointer_value_;
+    int32_t             int_value_;
+    float               float_value_;
+    bool                bool_value_;
+    char               *pointer_value_;
+    std::vector<float> *vector_value_;
   } value_ = {.int_value_ = 0};
 
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false

@@ -107,6 +107,7 @@ RC OptimizeStage::generate_physical_plan(
 
 RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator)
 {
+  // 主要进行谓词下推、表达式简化（where a = 1+2 => where a=3, 多余谓词如恒真恒假移除）等
   RC rc = RC::SUCCESS;
 
   bool change_made = false;

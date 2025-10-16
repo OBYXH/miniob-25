@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/algorithm.h"
 #include "common/log/log.h"
 #include "common/global_context.h"
+#include "common/type/attr_type.h"
 #include "storage/db/db.h"
 #include "storage/buffer/disk_buffer_pool.h"
 #include "storage/common/condition_filter.h"
@@ -272,6 +273,13 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
     if (copy_len > data_len) {
       copy_len = data_len + 1;
     }
+  } else if (field->type() == AttrType::VECTORS) {
+    // ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(),
+    // value.length());
+    if (field->len() != value.length()) {
+      return RC::VECTOR_DIMENSION_MISMATCH;
+    }
+    copy_len = field->len() * sizeof(float);
   }
   memcpy(record_data + field->offset(), value.data(), copy_len);
   return RC::SUCCESS;
