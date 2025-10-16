@@ -22,6 +22,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include <cstring>
 #include <string>
+#include "common/type/date_type.h"
+#include <cstdio>
 
 Value::Value(int val) { set_int(val); }
 
@@ -30,6 +32,46 @@ Value::Value(float val) { set_float(val); }
 Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
+
+Value *Value::from_date(const char *s)
+{
+  Value *val = new Value();
+  val->set_date(s);
+  return val;
+}
+
+bool Value::is_valid_date() const
+{
+
+  ASSERT(attr_type_ == AttrType::DATES, "attr type is not DATES");
+  int date = get_int();
+
+  unsigned int year  = date / 10000;
+  unsigned int month = (date / 100) % 100;
+  unsigned int day   = date % 100;
+
+  if (year < 1 || year > 9999) // 简单处理
+    return false;  //
+  if (month < 1 || month > 12)
+    return false;
+  if (day < 1 || day > 31)
+    return false;
+  if (month == 2) {
+    bool is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    if (is_leap) {
+      if (day > 29)
+        return false;
+    } else {
+      if (day > 28)
+        return false;
+    }
+  } else if (month == 4 || month == 6 || month == 9 || month == 11) {
+    if (day > 30)
+      return false;
+  }
+
+  return true;
+}
 
 Value::Value(const Value &other)
 {
@@ -47,6 +89,7 @@ Value::Value(const Value &other)
   }
 }
 
+// 所有权转移机制
 Value::Value(Value &&other)
 {
   this->attr_type_ = other.attr_type_;
@@ -140,6 +183,10 @@ void Value::set_data(char *data, int length)
       value_.vector_value_ = new std::vector<float>(vec_);
       length_              = value_.vector_value_->size();
     } break;
+    case AttrType::DATES: {
+      value_.int_value_ = *(int *)data;
+      length_           = length;
+    } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -221,6 +268,31 @@ Value *Value::string_to_vector(const char *s)
   return val;
 }
 
+void Value::set_date(const char *s)
+{
+  reset();
+  attr_type_ = AttrType::DATES;
+
+  // 解析日期字符串 YYYY-M[M]-D[D] 格式
+  int year = 0, month = 0, day = 0;
+  if (sscanf(s, "%d-%d-%d", &year, &month, &day) == 3) {
+    // 将日期转换为8位整数格式 YYYYMMDD
+    LOG_DEBUG("%year: %d, month: %d, day: %d", year, month, day);
+    value_.int_value_ = year * 10000 + month * 100 + day;
+  } else {
+    value_.int_value_ = -1;
+  }
+  length_ = sizeof(value_.int_value_);
+}
+
+void Value::set_date(int val)
+{
+  reset();
+  attr_type_        = AttrType::DATES;
+  value_.int_value_ = val;
+  length_           = sizeof(val);
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -238,10 +310,13 @@ void Value::set_value(const Value &value)
     } break;
     case AttrType::VECTORS: {
       set_vector(value.get_vector());
-    } break;
-    default: {
-      ASSERT(false, "got an invalid value type");
-    } break;
+      case AttrType::DATES: {
+        set_date(value.get_int());
+      } break;
+      default: {
+        ASSERT(false, "got an invalid value type");
+      } break;
+    }
   }
 }
 
@@ -311,6 +386,9 @@ int Value::get_int() const
     }
     case AttrType::BOOLEANS: {
       return (int)(value_.bool_value_);
+    }
+    case AttrType::DATES: {
+      return value_.int_value_;
     }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
