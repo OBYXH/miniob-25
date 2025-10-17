@@ -49,34 +49,26 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     //   LOG_WARN("no such field: %s", attribute_name_.c_str());
     //   return RC::SCHEMA_FIELD_MISSING;
     // }
-    // int field_index = field->field_id();
+    // int field_index = field.field_id();
     // row_tuple->set_cell_at(field_index, value_);
   }
   // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
   child->close();
 
-  auto field = table_->table_meta().field(attribute_name_.c_str());
-  if (field == nullptr) {
-    LOG_WARN("no such field: %s", attribute_name_.c_str());
-    return RC::SCHEMA_FIELD_MISSING;
-  }
-  if (field->type() != value_.attr_type()) {
-    LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field->name(), field->type(), value_.attr_type());
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-  }
-  if (field->type() == AttrType::VECTORS) {
-    ASSERT(field->len()==value_.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field->len(), value_.length());
-  }
   for (auto &old_record : records_) {
     Record new_record;
     new_record.new_record(old_record.len());
     new_record = old_record;
-    memcpy(new_record.data() + field->offset(), value_.data(), std::min(value_.length(), field->len()));
-    if (field->type() == AttrType::CHARS && field->len() > value_.length()) {
-      // pad '\0' for char type
-      memset(new_record.data() + field->offset() + value_.length(), 0, field->len() - value_.length());
+    for (int i = 0; i < field_metas_.size(); i++) {
+      auto field  = field_metas_[i];
+      auto value_ = *values_[i];
+      memcpy(new_record.data() + field.offset(), value_.data(), std::min(value_.length(), field.len()));
+      if (field.type() == AttrType::CHARS && field.len() > value_.length()) {
+        // pad '\0' for char type
+        memset(new_record.data() + field.offset() + value_.length(), 0, field.len() - value_.length());
+      }
+      rc = trx_->update_record(table_, old_record, new_record);
     }
-    rc = trx_->update_record(table_, old_record, new_record);
   }
 
   return rc;

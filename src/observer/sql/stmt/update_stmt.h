@@ -15,8 +15,12 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/sys/rc.h"
+#include "common/value.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/filter_stmt.h"
+#include "storage/field/field_meta.h"
+#include <vector>
 
 class Table;
 
@@ -28,7 +32,7 @@ class UpdateStmt : public Stmt
 {
 public:
   UpdateStmt() = default;
-  UpdateStmt(Table *table, Value value, string attr, int value_amount, FilterStmt *filter_stmt);
+  UpdateStmt(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas, FilterStmt *filter_stmt);
   StmtType    type() const override { return StmtType::UPDATE; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
 
@@ -36,15 +40,13 @@ public:
   static RC create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table *table() const { return table_; }
-  Value  value() const { return value_; }
-  string attribute_name() const { return attribute_name_; }
-  int    value_amount() const { return value_amount_; }
+  Table                *table() const { return table_; }
+  vector<const Value *> values() const { return values_; }
+  vector<FieldMeta>     field_metas() const { return field_metas_; }
 
 private:
-  Table      *table_ = nullptr;
-  Value       value_;
-  string      attribute_name_;
-  int         value_amount_ = 0;
-  FilterStmt *filter_stmt_  = nullptr;
+  Table                *table_ = nullptr;
+  vector<const Value *> values_;
+  vector<FieldMeta>     field_metas_;
+  FilterStmt           *filter_stmt_ = nullptr;
 };

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/value.h"
 #include "common/lang/utility.h"
+#include <vector>
 
 class Expression;
 
@@ -124,15 +125,20 @@ struct DeleteSqlNode
   vector<ConditionSqlNode> conditions;
 };
 
+struct UpdateField
+{
+  string attribute_name;  ///< 更新的字段，仅支持一个字段
+  Value  value;           ///< 更新的值，仅支持一个字段
+};
+
 /**
  * @brief 描述一个update语句
  * @ingroup SQLParser
  */
 struct UpdateSqlNode
 {
-  string                   relation_name;   ///< Relation to update
-  string                   attribute_name;  ///< 更新的字段，仅支持一个字段
-  Value                    value;           ///< 更新的值，仅支持一个字段
+  string                   relation_name;  ///< Relation to update
+  vector<UpdateField>      update_list;    ///< 更新列表，支持多个字段更新
   vector<ConditionSqlNode> conditions;
 };
 

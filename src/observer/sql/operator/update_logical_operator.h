@@ -16,6 +16,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/value.h"
 #include "sql/operator/logical_operator.h"
+#include "storage/field/field_meta.h"
+#include <vector>
 
 /**
  * @brief 逻辑算子，用于执行delete语句
@@ -24,18 +26,18 @@ See the Mulan PSL v2 for more details. */
 class UpdateLogicalOperator : public LogicalOperator
 {
 public:
-  UpdateLogicalOperator(Table *table, string attr, int value_count, Value value);
+  UpdateLogicalOperator(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas);
   virtual ~UpdateLogicalOperator() = default;
 
-  LogicalOperatorType type() const override { return LogicalOperatorType::UPDATE; }
-  OpType              get_op_type() const override { return OpType::LOGICALDELETE; }
-  Table              *table() const { return table_; }
-  string              attribute_name() const { return attribute_name_; }
-  Value               value() const { return value_; }
+  LogicalOperatorType   type() const override { return LogicalOperatorType::UPDATE; }
+  OpType                get_op_type() const override { return OpType::LOGICALDELETE; }
+  Table                *table() const { return table_; }
+  vector<const Value *> values() const { return values_; }
+  vector<FieldMeta>     field_metas() const { return field_metas_; }
 
 private:
-  Table *table_ = nullptr;
-  string attribute_name_;
-  int    value_count_ = 0;
-  Value  value_;
+  Table                *table_ = nullptr;
+  vector<const Value *> values_;
+  vector<FieldMeta>     field_metas_;
+  Value                 value_;
 };

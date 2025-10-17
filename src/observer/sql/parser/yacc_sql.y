@@ -168,6 +168,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     cstring;
   int                                        number;
   float                                      floats;
+  vector<UpdateField> *                             update_list;
 }
 
 %token <number> NUMBER
@@ -223,6 +224,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
+%type <update_list>       update_list
 
 %left '+' '-'
 %left '*' '/'
@@ -525,18 +527,48 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     }
     ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    // UPDATE ID SET ID EQ value where 
+    // {
+    //   $$ = new ParsedSqlNode(SCF_UPDATE);
+    //   $$->update.relation_name = $2;
+    //   $$->update.attribute_name = $4;
+    //   $$->update.value = *$6;
+    //   if ($7 != nullptr) {
+    //     $$->update.conditions.swap(*$7);
+    //     delete $7;
+    //   }
+    // }
+    UPDATE ID SET update_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      if ($4 != nullptr) {
+        $$->update.update_list.swap(*$4);
+        delete $4;
+      }
+      if ($5 != nullptr) {
+        $$->update.conditions.swap(*$5);
+        delete $5;
       }
     }
     ;
+update_list:
+    ID EQ value{
+      $$ = new vector<UpdateField>;
+      UpdateField *update = new UpdateField;
+      update->attribute_name = $1;
+      update->value = *$3;
+      $$->push_back(*update);
+      delete update;
+    }
+    | update_list COMMA ID EQ value{
+      $$ = $1;
+      UpdateField *update = new UpdateField;
+      update->attribute_name = $3;
+      update->value = *$5;
+      $$->push_back(*update);
+      delete update; 
+    }
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT expression_list FROM rel_list where group_by
     {
