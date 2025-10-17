@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/bplus_tree_index.h"
 #include "storage/common/meta_util.h"
 #include "storage/db/db.h"
+#include "storage/record/record.h"
 
 HeapTableEngine::~HeapTableEngine()
 {
@@ -86,6 +87,27 @@ RC HeapTableEngine::delete_record(const Record &record)
            table_meta_->name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
   }
   rc = record_handler_->delete_record(&record.rid());
+  return rc;
+}
+
+RC HeapTableEngine::update_record(const Record &old_record, const Record &new_record)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->delete_entry(old_record.data(), &old_record.rid());
+    ASSERT(rc==RC::SUCCESS, "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
+           table_->name(), index->index_meta().name(), old_record.rid().to_string().c_str(), strrc(rc));
+  }
+  rc = insert_entry_of_indexes(new_record.data(), new_record.rid());
+  // 键重复了
+  if (rc != RC::SUCCESS) {
+    // 回滚
+    rc = delete_entry_of_indexes(new_record.data(), new_record.rid(), false);
+    ASSERT(RC::SUCCESS == rc,
+      "failed to rollback index data when insert index entries failed. table name=%s, rc=%s",
+                table_->name(), strrc(rc));
+  }
+  rc = record_handler_->update_record(new_record.data(), &new_record.rid());
   return rc;
 }
 

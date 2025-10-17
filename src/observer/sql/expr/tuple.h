@@ -15,11 +15,14 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/log/log.h"
+#include "common/type/attr_type.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
 #include "common/value.h"
 #include "storage/record/record.h"
+#include <cassert>
+#include <cstring>
 
 class Table;
 
@@ -198,6 +201,25 @@ public:
     cell.reset();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    return RC::SUCCESS;
+  }
+
+  RC set_cell_at(int index, const Value &cell)
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    auto field_expr = speces_[index];
+    auto field_meta = field_expr->field().meta();
+    if (field_meta->type() != cell.attr_type()) {
+      LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field_meta->name(), field_meta->type(), cell.attr_type());
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (field_meta->type() == AttrType::VECTORS) {
+      ASSERT(field_meta->len()==cell.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field_meta->len(), cell.length());
+    }
+    memcpy(record_->data() + field_meta->offset(), cell.data(), cell.length());
     return RC::SUCCESS;
   }
 
