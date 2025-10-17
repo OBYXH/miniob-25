@@ -74,6 +74,7 @@ bool Value::is_valid_date() const
 
   return true;
 }
+Value::Value(const string_t &s) { set_string(s.data(), s.size()); }
 
 Value::Value(const Value &other)
 {
@@ -295,6 +296,18 @@ void Value::set_date(int val)
   length_           = sizeof(val);
 }
 
+void Value::set_empty_string(int len)
+{
+  reset();
+  attr_type_ = AttrType::CHARS;
+
+  own_data_             = true;
+  value_.pointer_value_ = new char[len + 1];
+  length_               = len;
+  memset(value_.pointer_value_, 0, len);
+  value_.pointer_value_[len] = '\0';
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -332,7 +345,7 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
-const char *Value::data() const
+char *Value::data() const
 {
   switch (attr_type_) {
     case AttrType::CHARS: {
@@ -348,7 +361,7 @@ const char *Value::data() const
       return data;
     } break;
     default: {
-      return (const char *)&value_;
+      return (char *)&value_;
     } break;
   }
 }
@@ -454,6 +467,12 @@ std::vector<float> Value::get_vector() const
       return std::vector<float>{};
     }
   }
+}
+
+string_t Value::get_string_t() const
+{
+  ASSERT(attr_type_ == AttrType::CHARS, "attr type is not CHARS");
+  return string_t(value_.pointer_value_, length_);
 }
 
 bool Value::get_boolean() const

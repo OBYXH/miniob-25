@@ -121,6 +121,7 @@ RC PhysicalPlanGenerator::create_vec(
       return create_vec_plan(static_cast<ExplainLogicalOperator &>(logical_operator), oper, session);
     } break;
     default: {
+      LOG_WARN("unknown logical operator type: %d", logical_operator.type());
       return RC::INVALID_ARGUMENT;
     }
   }
@@ -140,7 +141,7 @@ RC PhysicalPlanGenerator::create_plan(
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
-      if (comparison_expr->comp() != EQUAL_TO) {
+      if (comparison_expr->comp() != EQUAL_TO && comparison_expr->comp() != NOT_EQUAL) {
         continue;
       }
 
