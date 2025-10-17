@@ -68,7 +68,9 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     ASSERT(field->len()==value_.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field->len(), value_.length());
   }
   for (auto &old_record : records_) {
-    Record new_record = old_record;
+    Record new_record;
+    new_record.new_record(old_record.len());
+    new_record = old_record;
     memcpy(new_record.data() + field->offset(), value_.data(), std::min(value_.length(), field->len()));
     if (field->type() == AttrType::CHARS && field->len() > value_.length()) {
       // pad '\0' for char type
