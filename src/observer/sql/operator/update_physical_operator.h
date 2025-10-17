@@ -27,9 +27,10 @@ class DeleteStmt;
 class UpdatePhysicalOperator : public PhysicalOperator
 {
 public:
-  UpdatePhysicalOperator(Table *table, string attr, Value value)
-      : table_(table), attribute_name_(attr)
-  {value_.set_value(value);}
+  UpdatePhysicalOperator(Table *table, string attr, Value value) : table_(table), attribute_name_(attr)
+  {
+    value_.set_value(value);
+  }
 
   virtual ~UpdatePhysicalOperator() = default;
 
@@ -47,6 +48,6 @@ private:
   Table         *table_ = nullptr;
   Trx           *trx_   = nullptr;
   string         attribute_name_;
-  Value         value_;
+  Value          value_;
   vector<Record> records_;
 };

@@ -302,6 +302,11 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
 
 RC Table::delete_record(const Record &record) { return engine_->delete_record(record); }
 
+RC Table::update_record(const Record &old_record, const Record &new_record)
+{
+  return engine_->update_record(old_record, new_record);
+}
+
 Index *Table::find_index(const char *index_name) const { return engine_->find_index(index_name); }
 Index *Table::find_index_by_field(const char *field_name) const { return engine_->find_index_by_field(field_name); }
 

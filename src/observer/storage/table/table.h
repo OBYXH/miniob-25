@@ -90,6 +90,7 @@ public:
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
+  RC update_record(const Record &old_record, const Record &new_record);
 
   RC insert_record_with_trx(Record &record, Trx *trx);
   RC delete_record_with_trx(const Record &record, Trx *trx);

@@ -14,8 +14,11 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/update_physical_operator.h"
 #include "common/log/log.h"
+#include "common/type/attr_type.h"
+#include "common/value.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include <cstring>
 
 RC UpdatePhysicalOperator::open(Trx *trx)
 {
@@ -39,20 +42,42 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       LOG_WARN("failed to get current record: %s", strrc(rc));
       return rc;
     }
-
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    auto      field     = table_->table_meta().field(attribute_name_.c_str());
-    if (field == nullptr) {
-      LOG_WARN("no such field: %s", attribute_name_.c_str());
-      return RC::SCHEMA_FIELD_MISSING;
-    }
-    int field_index = field->field_id();
-    row_tuple->set_cell_at(field_index, value_);
+    records_.push_back(row_tuple->record());
+    // auto      field     = table_->table_meta().field(attribute_name_.c_str());
+    // if (field == nullptr) {
+    //   LOG_WARN("no such field: %s", attribute_name_.c_str());
+    //   return RC::SCHEMA_FIELD_MISSING;
+    // }
+    // int field_index = field->field_id();
+    // row_tuple->set_cell_at(field_index, value_);
   }
-
+  // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
   child->close();
 
-  return RC::SUCCESS;
+  auto field = table_->table_meta().field(attribute_name_.c_str());
+  if (field == nullptr) {
+    LOG_WARN("no such field: %s", attribute_name_.c_str());
+    return RC::SCHEMA_FIELD_MISSING;
+  }
+  if (field->type() != value_.attr_type()) {
+    LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field->name(), field->type(), value_.attr_type());
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  if (field->type() == AttrType::VECTORS) {
+    ASSERT(field->len()==value_.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field->len(), value_.length());
+  }
+  for (auto &old_record : records_) {
+    Record new_record = old_record;
+    memcpy(new_record.data() + field->offset(), value_.data(), std::min(value_.length(), field->len()));
+    if (field->type() == AttrType::CHARS && field->len() > value_.length()) {
+      // pad '\0' for char type
+      memset(new_record.data() + field->offset() + value_.length(), 0, field->len() - value_.length());
+    }
+    rc = trx_->update_record(table_, old_record, new_record);
+  }
+
+  return rc;
 }
 
 RC UpdatePhysicalOperator::next() { return RC::RECORD_EOF; }
