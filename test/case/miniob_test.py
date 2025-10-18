@@ -701,14 +701,35 @@ class TestSuite:
     with open(file1, 'r') as f1, open(file2, 'r') as f2:
       lines1 = f1.readlines()
       lines2 = f2.readlines()
+      
+      differences = []
+      
       if len(lines1) != len(lines2):
-        return False
+        differences.append(f"Line count mismatch: actual={len(lines1)}, expected={len(lines2)}")
+        max_lines = max(len(lines1), len(lines2))
+      else:
+        max_lines = len(lines1)
 
-      line_num = len(lines1)
-      for i in range(line_num):
-        if lines1[i].upper() != lines2[i].upper():
-          _logger.info('file1=%s, file2=%s, line1=%s, line2=%s', file1, file2, lines1[i], lines2[i])
-          return False
+      for i in range(max_lines):
+        actual_line = lines1[i].rstrip() if i < len(lines1) else "<missing>"
+        expected_line = lines2[i].rstrip() if i < len(lines2) else "<missing>"
+        
+        if actual_line.upper() != expected_line.upper():
+          differences.append(f"Line {i+1} differs:")
+          differences.append(f"  Expected: {expected_line}")
+          differences.append(f"  Actual  : {actual_line}")
+      
+      if differences:
+        _logger.error("=" * 80)
+        _logger.error("Test comparison failed with %d difference(s):", len([d for d in differences if d.startswith("Line")]))
+        _logger.error("Comparing files:")
+        _logger.error("  Actual  : %s", file1)
+        _logger.error("  Expected: %s", file2)
+        _logger.error("-" * 80)
+        for diff in differences:
+          _logger.error(diff)
+        _logger.error("=" * 80)
+        return False
       return True
 
   def run_case(self, test_case, timeout=20) -> Result:
@@ -929,13 +950,12 @@ def __init_log(options):
     log_file_dir = os.path.dirname(options.log_file)
     os.makedirs(log_file_dir, exist_ok=True)
 
-  log_format = "%(asctime)s - %(levelname)-5s %(name)s %(lineno)s - %(message)s"
-  log_date_format = "%Y-%m-%d %H:%M:%S"
+  log_format = "%(levelname)-5s: %(message)s"
 
   if log_stream is None:
-    logging.basicConfig(level=log_level, filename=options.log_file, format=log_format, datefmt=log_date_format)
+    logging.basicConfig(level=log_level, filename=options.log_file, format=log_format)
   else:
-    logging.basicConfig(level=log_level, stream=log_stream, format=log_format, datefmt=log_date_format)
+    logging.basicConfig(level=log_level, stream=log_stream, format=log_format)
 
   _logger.debug('init log done')
 
@@ -1050,7 +1070,7 @@ def compile(work_dir: str, build_dir: str, cmake_args: str, make_args: str, rebu
   make_command = ["make", "--silent", "-C", build_path]
   if isinstance(make_args, str):
     if not make_args:
-      make_command.append('-j4')
+      make_command.append('-j48')
     else:
       args = make_args.split(';')
       for arg in args:
