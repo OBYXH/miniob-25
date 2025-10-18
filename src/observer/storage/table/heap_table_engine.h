@@ -27,6 +27,7 @@ public:
   ~HeapTableEngine() override;
 
   RC insert_record(Record &record) override;
+  RC insert_chunk(const Chunk &chunk) override;
   RC delete_record(const Record &record) override;
   RC update_record(const Record &old_record, const Record &new_record) override;
   RC insert_record_with_trx(Record &record, Trx *trx) override { return RC::UNSUPPORTED; }

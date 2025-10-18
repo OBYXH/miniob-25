@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
+#include "common/type/string_t.h"
 
 /**
  * @brief 属性的值
@@ -49,6 +50,7 @@ public:
   explicit Value(const char *s, int len = 0);
   static Value *from_date(const char *s);  // 从字符串转换为 Date Value类型
   bool          is_valid_date() const;     // 判断日期是否合法
+  explicit Value(const string_t &val);
 
   Value(const Value &other);
   Value(Value &&other);
@@ -102,7 +104,7 @@ public:
   int  compare(const Value &other) const;
   bool LIKE(const Value &other) const;
 
-  const char *data() const;
+  char *data() const;
 
   int      length() const { return length_; }
   AttrType attr_type() const { return attr_type_; }
@@ -115,6 +117,7 @@ public:
   int                get_int() const;
   float              get_float() const;
   string             get_string() const;
+  string_t           get_string_t() const;
   std::vector<float> get_vector() const;
   bool               get_boolean() const;
   bool               is_null() const { return is_null_; }
@@ -124,6 +127,7 @@ public:
   void          set_int(int val);
   void          set_float(float val);
   void          set_string(const char *s, int len = 0);
+  void          set_empty_string(int len);
   void          set_vector(const std::vector<float> &vec);
   void          set_vector(const char *s);
   static Value *string_to_vector(const char *s);
