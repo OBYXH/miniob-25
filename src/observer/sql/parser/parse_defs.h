@@ -151,9 +151,10 @@ struct UpdateSqlNode
  */
 struct AttrInfoSqlNode
 {
-  AttrType type;    ///< Type of attribute
-  string   name;    ///< Attribute name
-  size_t   length;  ///< Length of attribute
+  AttrType type;      ///< Type of attribute
+  string   name;      ///< Attribute name
+  size_t   length;    ///< Length of attribute
+  bool     nullable;  ///< 是否可以为空
 };
 
 /**

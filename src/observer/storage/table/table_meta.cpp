@@ -76,7 +76,8 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
           field_offset,
           field_meta.len(),
           false /*visible*/,
-          field_meta.field_id());
+          field_meta.field_id(),
+          field_meta.nullable());
       if (field_meta.type() == AttrType::VECTORS) {
         field_offset += (field_meta.len() * sizeof(float));
       } else {
@@ -92,8 +93,13 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
   for (size_t i = 0; i < attributes.size(); i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
     // `i` is the col_id of fields[i]
-    rc = fields_[i + trx_field_num].init(
-        attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, true /*visible*/, i);
+    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(),
+        attr_info.type,
+        field_offset,
+        attr_info.length,
+        true /*visible*/,
+        i,
+        attr_info.nullable);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
