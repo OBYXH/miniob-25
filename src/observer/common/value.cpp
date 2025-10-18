@@ -175,7 +175,7 @@ void Value::set_data(char *data, int length)
     } break;
     case AttrType::VECTORS: {
       float              vec_data;
-      auto                offset = 0;
+      auto               offset = 0;
       std::vector<float> vec_;
       while (offset < length * sizeof(float)) {
         memcpy(&vec_data, data + offset, sizeof(float));
@@ -371,12 +371,12 @@ int Value::compare(const Value &other) const
 
 bool Value::LIKE(const Value &other) const
 {
-  const std::string left_str = this->get_string();
+  const std::string  left_str  = this->get_string();
   const std::string &right_str = other.get_string();
-  
+
   // TODO(yjs): _存在问题
   std::string regex_str = std::regex_replace(right_str, std::regex("%"), ".*");
-  regex_str = std::regex_replace(regex_str, std::regex("_"), ".");
+  regex_str             = std::regex_replace(regex_str, std::regex("_"), ".");
 
   std::regex regex_pattern(regex_str);
   return std::regex_match(left_str, regex_pattern);
