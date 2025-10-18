@@ -20,10 +20,12 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/type/attr_type.h"
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include "common/type/date_type.h"
 #include <cstdio>
+#include <regex>
 
 Value::Value(int val) { set_int(val); }
 
@@ -173,7 +175,7 @@ void Value::set_data(char *data, int length)
     } break;
     case AttrType::VECTORS: {
       float              vec_data;
-      int                offset = 0;
+      auto                offset = 0;
       std::vector<float> vec_;
       while (offset < length * sizeof(float)) {
         memcpy(&vec_data, data + offset, sizeof(float));
@@ -365,6 +367,19 @@ string Value::to_string() const
 int Value::compare(const Value &other) const
 {
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
+}
+
+bool Value::LIKE(const Value &other) const
+{
+  const std::string left_str = this->get_string();
+  const std::string &right_str = other.get_string();
+  
+  // TODO(yjs): _存在问题
+  std::string regex_str = std::regex_replace(right_str, std::regex("%"), ".*");
+  regex_str = std::regex_replace(regex_str, std::regex("_"), ".");
+
+  std::regex regex_pattern(regex_str);
+  return std::regex_match(left_str, regex_pattern);
 }
 
 int Value::get_int() const

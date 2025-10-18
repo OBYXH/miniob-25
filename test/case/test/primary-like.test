@@ -1,0 +1,46 @@
+-- echo initialization
+CREATE TABLE like_table(id int, age int, name char(20), score float);
+
+-- echo 1. basic insert (success)
+INSERT INTO like_table VALUES(1,1, 'milvus', 1.0);
+INSERT INTO like_table VALUES(2,2, 'miniob', 2.0);
+INSERT INTO like_table VALUES(4,4, 'greptime', 3.0);
+INSERT INTO like_table VALUES(3,3, 'unigraph', 4.0);
+INSERT INTO like_table VALUES(5,5, 'tinykv', 5.5);
+INSERT INTO like_table VALUES(6,6, 'bustub', 6.6);
+INSERT INTO like_table VALUES(7,7, 'proto', 7.7);
+
+-- echo 2. select all
+-- sort SELECT * FROM like_table;
+
+-- echo 3. basic like tests
+-- echo like test: exact match
+select * from like_table where name like 'milvus';
+
+-- echo like test: contains 'il'
+select * from like_table where name like '%il%';
+
+-- echo like test: starts with 'mi'
+-- sort select * from like_table where name like 'mi%';
+
+-- echo like test: ends with 'ob'
+-- sort select * from like_table where name like '%ob';
+
+-- echo like test: single wildcard '_'
+select * from like_table where name like 'prot_';
+
+-- echo like test: multiple single wildcards '_'
+select * from like_table where name like 'm_n__b';
+
+-- echo like test: combination of '%' and '_'
+select * from like_table where name like 'uni%ap_';
+
+-- echo like test: no match
+select * from like_table where name like 'xyz%';
+
+-- echo 4. basic not like tests
+-- echo not like test: not starts with 'm'
+-- sort select * from like_table where name not like 'm%';
+
+-- echo not like test: not contains 'i'
+-- sort select * from like_table where name not like '%i%';

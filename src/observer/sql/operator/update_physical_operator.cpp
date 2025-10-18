@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/value.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include <cstdint>
 #include <cstring>
 
 RC UpdatePhysicalOperator::open(Trx *trx)
@@ -59,7 +60,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     Record new_record;
     new_record.new_record(old_record.len());
     new_record = old_record;
-    for (int i = 0; i < field_metas_.size(); i++) {
+    for (uint32_t i = 0; i < field_metas_.size(); i++) {
       auto field  = field_metas_[i];
       auto value_ = *values_[i];
       memcpy(new_record.data() + field.offset(), value_.data(), std::min(value_.length(), field.len()));

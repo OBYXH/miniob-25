@@ -1,0 +1,87 @@
+INITIALIZATION
+CREATE TABLE like_table(id int, age int, name char(20), score float);
+SUCCESS
+
+1. BASIC INSERT (SUCCESS)
+INSERT INTO like_table VALUES(1,1, 'milvus', 1.0);
+SUCCESS
+INSERT INTO like_table VALUES(2,2, 'miniob', 2.0);
+SUCCESS
+INSERT INTO like_table VALUES(4,4, 'greptime', 3.0);
+SUCCESS
+INSERT INTO like_table VALUES(3,3, 'unigraph', 4.0);
+SUCCESS
+INSERT INTO like_table VALUES(5,5, 'tinykv', 5.5);
+SUCCESS
+INSERT INTO like_table VALUES(6,6, 'bustub', 6.6);
+SUCCESS
+INSERT INTO like_table VALUES(7,7, 'proto', 7.7);
+SUCCESS
+
+2. SELECT ALL
+SELECT * FROM like_table;
+1 | 1 | MILVUS | 1
+2 | 2 | MINIOB | 2
+3 | 3 | UNIGRAPH | 4
+4 | 4 | GREPTIME | 3
+5 | 5 | TINYKV | 5.5
+6 | 6 | BUSTUB | 6.6
+7 | 7 | PROTO | 7.7
+ID | AGE | NAME | SCORE
+
+3. BASIC LIKE TESTS
+LIKE TEST: EXACT MATCH
+select * from like_table where name like 'milvus';
+ID | AGE | NAME | SCORE
+1 | 1 | MILVUS | 1
+
+LIKE TEST: CONTAINS 'IL'
+select * from like_table where name like '%il%';
+ID | AGE | NAME | SCORE
+1 | 1 | MILVUS | 1
+
+LIKE TEST: STARTS WITH 'MI'
+select * from like_table where name like 'mi%';
+1 | 1 | MILVUS | 1
+2 | 2 | MINIOB | 2
+ID | AGE | NAME | SCORE
+
+LIKE TEST: ENDS WITH 'OB'
+select * from like_table where name like '%ob';
+2 | 2 | MINIOB | 2
+ID | AGE | NAME | SCORE
+
+LIKE TEST: SINGLE WILDCARD '_'
+select * from like_table where name like 'prot_';
+ID | AGE | NAME | SCORE
+7 | 7 | PROTO | 7.7
+
+LIKE TEST: MULTIPLE SINGLE WILDCARDS '_'
+select * from like_table where name like 'm_n__b';
+ID | AGE | NAME | SCORE
+2 | 2 | MINIOB | 2
+
+LIKE TEST: COMBINATION OF '%' AND '_'
+select * from like_table where name like 'uni%ap_';
+ID | AGE | NAME | SCORE
+3 | 3 | UNIGRAPH | 4
+
+LIKE TEST: NO MATCH
+select * from like_table where name like 'xyz%';
+ID | AGE | NAME | SCORE
+
+4. BASIC NOT LIKE TESTS
+NOT LIKE TEST: NOT STARTS WITH 'M'
+select * from like_table where name not like 'm%';
+3 | 3 | UNIGRAPH | 4
+4 | 4 | GREPTIME | 3
+5 | 5 | TINYKV | 5.5
+6 | 6 | BUSTUB | 6.6
+7 | 7 | PROTO | 7.7
+ID | AGE | NAME | SCORE
+
+NOT LIKE TEST: NOT CONTAINS 'I'
+select * from like_table where name not like '%i%';
+6 | 6 | BUSTUB | 6.6
+7 | 7 | PROTO | 7.7
+ID | AGE | NAME | SCORE

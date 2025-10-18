@@ -95,10 +95,12 @@ public:
   void set_boolean(bool val);
   void set_date(const char *s);  // 从 YYYY-MM-DD 格式的字符串设置日期
   void set_date(int val);        // 从 YYYYMMDD格式的整数设置日期
+  void set_null(bool is_null = true) { is_null_ = is_null; }
 
   string to_string() const;
 
   int compare(const Value &other) const;
+  bool LIKE(const Value &other) const;
 
   const char *data() const;
 
@@ -115,6 +117,8 @@ public:
   string             get_string() const;
   std::vector<float> get_vector() const;
   bool               get_boolean() const;
+  bool   is_null() const { return is_null_; }
+  inline bool is_str() const { return attr_type_ == AttrType::CHARS; }
 
 public:
   void          set_int(int val);
@@ -140,4 +144,5 @@ private:
 
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false
   bool own_data_ = false;
+  bool is_null_ = false;
 };

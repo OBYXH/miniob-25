@@ -9,7 +9,7 @@ int VectorType::compare(const Value &left, const Value &right) const
   ASSERT(left.get_vector().size() == right.get_vector().size(), "vector dimension mismatch, left size: %d, right size: %d",
          left.get_vector().size(),
          right.get_vector().size());
-  for (int i = 0; i < left.get_vector().size(); i++) {
+  for (auto i = 0; i < left.get_vector().size(); i++) {
     auto cmp_result = common::compare_float((void *)&left.get_vector()[i], (void *)&right.get_vector()[i]);
     if (cmp_result != 0) {
       return cmp_result;
@@ -24,7 +24,7 @@ RC VectorType::add(const Value &left, const Value &right, Value &result) const
          left.get_vector().size(),
          right.get_vector().size());
   std::vector<float> vec;
-  for (int i = 0; i < left.get_vector().size(); i++) {
+  for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] + right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
@@ -36,7 +36,7 @@ RC VectorType::subtract(const Value &left, const Value &right, Value &result) co
          left.get_vector().size(),
          right.get_vector().size());
   std::vector<float> vec;
-  for (int i = 0; i < left.get_vector().size(); i++) {
+  for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] - right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
@@ -48,7 +48,7 @@ RC VectorType::multiply(const Value &left, const Value &right, Value &result) co
          left.get_vector().size(),
          right.get_vector().size());
   std::vector<float> vec;
-  for (int i = 0; i < left.get_vector().size(); i++) {
+  for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] * right.get_vector()[i]) * 100) / 100);
   }
   result.set_vector(vec);
@@ -64,7 +64,7 @@ RC VectorType::to_string(const Value &val, string &result) const
 {
   stringstream ss;
   ss << "[";
-  for (int i = 0; i < val.get_vector().size() - 1; i++) {
+  for (auto i = 0; i < val.get_vector().size() - 1; i++) {
     ss << val.get_vector()[i] << ",";
   }
   if (val.get_vector().size() > 0) {
