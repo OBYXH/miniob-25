@@ -2,4 +2,3 @@
 Checks: '-*,
         clang-analyzer-*,
         google-*,
-        modernize-*' 

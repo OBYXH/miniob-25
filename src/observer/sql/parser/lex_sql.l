@@ -136,7 +136,6 @@ L2_DISTANCE                          RETURN_TOKEN(L2_DISTANCE);
 COSINE_DISTANCE                     RETURN_TOKEN(COSINE_DISTANCE);
 INNER_PRODUCT              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 
-{ID}                                    yylval->cstring=strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);
 
@@ -148,6 +147,10 @@ INNER_PRODUCT              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 "<"                                     RETURN_TOKEN(LT);
 ">="                                    RETURN_TOKEN(GE);
 ">"                                     RETURN_TOKEN(GT);
+NOT                                     RETURN_TOKEN(NOT);
+LIKE                                    RETURN_TOKEN(LIKE);
+
+{ID}                                    yylval->cstring=strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(ID);
 
 "+" |
 "-" |

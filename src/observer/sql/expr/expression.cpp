@@ -47,7 +47,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
   switch (distance_type_) {
     case Type::L2: {
       float sum = 0.0;
-      for (int i = 0; i < left_value.get_vector().size(); i++) {
+      for (auto i = 0; i < left_value.get_vector().size(); i++) {
         float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
         sum += diff * diff;
       }
@@ -57,7 +57,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
       float dot_product = 0.0;
       float left_norm   = 0.0;
       float right_norm  = 0.0;
-      for (int i = 0; i < left_value.get_vector().size(); i++) {
+      for (auto i = 0; i < left_value.get_vector().size(); i++) {
         dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
         left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
         right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
@@ -70,7 +70,7 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
     } break;
     case Type::INNER: {
       float dot_product = 0.0;
-      for (int i = 0; i < left_value.get_vector().size(); i++) {
+      for (auto i = 0; i < left_value.get_vector().size(); i++) {
         dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
       }
       value.set_float(round(dot_product * 100) / 100);
@@ -182,7 +182,17 @@ ComparisonExpr::~ComparisonExpr() {}
 
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
+  if (left.is_null() || right.is_null()) {
+    result = false;
+    return RC::SUCCESS;
+  }
   RC  rc         = RC::SUCCESS;
+  if (comp_ == LIKE_OP || comp_ == NOT_LIKE_OP) {
+    ASSERT(left.is_str() && right.is_str(), "LIKE ONLY SUPPORT STRING TYPE!");
+    result = comp_ == LIKE_OP ? left.LIKE(right) : !left.LIKE(right);
+    return rc;
+  }
+
   int cmp_result = left.compare(right);
   result         = false;
   switch (comp_) {
