@@ -91,6 +91,7 @@ void FieldMeta::to_json(Json::Value &json_value) const
   json_value[FIELD_LEN]      = attr_len_;
   json_value[FIELD_VISIBLE]  = visible_;
   json_value[FIELD_FIELD_ID] = field_id_;
+  json_value[NULLABLE_]      = nullable_;
 }
 
 RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)

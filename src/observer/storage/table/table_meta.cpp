@@ -62,7 +62,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
 
   RC rc = RC::SUCCESS;
 
-  int field_offset  = 0;
+  int field_offset  = 0 + null_falg_bytes_;
   int trx_field_num = 0;
 
   if (trx_fields != nullptr) {
@@ -303,9 +303,10 @@ int TableMeta::deserialize(istream &is)
   name_.swap(table_name);
   fields_.swap(fields);
   if (fields_.back().type() == AttrType::VECTORS) {
-    record_size_ = fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset();
+    record_size_ =
+        fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset() + null_falg_bytes_;
   } else {
-    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset() + null_falg_bytes_;
   }
 
   for (const FieldMeta &field_meta : fields_) {

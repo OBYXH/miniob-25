@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/type/attr_type.h"
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -81,6 +82,7 @@ Value::Value(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
+  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -99,6 +101,7 @@ Value::Value(Value &&other)
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
+  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
 }
@@ -112,6 +115,7 @@ Value &Value::operator=(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
+  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -134,6 +138,7 @@ Value &Value::operator=(Value &&other)
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
+  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
   return *this;
@@ -189,6 +194,10 @@ void Value::set_data(char *data, int length)
     case AttrType::DATES: {
       value_.int_value_ = *(int *)data;
       length_           = length;
+    } break;
+    case AttrType::NULLS: {
+      is_null_ = true;
+      length_  = length;
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
@@ -308,6 +317,13 @@ void Value::set_empty_string(int len)
   value_.pointer_value_[len] = '\0';
 }
 
+void Value::set_null(bool is_null /*= true*/)
+{
+  reset();
+  attr_type_ = AttrType::NULLS;
+  is_null_   = is_null;
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -325,13 +341,16 @@ void Value::set_value(const Value &value)
     } break;
     case AttrType::VECTORS: {
       set_vector(value.get_vector());
-      case AttrType::DATES: {
-        set_date(value.get_int());
-      } break;
-      default: {
-        ASSERT(false, "got an invalid value type");
-      } break;
-    }
+    } break;
+    case AttrType::DATES: {
+      set_date(value.get_int());
+    } break;
+    case AttrType::NULLS: {
+      set_null();
+    } break;
+    default: {
+      ASSERT(false, "got an invalid value type");
+    } break;
   }
 }
 
