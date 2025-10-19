@@ -174,8 +174,8 @@ public:
 
   void set_record(Record *record)
   {
-    this->record_        = record;
-    auto null_flags_data = record->data();
+    this->record_            = record;
+    auto     null_flags_data = record->data();
     uint32_t unserialized_null_flags;
     memcpy(&unserialized_null_flags, null_flags_data, table_->table_meta().null_falg_bytes());
     null_flags_ = std::bitset<32>(unserialized_null_flags);
@@ -227,14 +227,15 @@ public:
   //   auto field_expr = speces_[index];
   //   auto field_meta = field_expr->field().meta();
   //   if (field_meta->type() != cell.attr_type()) {
-  //     LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field_meta->name(), field_meta->type(), cell.attr_type());
-  //     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  //     LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field_meta->name(), field_meta->type(),
+  //     cell.attr_type()); return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   //   }
   //   if (field_meta->type() == AttrType::VECTORS) {
-  //     ASSERT(field_meta->len()==cell.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field_meta->len(), cell.length());
+  //     ASSERT(field_meta->len()==cell.length(), " field len doesn't match cell len , field_meta->len=%d,
+  //     cell.length=%d", field_meta->len(), cell.length());
   //   }
-  //   memcpy(record_->data() + field_meta->offset() + table_->table_meta().null_falg_bytes(), cell.data(), cell.length());
-  //   return RC::SUCCESS;
+  //   memcpy(record_->data() + field_meta->offset() + table_->table_meta().null_falg_bytes(), cell.data(),
+  //   cell.length()); return RC::SUCCESS;
   // }
 
   RC spec_at(int index, TupleCellSpec &spec) const override
