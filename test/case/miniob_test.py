@@ -1123,9 +1123,34 @@ if __name__ == '__main__':
 
   result, evaluation = run(options)
 
+  # ANSI color codes
+  GREEN = '\033[92m'
+  RED = '\033[91m'
+  RESET = '\033[0m'
+  SEPARATOR = '=' * 80
+
+  # Print separator
+  print(SEPARATOR)
+
+  # Parse JSON and print message with proper line breaks and colors
+  try:
+    eval_dict = json.loads(evaluation)
+    message = eval_dict.get('message', '')
+    
+    # Print each line with color based on success/error/timeout
+    for line in message.split('\n'):
+      if 'success' in line.lower():
+        print(f"{GREEN}{line}{RESET}")
+      elif 'error' in line.lower() or 'timeout' in line.lower() or 'fail' in line.lower():
+        print(f"{RED}{line}{RESET}")
+      else:
+        print(line)
+  except Exception as e:
+    # fallback: print raw JSON if parsing fails
+    _logger.error("Failed to parse evaluation JSON: %s", str(e))
+    print(evaluation)
+
   exit_code = 0
   if result is False:
     exit_code = 1
-  else:
-    _logger.info(evaluation)
   exit(exit_code)
