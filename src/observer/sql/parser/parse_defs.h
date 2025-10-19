@@ -54,6 +54,8 @@ enum CompOp
   GREAT_THAN,   ///< ">"
   LIKE_OP,      ///< "like"
   NOT_LIKE_OP,  ///< "not like"
+  IS_OP,
+  IS_NOT_OP,
   NO_OP
 };
 
@@ -151,9 +153,10 @@ struct UpdateSqlNode
  */
 struct AttrInfoSqlNode
 {
-  AttrType type;    ///< Type of attribute
-  string   name;    ///< Attribute name
-  size_t   length;  ///< Length of attribute
+  AttrType type;      ///< Type of attribute
+  string   name;      ///< Attribute name
+  size_t   length;    ///< Length of attribute
+  bool     nullable;  ///< 是否可以为空
 };
 
 /**

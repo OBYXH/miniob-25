@@ -12,6 +12,8 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Wangyunlai on 2021/5/13.
 //
 
+#include <bitset>
+#include <cstdint>
 #include <limits.h>
 #include <string.h>
 
@@ -240,22 +242,34 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
   char *record_data = (char *)malloc(record_size);
   memset(record_data, 0, record_size);
 
+  std::bitset<32> null_flags;
   for (int i = 0; i < value_num && OB_SUCC(rc); i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value     &value = values[i];
-    if (field->type() != value.attr_type()) {
-      Value real_value;
-      rc = Value::cast_to(value, field->type(), real_value);
-      if (OB_FAIL(rc)) {
-        LOG_WARN("failed to cast value. table name:%s,field name:%s,value:%s ",
-            table_meta_.name(), field->name(), value.to_string().c_str());
+    if (value.is_null()) {
+      if(!field->nullable()) {
+        LOG_WARN("field is not nullable. table name:%s,field name:%s", table_meta_.name(), field->name());
+        rc = RC::UNSUUPPORTED_NULL_VALUE;
         break;
       }
-      rc = set_value_to_record(record_data, real_value, field);
+      null_flags.set(i);
     } else {
-      rc = set_value_to_record(record_data, value, field);
+      if (field->type() != value.attr_type() ) {
+        Value real_value;
+        rc = Value::cast_to(value, field->type(), real_value);
+        if (OB_FAIL(rc)) {
+          LOG_WARN("failed to cast value. table name:%s,field name:%s,value:%s ",
+            table_meta_.name(), field->name(), value.to_string().c_str());
+          break;
+        }
+        rc = set_value_to_record(record_data, real_value, field);
+      } else {
+        rc = set_value_to_record(record_data, value, field);
+      }
     }
   }
+  auto serialized_null_flags = static_cast<uint32_t>(null_flags.to_ulong());
+  memcpy(record_data, &serialized_null_flags, table_meta_.null_falg_bytes());
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to make record. table name:%s", table_meta_.name());
     free(record_data);

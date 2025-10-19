@@ -62,7 +62,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
 
   RC rc = RC::SUCCESS;
 
-  int field_offset  = 0;
+  int field_offset  = 0 + null_falg_bytes_;
   int trx_field_num = 0;
 
   if (trx_fields != nullptr) {
@@ -76,7 +76,8 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
           field_offset,
           field_meta.len(),
           false /*visible*/,
-          field_meta.field_id());
+          field_meta.field_id(),
+          field_meta.nullable());
       if (field_meta.type() == AttrType::VECTORS) {
         field_offset += (field_meta.len() * sizeof(float));
       } else {
@@ -92,8 +93,13 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
   for (size_t i = 0; i < attributes.size(); i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
     // `i` is the col_id of fields[i]
-    rc = fields_[i + trx_field_num].init(
-        attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, true /*visible*/, i);
+    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(),
+        attr_info.type,
+        field_offset,
+        attr_info.length,
+        true /*visible*/,
+        i,
+        attr_info.nullable);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
@@ -297,9 +303,10 @@ int TableMeta::deserialize(istream &is)
   name_.swap(table_name);
   fields_.swap(fields);
   if (fields_.back().type() == AttrType::VECTORS) {
-    record_size_ = fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset();
+    record_size_ =
+        fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset() + null_falg_bytes_;
   } else {
-    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset() + null_falg_bytes_;
   }
 
   for (const FieldMeta &field_meta : fields_) {

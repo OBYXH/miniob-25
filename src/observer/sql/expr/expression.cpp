@@ -203,7 +203,13 @@ ComparisonExpr::~ComparisonExpr() {}
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   if (left.is_null() || right.is_null()) {
-    result = false;
+    if (comp_ == IS_OP) {
+      result = left.is_null() && right.is_null();
+    } else if (comp_ == IS_NOT_OP) {
+      result = !(left.is_null() && right.is_null());
+    } else {
+      result = false;
+    }
     return RC::SUCCESS;
   }
   RC rc = RC::SUCCESS;
@@ -435,6 +441,10 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
 
   const AttrType target_type = value_type();
   value.set_type(target_type);
+  if (left_value.is_null() || right_value.is_null()) {
+    value.set_null();
+    return RC::SUCCESS;
+  }
 
   switch (arithmetic_type_) {
     case Type::ADD: {

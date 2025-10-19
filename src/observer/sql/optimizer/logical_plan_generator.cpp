@@ -208,6 +208,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
           right = std::move(cast_expr);
         }
 
+      } else if (left->value_type() == AttrType::NULLS || right->value_type() == AttrType::NULLS) {
+        // do nothing, null can be casted to any type
       } else {
         rc = RC::UNSUPPORTED;
         LOG_WARN("unsupported cast from %s to %s", attr_type_to_string(left->value_type()), attr_type_to_string(right->value_type()));

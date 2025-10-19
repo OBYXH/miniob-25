@@ -21,7 +21,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "common/value.h"
 #include "storage/record/record.h"
+#include <bitset>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 
 class Table;
@@ -170,7 +172,14 @@ public:
     speces_.clear();
   }
 
-  void set_record(Record *record) { this->record_ = record; }
+  void set_record(Record *record)
+  {
+    this->record_        = record;
+    auto null_flags_data = record->data();
+    uint32_t unserialized_null_flags;
+    memcpy(&unserialized_null_flags, null_flags_data, table_->table_meta().null_falg_bytes());
+    null_flags_ = std::bitset<32>(unserialized_null_flags);
+  }
 
   void set_schema(const Table *table, const vector<FieldMeta> *fields)
   {
@@ -200,28 +209,33 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.reset();
     cell.set_type(field_meta->type());
+    if (null_flags_.test(index)) {
+      ASSERT(field_meta->nullable(), "field is not nullable but null flag is set. field=%s", field_meta->name());
+      cell.set_null();
+      return RC::SUCCESS;
+    }
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     return RC::SUCCESS;
   }
 
-  RC set_cell_at(int index, const Value &cell)
-  {
-    if (index < 0 || index >= static_cast<int>(speces_.size())) {
-      LOG_WARN("invalid argument. index=%d", index);
-      return RC::INVALID_ARGUMENT;
-    }
-    auto field_expr = speces_[index];
-    auto field_meta = field_expr->field().meta();
-    if (field_meta->type() != cell.attr_type()) {
-      LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field_meta->name(), field_meta->type(), cell.attr_type());
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
-    if (field_meta->type() == AttrType::VECTORS) {
-      ASSERT(field_meta->len()==cell.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field_meta->len(), cell.length());
-    }
-    memcpy(record_->data() + field_meta->offset(), cell.data(), cell.length());
-    return RC::SUCCESS;
-  }
+  // RC set_cell_at(int index, const Value &cell)
+  // {
+  //   if (index < 0 || index >= static_cast<int>(speces_.size())) {
+  //     LOG_WARN("invalid argument. index=%d", index);
+  //     return RC::INVALID_ARGUMENT;
+  //   }
+  //   auto field_expr = speces_[index];
+  //   auto field_meta = field_expr->field().meta();
+  //   if (field_meta->type() != cell.attr_type()) {
+  //     LOG_WARN("type mismatch. field=%s, field_type=%d, cell_type=%d", field_meta->name(), field_meta->type(), cell.attr_type());
+  //     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  //   }
+  //   if (field_meta->type() == AttrType::VECTORS) {
+  //     ASSERT(field_meta->len()==cell.length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field_meta->len(), cell.length());
+  //   }
+  //   memcpy(record_->data() + field_meta->offset() + table_->table_meta().null_falg_bytes(), cell.data(), cell.length());
+  //   return RC::SUCCESS;
+  // }
 
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
@@ -268,6 +282,7 @@ private:
   Record             *record_ = nullptr;
   const Table        *table_  = nullptr;
   vector<FieldExpr *> speces_;
+  std::bitset<32>     null_flags_;
 };
 
 /**

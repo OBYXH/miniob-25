@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
 #include "common/type/string_t.h"
+#include <cstdint>
 
 /**
  * @brief 属性的值
@@ -37,6 +38,7 @@ public:
   friend class CharType;
   friend class DateType;
   friend class VectorType;
+  friend class NullType;
 
   Value() = default;
 
@@ -97,7 +99,7 @@ public:
   void set_boolean(bool val);
   void set_date(const char *s);  // 从 YYYY-MM-DD 格式的字符串设置日期
   void set_date(int val);        // 从 YYYYMMDD格式的整数设置日期
-  void set_null(bool is_null = true) { is_null_ = is_null; }
+  void set_null(bool is_null = true);
 
   string to_string() const;
 
@@ -144,6 +146,7 @@ private:
     bool                bool_value_;
     char               *pointer_value_;
     std::vector<float> *vector_value_;
+    int32_t             null_value_;
   } value_ = {.int_value_ = 0};
 
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false

@@ -52,6 +52,7 @@ public:
   auto                trx_fields() const -> span<const FieldMeta>;
   const StorageFormat storage_format() const { return storage_format_; }
   const StorageEngine storage_engine() const { return storage_engine_; }
+  int null_falg_bytes() const { return null_falg_bytes_; }
 
   int field_num() const;  // sys field included
   int sys_field_num() const;
@@ -81,6 +82,7 @@ protected:
   vector<string>    primary_keys_;
   StorageFormat     storage_format_;
   StorageEngine     storage_engine_;
+  int null_falg_bytes_ = 4;
 
   int record_size_ = 0;
 };
