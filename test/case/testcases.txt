@@ -1,0 +1,6 @@
+# 在末尾添加你新写的测试
+primary-null
+primary-null-plus
+primary-update-plus
+primary-update
+primary-like
