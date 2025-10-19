@@ -63,10 +63,14 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
 
-    if (field_meta->type() != update_field.value.attr_type()) {
+    if (field_meta->type() != update_field.value.attr_type() && !update_field.value.is_null()) {
       LOG_WARN("incompatible value type. table=%s, field=%s, field_type=%d, value_type=%d",
           table_name, update_field.attribute_name.c_str(), static_cast<int>(field_meta->type()), static_cast<int>(update_field.value.attr_type()));
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    if (update_field.value.is_null() && !field_meta->nullable()) {
+      LOG_WARN("field is not nullable. table name:%s,field name:%s", table->table_meta().name(), field_meta->name());
+      return RC::UNSUUPPORTED_NULL_VALUE;
     }
 
     if (field_meta->type() == AttrType::VECTORS) {

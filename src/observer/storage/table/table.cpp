@@ -247,6 +247,11 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value     &value = values[i];
     if (value.is_null()) {
+      if(!field->nullable()) {
+        LOG_WARN("field is not nullable. table name:%s,field name:%s", table_meta_.name(), field->name());
+        rc = RC::UNSUUPPORTED_NULL_VALUE;
+        break;
+      }
       null_flags.set(i);
     } else {
       if (field->type() != value.attr_type() ) {

@@ -60,16 +60,31 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     Record new_record;
     new_record.new_record(old_record.len());
     new_record = old_record;
+    uint32_t null_flags_data;
+    memcpy(&null_flags_data, new_record.data(), table_->table_meta().null_falg_bytes());
+    std::bitset<32> null_flags(null_flags_data);
     for (uint32_t i = 0; i < field_metas_.size(); i++) {
-      auto field  = field_metas_[i];
-      auto value_ = *values_[i];
-      memcpy(new_record.data() + field.offset(), value_.data(), std::min(value_.length(), field.len()));
-      if (field.type() == AttrType::CHARS && field.len() > value_.length()) {
-        // pad '\0' for char type
-        memset(new_record.data() + field.offset() + value_.length(), 0, field.len() - value_.length());
+      auto field       = field_metas_[i];
+      auto field_index = field.field_id();
+      auto value       = *values_[i];
+      if (value.is_null()) {
+        if (!null_flags.test(field_index)) {
+          null_flags.set(field_index);
+        }
+      } else {
+        if (null_flags.test(field_index)) {
+          null_flags.reset(field_index);
+        }
+        memcpy(new_record.data() + field.offset(), value.data(), std::min(value.length(), field.len()));
+        if (field.type() == AttrType::CHARS && field.len() > value.length()) {
+          // pad '\0' for char type
+          memset(new_record.data() + field.offset() + value.length(), 0, field.len() - value.length());
+        }
       }
-      rc = trx_->update_record(table_, old_record, new_record);
     }
+    null_flags_data = static_cast<uint32_t>(null_flags.to_ulong());
+    memcpy(new_record.data(), &null_flags_data, table_->table_meta().null_falg_bytes());
+    rc = trx_->update_record(table_, old_record, new_record);
   }
 
   return RC::SUCCESS;

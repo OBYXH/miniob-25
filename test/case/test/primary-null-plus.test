@@ -1,0 +1,93 @@
+-- echo initialization
+CREATE TABLE t_null(id int not null, num int null, price float null, birthday date null, name char(10) null);
+CREATE TABLE t_null2(id int not null, num int null, note char(10) null);
+CREATE INDEX idx_num on t_null(num);
+
+-- echo 1. basic inserts
+INSERT INTO t_null VALUES (1, 10, 9.9, '2021-01-01', 'a');
+INSERT INTO t_null VALUES (2, NULL, 8.8, '2020-02-02', 'b');
+INSERT INTO t_null VALUES (3, 30, NULL, NULL, 'c');
+INSERT INTO t_null VALUES (4, 40, 4.4, '2019-03-03', NULL);
+INSERT INTO t_null VALUES (5, NULL, NULL, NULL, NULL);
+INSERT INTO t_null VALUES (6, 0, 0.0, '2000-01-01', 'zero');
+INSERT INTO t_null VALUES (7, 5, 1.5, NULL, 'neg');
+
+-- echo 1.1 inserts into second table for cross-table tests
+INSERT INTO t_null2 VALUES (1, 10, 'match');
+INSERT INTO t_null2 VALUES (2, NULL, 'nullnum');
+INSERT INTO t_null2 VALUES (3, 50, 'nomatch');
+
+-- echo 2. SELECT whole table
+-- sort SELECT * FROM t_null;
+
+-- echo 3. constant vs NULL comparisons
+-- echo -- These are logical checks; expected behavior: IS NULL/IS NOT NULL evaluated correctly
+-- sort SELECT * FROM t_null WHERE 1 IS NULL;
+-- sort SELECT * FROM t_null WHERE 1 IS NOT NULL;
+-- sort SELECT * FROM t_null WHERE NULL IS NULL;
+-- sort SELECT * FROM t_null WHERE NULL IS NOT NULL;
+-- sort SELECT * FROM t_null WHERE NULL = 1;
+-- sort SELECT * FROM t_null WHERE 1 = NULL;
+-- sort SELECT * FROM t_null WHERE NULL <> 1;
+-- sort SELECT * FROM t_null WHERE 1 <> NULL;
+-- sort SELECT * FROM t_null WHERE NULL > 1;
+-- sort SELECT * FROM t_null WHERE 1 > NULL;
+
+-- echo 4. column IS NULL / IS NOT NULL
+-- sort SELECT * FROM t_null WHERE num IS NULL;
+-- sort SELECT * FROM t_null WHERE num IS NOT NULL;
+-- sort SELECT * FROM t_null WHERE price IS NULL;
+-- sort SELECT * FROM t_null WHERE price IS NOT NULL;
+-- sort SELECT * FROM t_null WHERE birthday IS NULL;
+-- sort SELECT * FROM t_null WHERE birthday IS NOT NULL;
+-- sort SELECT * FROM t_null WHERE name IS NULL;
+-- sort SELECT * FROM t_null WHERE name IS NOT NULL;
+
+-- echo 5. equality/inequality with NULL
+-- sort SELECT * FROM t_null WHERE num = NULL;
+-- sort SELECT * FROM t_null WHERE NULL = num;
+-- sort SELECT * FROM t_null WHERE num <> NULL;
+-- sort SELECT * FROM t_null WHERE NULL <> num;
+
+-- echo 6. comparisons where expression may yield NULL
+-- echo SELECT * FROM t_null WHERE num + 1 > 10;       
+-- echo SELECT * FROM t_null WHERE num * price > 0;    
+-- echo SELECT * FROM t_null WHERE price + 1 IS NULL;  
+-- echo SELECT * FROM t_null WHERE (num - 10) IS NULL;
+
+-- echo 7. boolean logic with NULL
+-- sort SELECT * FROM t_null WHERE num > 10 AND num IS NULL;
+-- sort SELECT * FROM t_null WHERE num > 0 AND price IS NULL;
+
+-- echo 8. cross-table comparisons (NULL in join conditions)
+-- sort SELECT t_null.id,t_null.num,t_null2.id,t_null2.num FROM t_null,t_null2 WHERE t_null.num = t_null2.num;
+
+-- echo 9. updates involving NULL
+UPDATE t_null SET num = NULL WHERE id = 1; 
+UPDATE t_null SET price = 5.5 WHERE price IS NULL; 
+UPDATE t_null SET name = NULL WHERE id = 6;  
+UPDATE t_null SET num = 100 WHERE num IS NOT NULL;
+UPDATE t_null SET price = 9.9 WHERE price IS NOT NULL;
+
+-- echo 9.1 select after updates
+-- sort SELECT * FROM t_null;
+
+-- echo 10. deletes involving NULL
+DELETE FROM t_null WHERE birthday IS NULL;
+-- echo SELECT after delete
+-- sort SELECT * FROM t_null;
+
+-- echo 11. combination of predicates with NULL in WHERE
+-- sort SELECT * FROM t_null WHERE num IS NULL AND price IS NULL;
+-- sort SELECT * FROM t_null WHERE num IS NULL AND name IS NULL;
+UPDATE t_null SET birthday = null WHERE id = 4
+-- sort SELECT * FROM t_null WHERE birthday IS NULL AND name IS NULL;
+
+-- echo 12. inserting rows that are all NULL except NOT NULL id
+INSERT INTO t_null VALUES (8, NULL, NULL, NULL, NULL);
+
+-- echo 13. inserting into not-null column (should error)
+INSERT INTO t_null VALUES (NULL, 100, 10.0, '2022-01-01', 'z');
+
+-- echo 18. cross-table where second table has NULL num
+-- sort SELECT t_null.id, t_null.num, t_null2.id, t_null2.num FROM t_null, t_null2 WHERE t_null.num = t_null2.num;
