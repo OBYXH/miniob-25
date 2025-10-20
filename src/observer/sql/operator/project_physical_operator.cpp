@@ -42,7 +42,21 @@ RC ProjectPhysicalOperator::open(Trx *trx)
 RC ProjectPhysicalOperator::next()
 {
   if (children_.empty()) {
-    return RC::RECORD_EOF;
+    RC rc = RC::SUCCESS;
+    if (emitted_) {
+      rc = RC::RECORD_EOF;
+      return rc;
+    }
+    emitted_     = true;
+    int cell_num = tuple_.cell_num();
+    for (int i = 0; i < cell_num; i++) {
+      Value value;
+      rc = tuple_.cell_at(i, value);
+      if (OB_FAIL(rc)) {
+        return rc;
+      }
+    }
+    return RC::SUCCESS;
   }
   return children_[0]->next();
 }
@@ -56,6 +70,9 @@ RC ProjectPhysicalOperator::close()
 }
 Tuple *ProjectPhysicalOperator::current_tuple()
 {
+  if (children_.empty()) {
+    return &tuple_;
+  }
   tuple_.set_tuple(children_[0]->current_tuple());
   return &tuple_;
 }
