@@ -48,7 +48,8 @@ enum class ExprType
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
   DISTANCE,     ///< 向量距离计算
-  FUNCTION      ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
+  FUNCTION,      ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
+  VECSTR       ///< 向量字符串表达式
 };
 
 /**
@@ -147,6 +148,51 @@ protected:
 private:
   string name_;
   string filed_alias_;
+};
+
+class VecStrExpr : public Expression
+{
+public:
+  enum class Type
+  {
+    VectorToString,
+    StringToVector
+  };
+  VecStrExpr(Type type, unique_ptr<Expression> child)
+      : child_(std::move(child)),  type_(type)
+  {}
+  VecStrExpr(Type type, Expression *child) : child_(child),  type_(type) {}
+  virtual ~VecStrExpr() = default;
+
+  unique_ptr<Expression> copy() const override { return make_unique<VecStrExpr>(type_, child_->copy()); }
+
+  ExprType type() const override { return ExprType::VECSTR; }
+  RC       get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override
+  {
+    switch (type_) {
+      case Type::VectorToString: {
+        return AttrType::CHARS;
+      }
+      case Type::StringToVector: {
+        return AttrType::VECTORS;
+      }
+      default: {
+        LOG_WARN("unsupported function type: %d", static_cast<int>(type_));
+        return AttrType::UNDEFINED;
+      }
+    }
+  }
+
+  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
+
+  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+
+  unique_ptr<Expression> &child() { return child_; }
+
+private:
+  unique_ptr<Expression> child_;
+  Type                   type_;
 };
 
 class FunctionExpr : public Expression

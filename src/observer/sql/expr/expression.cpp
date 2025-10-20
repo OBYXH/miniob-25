@@ -22,6 +22,40 @@ See the Mulan PSL v2 for more details. */
 
 using namespace std;
 
+RC VecStrExpr::get_value(const Tuple &tuple, Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value child_value;
+  rc = child_->get_value(tuple, child_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  switch (type_) {
+    case Type::VectorToString: {
+      if (child_value.attr_type() != AttrType::VECTORS) {
+        LOG_WARN("VectorToString function only support vector type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      auto str_vec = child_value.to_string();
+      value.set_string(str_vec.c_str(), str_vec.size());
+    } break;
+    case Type::StringToVector: {
+      if (child_value.attr_type() != AttrType::CHARS) {
+        LOG_WARN("StringToVector function only support chars type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      auto vec = Value::string_to_vector(child_value.get_string().c_str());
+      value.set_value(*vec);
+    } break;
+    default: {
+      LOG_WARN("unsupported function type: %d", static_cast<int>(type_));
+      return RC::UNSUPPORTED;
+    }
+  }
+  return rc;
+}
+
 RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
 {
   RC    rc = RC::SUCCESS;

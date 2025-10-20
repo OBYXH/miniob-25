@@ -69,6 +69,8 @@ private:
       unique_ptr<Expression> &distance_expr, vector<unique_ptr<Expression>> &bound_expressions);
   RC bind_function_expression(
       unique_ptr<Expression> &function_expr, vector<unique_ptr<Expression>> &bound_expressions);
+  RC bind_vecstr_expression(
+      unique_ptr<Expression> &vecstr_expr, vector<unique_ptr<Expression>> &bound_expressions);
 
 private:
   BinderContext &context_;

@@ -96,6 +96,10 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_function_expression(expr, bound_expressions);
     } break;
 
+    case ExprType::VECSTR: {
+      return bind_vecstr_expression(expr, bound_expressions);
+    } break;
+
     case ExprType::AGGREGATION: {
       ASSERT(false, "shouldn't be here");
     } break;
@@ -530,6 +534,39 @@ RC ExpressionBinder::bind_vector_distance_expression(
 }
 
 RC ExpressionBinder::bind_function_expression(
+    std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  auto function_expr = static_cast<FunctionExpr *>(expr.get());
+
+  vector<unique_ptr<Expression>> child_bound_expressions;
+  unique_ptr<Expression>        &child = function_expr->child();
+
+  RC rc = bind_expression(child, child_bound_expressions);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &childBoundedExpr = child_bound_expressions[0];
+  if (childBoundedExpr.get() != child.get()) {
+    child.reset(childBoundedExpr.release());
+  }
+
+  child_bound_expressions.clear();
+
+  bound_expressions.emplace_back(std::move(expr));
+  return RC::SUCCESS;
+}
+
+RC ExpressionBinder::bind_vecstr_expression(
     std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
 {
   if (nullptr == expr) {

@@ -262,6 +262,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <expression>          expression
 %type <expression>          aggregate_expression
 %type <expression>          vector_expression
+%type <expression>          function_expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
 %type <orderby_unit>        sort_unit
@@ -642,6 +643,16 @@ value:
       $$ = new Value();
       $$->set_null();
     }
+    | STRING_TO_VECTOR LBRACE VECTOR RBRACE {
+      if ($3[0] =='\'' || $3[0] == '\"') {
+        // 去掉引号
+        char *tmp = common::substr($3,1,strlen($3)-2);
+        $$ = Value::string_to_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::string_to_vector($3);
+      }
+    }
     ;
 storage_format:
     /* empty */
@@ -844,6 +855,9 @@ expression:
     | vector_expression {
       $$ = $1;
     }
+    | function_expression {
+      $$ = $1;
+    }
     ;
 
 aggregate_expression:
@@ -878,6 +892,10 @@ vector_expression:
     {
       $$ = create_distance_expression("DOT", $3, $5, sql_string, &@$);
     }
+    ;
+
+function_expression:
+    // to be added later
     | LENGTH LBRACE expression RBRACE {
       $$ = create_function_expression("LENGTH", $3, sql_string, 0, &@$);
     }
