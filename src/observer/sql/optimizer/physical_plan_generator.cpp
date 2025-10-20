@@ -141,7 +141,7 @@ RC PhysicalPlanGenerator::create_plan(
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
-      if (comparison_expr->comp() != EQUAL_TO && comparison_expr->comp() != NOT_EQUAL) {
+      if (comparison_expr->comp() != EQUAL_TO /* && comparison_expr->comp() != NOT_EQUAL */) {
         continue;
       }
 
