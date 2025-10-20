@@ -64,7 +64,8 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
       }
       if (left_norm == 0 || right_norm == 0) {
         LOG_WARN("vector norm is zero");
-        return RC::VECTOR_NORM_ZERO;
+        value.set_null();
+        return RC::SUCCESS;
       }
       value.set_float(round((1 - dot_product / (sqrt(left_norm) * sqrt(right_norm))) * 100) / 100);
     } break;
@@ -448,23 +449,23 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
 
   switch (arithmetic_type_) {
     case Type::ADD: {
-      Value::add(left_value, right_value, value);
+      rc = Value::add(left_value, right_value, value);
     } break;
 
     case Type::SUB: {
-      Value::subtract(left_value, right_value, value);
+      rc = Value::subtract(left_value, right_value, value);
     } break;
 
     case Type::MUL: {
-      Value::multiply(left_value, right_value, value);
+      rc = Value::multiply(left_value, right_value, value);
     } break;
 
     case Type::DIV: {
-      Value::divide(left_value, right_value, value);
+      rc = Value::divide(left_value, right_value, value);
     } break;
 
     case Type::NEGATIVE: {
-      Value::negative(left_value, value);
+      rc = Value::negative(left_value, value);
     } break;
 
     default: {

@@ -1,11 +1,14 @@
 #include "common/type/vector_type.h"
 #include "common/log/log.h"
 #include "common/lang/comparator.h"
+#include "common/sys/rc.h"
 #include <sstream>
 #include <cmath>
 
 int VectorType::compare(const Value &left, const Value &right) const
 {
+  ASSERT(left.attr_type() == AttrType::VECTORS, "left type is not vector");
+  ASSERT(right.attr_type() == AttrType::VECTORS, "right type is not vector");
   ASSERT(left.get_vector().size() == right.get_vector().size(), "vector dimension mismatch, left size: %d, right size: %d",
          left.get_vector().size(),
          right.get_vector().size());
@@ -20,9 +23,11 @@ int VectorType::compare(const Value &left, const Value &right) const
 
 RC VectorType::add(const Value &left, const Value &right, Value &result) const
 {
-  ASSERT(left.get_vector().size() == right.get_vector().size(), "vector dimension mismatch, left size: %d, right size: %d",
-         left.get_vector().size(),
-         right.get_vector().size());
+  ASSERT(left.attr_type() == AttrType::VECTORS, "left type is not vector");
+  ASSERT(right.attr_type() == AttrType::VECTORS, "right type is not vector");
+  if (left.get_vector().size() != right.get_vector().size()) {
+    return RC::VECTOR_DIMENSION_MISMATCH;
+  }
   std::vector<float> vec;
   for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] + right.get_vector()[i]) * 100) / 100);
@@ -32,9 +37,11 @@ RC VectorType::add(const Value &left, const Value &right, Value &result) const
 }
 RC VectorType::subtract(const Value &left, const Value &right, Value &result) const
 {
-  ASSERT(left.get_vector().size() == right.get_vector().size(), "vector dimension mismatch, left size: %d, right size: %d",
-         left.get_vector().size(),
-         right.get_vector().size());
+  ASSERT(left.attr_type() == AttrType::VECTORS, "left type is not vector");
+  ASSERT(right.attr_type() == AttrType::VECTORS, "right type is not vector");
+  if (left.get_vector().size() != right.get_vector().size()) {
+    return RC::VECTOR_DIMENSION_MISMATCH;
+  }
   std::vector<float> vec;
   for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] - right.get_vector()[i]) * 100) / 100);
@@ -44,9 +51,11 @@ RC VectorType::subtract(const Value &left, const Value &right, Value &result) co
 }
 RC VectorType::multiply(const Value &left, const Value &right, Value &result) const
 {
-  ASSERT(left.get_vector().size() == right.get_vector().size(), "vector dimension mismatch, left size: %d, right size: %d",
-         left.get_vector().size(),
-         right.get_vector().size());
+  ASSERT(left.attr_type() == AttrType::VECTORS, "left type is not vector");
+  ASSERT(right.attr_type() == AttrType::VECTORS, "right type is not vector");
+  if (left.get_vector().size() != right.get_vector().size()) {
+    return RC::VECTOR_DIMENSION_MISMATCH;
+  }
   std::vector<float> vec;
   for (auto i = 0; i < left.get_vector().size(); i++) {
     vec.push_back(round((left.get_vector()[i] * right.get_vector()[i]) * 100) / 100);
