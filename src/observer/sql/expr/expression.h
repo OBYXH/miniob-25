@@ -191,9 +191,9 @@ public:
     DATE_FORMAT
   };
   FunctionExpr(Type type, unique_ptr<Expression> child, int round = 0)
-      : child_(std::move(child)), round_(round), function_type_(type)
+      : child_(std::move(child)), precision_(round), function_type_(type)
   {}
-  FunctionExpr(Type type, Expression *child, int round = 0) : child_(child), round_(round), function_type_(type) {}
+  FunctionExpr(Type type, Expression *child, int round = 0) : child_(child), precision_(round), function_type_(type) {}
   virtual ~FunctionExpr() = default;
 
   unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
@@ -221,13 +221,13 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
 
-  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+  RC try_get_value(Value &value) const override;
 
   unique_ptr<Expression> &child() { return child_; }
 
 private:
   unique_ptr<Expression> child_;
-  int                    round_ = 0;  // only for ROUND function
+  int                    precision_ = 0;  // only for ROUND function
   Type                   function_type_;
 };
 

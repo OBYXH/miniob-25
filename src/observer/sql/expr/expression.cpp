@@ -90,8 +90,47 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
         LOG_WARN("ROUND function only support float type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      auto times = std::pow(10, round_);
-      value.set_float(std::round(child_value.get_float() * times) / times);
+      // auto times = std::pow(10, precision_);
+      value.set_float(child_value.get_float(), precision_);
+    } break;
+    case Type::DATE_FORMAT: {
+      if (child_value.attr_type() != AttrType::DATES) {
+        LOG_WARN("DATE_FORMAT function only support date type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } break;
+    default: {
+      LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
+      return RC::UNSUPPORTED;
+    }
+  }
+  return rc;
+}
+
+RC FunctionExpr::try_get_value(Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value child_value;
+  rc = child_->try_get_value(child_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  switch (function_type_) {
+    case Type::LENGTH: {
+      if (child_value.attr_type() != AttrType::CHARS) {
+        LOG_WARN("LENGTH function only support string type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      value.set_int(static_cast<int>(child_value.get_string().size()));
+    } break;
+    case Type::ROUND: {
+      if (child_value.attr_type() != AttrType::FLOATS) {
+        LOG_WARN("ROUND function only support float type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      // auto times = std::pow(10, precision_);
+      value.set_float(child_value.get_float(), precision_);
     } break;
     case Type::DATE_FORMAT: {
       if (child_value.attr_type() != AttrType::DATES) {

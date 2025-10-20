@@ -214,12 +214,13 @@ void Value::set_int(int val)
   length_           = sizeof(val);
 }
 
-void Value::set_float(float val)
+void Value::set_float(float val, int precision /*= 2*/)
 {
   reset();
   attr_type_          = AttrType::FLOATS;
   value_.float_value_ = val;
   length_             = sizeof(val);
+  float_precision_    = precision;
 }
 void Value::set_boolean(bool val)
 {

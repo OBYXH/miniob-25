@@ -873,6 +873,11 @@ expression:
     }
     | aggregate_expression {
       $$ = $1;
+    }    | vector_expression {
+      $$ = $1;
+    }
+    | function_expression {
+      $$ = $1;
     }
     | vector_expression {
       $$ = $1;
