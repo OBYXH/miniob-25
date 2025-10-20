@@ -64,6 +64,8 @@ SELECT * FROM date_table WHERE u_date='2017-12-32';
 FAILURE
 SELECT * FROM date_table WHERE u_date='2017-11-31';
 FAILURE
+SELECT * FROM date_table WHERE u_date='2017--31';
+FAILURE
 INSERT INTO date_table VALUES (10,'2017-2-29');
 FAILURE
 INSERT INTO date_table VALUES (11,'2017-21-29');
