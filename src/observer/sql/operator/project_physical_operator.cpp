@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/project_physical_operator.h"
 #include "common/log/log.h"
+#include "common/type/attr_type.h"
+#include "sql/expr/expression.h"
 #include "storage/record/record.h"
 #include "storage/table/table.h"
 
@@ -50,7 +52,16 @@ RC ProjectPhysicalOperator::next()
     emitted_     = true;
     int cell_num = tuple_.cell_num();
     for (int i = 0; i < cell_num; i++) {
-      Value value;
+      // 过滤掉非计算的select
+      ExprType expr_type;
+      rc = tuple_.cell_type_at(i, expr_type);
+      if (OB_FAIL(rc)) {
+        return rc;
+      }
+      if (expr_type == ExprType::FIELD) {
+        return RC::RECORD_EOF;
+      }
+      Value    value;
       rc = tuple_.cell_at(i, value);
       if (OB_FAIL(rc)) {
         return rc;
