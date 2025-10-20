@@ -14,12 +14,52 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/expression.h"
 #include "common/sys/rc.h"
+#include "common/type/attr_type.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
 #include <cmath>
 #include <cstddef>
 
 using namespace std;
+
+RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value child_value;
+  rc = child_->get_value(tuple, child_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  switch (function_type_) {
+    case Type::LENGTH: {
+      if (child_value.attr_type() != AttrType::CHARS) {
+        LOG_WARN("LENGTH function only support string type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      value.set_int(static_cast<int>(child_value.get_string().size()));
+    } break;
+    case Type::ROUND: {
+      if (child_value.attr_type() != AttrType::FLOATS) {
+        LOG_WARN("ROUND function only support float type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      auto times = std::pow(10, round_);
+      value.set_float(std::round(child_value.get_float() * times) / times);
+    } break;
+    case Type::DATE_FORMAT: {
+      if (child_value.attr_type() != AttrType::DATES) {
+        LOG_WARN("DATE_FORMAT function only support date type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } break;
+    default: {
+      LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
+      return RC::UNSUPPORTED;
+    }
+  }
+  return rc;
+}
 
 RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
 {

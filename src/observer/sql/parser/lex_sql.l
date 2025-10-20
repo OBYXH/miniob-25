@@ -77,13 +77,14 @@ QUOTE            [\'\"]
 
 {WHITE_SPACE}                                        // ignore whitespace
 \n                                                   ;
-{QUOTE}(L2|COSINE|INNER){QUOTE}     yylval->cstring = strdup(yytext);RETURN_TOKEN(DISTANCE_TYPE);
+{QUOTE}(EUCLIDEAN|COSINE|DOT){QUOTE}     yylval->cstring = strdup(yytext);RETURN_TOKEN(DISTANCE_TYPE);
 {DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 {DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 {QUOTE}\[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]{QUOTE}   yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
 \[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
 \'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 'YYYY-M[M]-D[D]'格式的日期
 \"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 "YYYY-M[M]-D[D]"格式的日期
+{QUOTE}{WHITE_SPACE}*\%D,\%M,\%Y{WHITE_SPACE}*{QUOTE}    yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE_FORMAT);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -147,6 +148,9 @@ COSINE_DISTANCE                     RETURN_TOKEN(COSINE_DISTANCE);
 INNER_PRODUCT              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 AS                                      RETURN_TOKEN(AS);
 HAVING                                 RETURN_TOKEN(HAVING);
+ROUND                                  RETURN_TOKEN(ROUND);
+LENGTH                              RETURN_TOKEN(LENGTH);
+DARE_FORMAT                            RETURN_TOKEN(DATE_FORMAT);
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);
