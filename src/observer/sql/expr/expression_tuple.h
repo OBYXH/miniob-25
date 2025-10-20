@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/lang/vector.h"
+#include "common/type/attr_type.h"
+#include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "common/value.h"
 #include "common/sys/rc.h"
@@ -38,6 +40,17 @@ public:
 
     const ExprPointerType &expression = expressions_[index];
     return get_value(expression, cell);
+  }
+
+  RC cell_type_at(int index, ExprType &expr_type) const 
+  {
+    if (index < 0 || index >= cell_num()) {
+      return RC::INVALID_ARGUMENT;
+    }
+
+    const ExprPointerType &expression = expressions_[index];
+    expr_type                         = expression->type();
+    return RC::SUCCESS;
   }
 
   RC spec_at(int index, TupleCellSpec &spec) const override
