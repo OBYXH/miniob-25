@@ -1,0 +1,64 @@
+INITIALIZATION
+CREATE TABLE t_alias(id INT, name CHAR);
+SUCCESS
+INSERT INTO t_alias VALUES(1, 'a');
+SUCCESS
+INSERT INTO t_alias VALUES(2, 'b');
+SUCCESS
+INSERT INTO t_alias VALUES(3, 'c');
+SUCCESS
+
+CREATE TABLE t_alias2(id INT, value CHAR);
+SUCCESS
+INSERT INTO t_alias2 VALUES(1, 'x');
+SUCCESS
+INSERT INTO t_alias2 VALUES(3, 'y');
+SUCCESS
+
+2. BASIC ALIAS SYNTAX
+SELECT id AS alias_id, name AS alias_name FROM t_alias;
+1 | A
+2 | B
+3 | C
+ALIAS_ID | ALIAS_NAME
+SELECT id id_implicit, name name_implicit FROM t_alias;
+1 | A
+2 | B
+3 | C
+ID_IMPLICIT | NAME_IMPLICIT
+SELECT id AS a, name n FROM t_alias;
+1 | A
+2 | B
+3 | C
+A | N
+
+3. ALIASING EXPRESSIONS AND CONSTANTS
+SELECT id, id + 100 AS id_plus_100 FROM t_alias;
+1 | 101
+2 | 102
+3 | 103
+ID | ID_PLUS_100
+SELECT id, 'const' AS constant_string, 999 AS constant_num FROM t_alias;
+1 | CONST | 999
+2 | CONST | 999
+3 | CONST | 999
+ID | CONSTANT_STRING | CONSTANT_NUM
+
+4. ALIAS USAGE IN CLAUSES
+SELECT id AS my_id, name AS my_name FROM t_alias;
+1 | A
+2 | B
+3 | C
+MY_ID | MY_NAME
+SELECT id AS my_id FROM t_alias WHERE my_id > 1;
+FAILURE
+SELECT id AS my_id FROM t_alias WHERE id > 1;
+2
+3
+MY_ID
+
+5. ALIASING WITH JOINS
+SELECT t_alias.id AS id1, t_alias.name, t_alias2.id AS id2, t_alias2.value FROM t_alias, t_alias2 WHERE t_alias.id = t_alias2.id;
+1 | A | 1 | X
+3 | C | 3 | Y
+ID1 | NAME | ID2 | VALUE

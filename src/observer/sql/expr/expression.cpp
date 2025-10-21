@@ -636,7 +636,6 @@ RC ArithmeticExpr::try_get_value(Value &value) const
     }
   }
 
-
   if (right_) {
     rc = right_->try_get_value(right_value);
     if (rc != RC::SUCCESS) {

@@ -68,7 +68,7 @@ enum CompOp
  */
 struct ConditionSqlNode
 {
-  CompOp         comp;           ///< comparison operator
+  CompOp                 comp;   ///< comparison operator
   unique_ptr<Expression> left;   ///< left expression
   unique_ptr<Expression> right;  ///< right expression
 };

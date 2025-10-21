@@ -146,8 +146,9 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
   auto unbound_field_expr = static_cast<UnboundFieldExpr *>(expr.get());
 
-  const char *table_name = unbound_field_expr->table_name();
-  const char *field_name = unbound_field_expr->field_name();
+  const char *table_name  = unbound_field_expr->table_name();
+  const char *field_name  = unbound_field_expr->field_name();
+  const char *field_alias = unbound_field_expr->field_alias();
 
   Table *table = nullptr;
   if (is_blank(table_name)) {
@@ -176,7 +177,16 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
     Field      field(table, field_meta);
     FieldExpr *field_expr = new FieldExpr(field);
-    field_expr->set_name(field_name);
+    // 必须先检查指针是否为 NULL
+    if (field_alias == nullptr) {
+      LOG_ERROR("field_alias is nullptr");
+      return RC::INVALID_ARGUMENT;
+    } else if (*field_alias == '\0') {
+      // *field_alias == '\0' 等价于 field_alias[0] == '\0'
+      field_expr->set_name(field_name);
+    } else {
+      field_expr->set_name(field_alias);
+    }
     bound_expressions.emplace_back(field_expr);
   }
 
@@ -350,7 +360,6 @@ RC ExpressionBinder::bind_arithmetic_expression(
       left_expr.reset(left.release());
     }
   }
-
 
   child_bound_expressions.clear();
   rc = bind_expression(right_expr, child_bound_expressions);

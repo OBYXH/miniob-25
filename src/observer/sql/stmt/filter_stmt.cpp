@@ -30,8 +30,8 @@ See the Mulan PSL v2 for more details. */
 
 FilterStmt::~FilterStmt() { conditions_.clear(); }
 
-RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table *> *tables, string relation_name, string attribute_name,
-    Table *&table, const FieldMeta *&field)
+RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table *> *tables, string relation_name,
+    string attribute_name, Table *&table, const FieldMeta *&field)
 {
   if (common::is_blank(relation_name.c_str())) {
     table = default_table;
@@ -81,9 +81,15 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
         //  INTS甚至FLOATS均不会报错???
         if (condition.left->type() == ExprType::UNBOUND_FIELD && condition.right->value_type() == AttrType::CHARS) {
           UnboundFieldExpr *unbound_fild_expr = static_cast<UnboundFieldExpr *>(condition.left.get());
-          Table *table = nullptr;
-          const FieldMeta *field_meta = nullptr;
-          RC rc = get_table_and_field(db, default_table, tables, unbound_fild_expr->table_name(), unbound_fild_expr->field_name(), table, field_meta);
+          Table            *table             = nullptr;
+          const FieldMeta  *field_meta        = nullptr;
+          RC                rc                = get_table_and_field(db,
+              default_table,
+              tables,
+              unbound_fild_expr->table_name(),
+              unbound_fild_expr->field_name(),
+              table,
+              field_meta);
           if (rc != RC::SUCCESS) {
             delete unbound_fild_expr;
             return rc;
@@ -125,5 +131,3 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
   stmt = final_stmt;
   return rc;
 }
-
-

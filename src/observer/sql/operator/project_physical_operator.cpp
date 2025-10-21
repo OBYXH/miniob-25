@@ -61,7 +61,7 @@ RC ProjectPhysicalOperator::next()
       if (expr_type == ExprType::FIELD) {
         return RC::RECORD_EOF;
       }
-      Value    value;
+      Value value;
       rc = tuple_.cell_at(i, value);
       if (OB_FAIL(rc)) {
         return rc;
@@ -91,6 +91,10 @@ Tuple *ProjectPhysicalOperator::current_tuple()
 RC ProjectPhysicalOperator::tuple_schema(TupleSchema &schema) const
 {
   for (const unique_ptr<Expression> &expression : expressions_) {
+    if (*(expression->field_alias()) != '\0') {
+      schema.append_cell(expression->field_alias());
+      continue;
+    }
     schema.append_cell(expression->name());
   }
   return RC::SUCCESS;
