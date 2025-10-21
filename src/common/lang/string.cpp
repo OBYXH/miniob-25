@@ -264,6 +264,40 @@ char *substr(const char *s, int n1, int n2)
 }
 
 /**
+ * @brief 银行家舍入辅助函数：将 X.5 舍入到最接近的偶数整数。
+ * @param x 要舍入的浮点数。
+ * @return 舍入后的值。
+ */
+double bankers_round_half(double x) {
+    // 1. 获取绝对值
+    double abs_x = std::abs(x);
+    
+    // 2. 获取地板值 (向下取整)
+    double floor_x = std::floor(abs_x);
+    
+    // 3. 检查是否恰好是中间值 (X.5)
+    // 使用 std::fmod 检查小数部分是否接近 0.5 (考虑到浮点误差)
+    // 浮点数比较需要使用 epsilon，但在这里我们用一个简单的近似判断
+    if (std::abs(abs_x - (floor_x + 0.5)) < 1e-9) { 
+        
+        // 4. 是中间值，应用银行家规则：  舍入到最接近的偶数整数
+        
+        // 检查地板值 (要保留的最后一位) 是否是偶数
+        // 模 2 检查奇偶性
+        if (std::fmod(floor_x, 2.0) == 0.0) {
+            // 如果地板值是偶数 (e.g., 4.5 -> 4)，则向下舍入
+            return std::copysign(floor_x, x);
+        } else {
+            // 如果地板值是奇数 (e.g., 5.5 -> 6)，则向上舍入
+            return std::copysign(floor_x + 1.0, x);
+        }
+    } else {
+        // 5. 不是中间值，使用标准的四舍五入规则
+        return std::round(x);
+    }
+}
+
+/**
  * double to string
  * @param v
  * @return
@@ -272,7 +306,7 @@ string double_to_str(double v, int precision /*= 2*/)
 {
   char   buf[256];
   auto   times     = pow(10.0, precision);
-  double rounded_v = round(v * times) / times;
+  double rounded_v = bankers_round_half(v * times) / times;
   std::snprintf(buf, sizeof(buf), "%.*f", precision, rounded_v);
   size_t len = strlen(buf);
   while (buf[len - 1] == '0') {
