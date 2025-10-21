@@ -155,6 +155,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         STRING_TO_VECTOR
         NULL_T
         IS
+        AS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -222,6 +223,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <expression_list>     group_by
 %type <cstring>             fields_terminated_by
 %type <cstring>             enclosed_by
+%type <cstring>             alias
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -665,6 +667,15 @@ calc_stmt:
     }
     ;
 
+alias:
+    AS ID {
+      $$ = $2;
+    }
+    | ID {
+      $$ = $1;
+    }
+    ;
+
 expression_list:
     expression
     {
@@ -678,6 +689,22 @@ expression_list:
       } else {
         $$ = new vector<unique_ptr<Expression>>;
       }
+      $$->emplace($$->begin(), $1);
+    }
+    |expression alias
+    {
+      $$ = new vector<unique_ptr<Expression>>;
+      $1->set_field_alias($2);
+      $$->emplace_back($1);
+    }
+    | expression alias COMMA expression_list
+    {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new vector<unique_ptr<Expression>>;
+      }
+      $1->set_field_alias($2);
       $$->emplace($$->begin(), $1);
     }
     ;
@@ -754,7 +781,7 @@ rel_attr:
       $$ = new RelAttrSqlNode;
       $$->relation_name  = $1;
       $$->attribute_name = $3;
-    }
+    } 
     ;
 
 relation:

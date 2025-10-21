@@ -117,6 +117,11 @@ public:
    */
   virtual const char *name() const { return name_.c_str(); }
   virtual void        set_name(string name) { name_ = name; }
+  /**
+   * @brief 字段别名
+   */
+  virtual const char *field_alias() const { return filed_alias_.c_str(); }
+  virtual void        set_field_alias(string alias) { filed_alias_ = alias; }
 
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -140,6 +145,7 @@ protected:
 
 private:
   string name_;
+  string filed_alias_;
 };
 
 class VecDistanceExpr : public Expression
