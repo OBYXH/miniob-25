@@ -27,7 +27,7 @@ UpdateStmt::UpdateStmt(
     : table_(table), values_(std::move(values)), field_metas_(std::move(field_metas)), filter_stmt_(filter_stmt)
 {}
 
-RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
 {
   // TODO
   const char *table_name = update.relation_name.c_str();
@@ -48,8 +48,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   table_map.insert(pair<string, Table *>(string(table_name), table));
 
   FilterStmt *filter_stmt = nullptr;
-  RC          rc          = FilterStmt::create(
-      db, table, &table_map, update.conditions.data(), static_cast<int>(update.conditions.size()), filter_stmt);
+  RC          rc          = FilterStmt::create(db, table, &table_map, update.conditions, filter_stmt);
   if (rc != RC::SUCCESS) {
     return rc;
   }

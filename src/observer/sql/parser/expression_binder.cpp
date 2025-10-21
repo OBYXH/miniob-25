@@ -16,6 +16,9 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/lang/ranges.h"
 #include "sql/parser/expression_binder.h"
+#include "common/sys/rc.h"
+#include "common/type/attr_type.h"
+#include "sql/expr/expression.h"
 #include "sql/expr/expression_iterator.h"
 
 using namespace common;
@@ -190,6 +193,11 @@ RC ExpressionBinder::bind_field_expression(
 RC ExpressionBinder::bind_value_expression(
     unique_ptr<Expression> &value_expr, vector<unique_ptr<Expression>> &bound_expressions)
 {
+  // 补充日期类型合法检测
+  if (value_expr->value_type() == AttrType::UNDEFINED) {
+    LOG_WARN("undefined value type in value expression");
+    return RC::VARIABLE_NOT_VALID;
+  }
   bound_expressions.emplace_back(std::move(value_expr));
   return RC::SUCCESS;
 }
@@ -323,20 +331,26 @@ RC ExpressionBinder::bind_arithmetic_expression(
   unique_ptr<Expression>        &left_expr  = arithmetic_expr->left();
   unique_ptr<Expression>        &right_expr = arithmetic_expr->right();
 
-  RC rc = bind_expression(left_expr, child_bound_expressions);
-  if (OB_FAIL(rc)) {
-    return rc;
+  RC rc = RC::SUCCESS;
+
+  // 负数运算无需绑定左子表达式
+  if (arithmetic_expr->arithmetic_type() != ArithmeticExpr::Type::NEGATIVE) {
+    rc = bind_expression(left_expr, child_bound_expressions);
+    if (OB_FAIL(rc)) {
+      return rc;
+    }
+
+    if (child_bound_expressions.size() != 1) {
+      LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
+      return RC::INVALID_ARGUMENT;
+    }
+
+    unique_ptr<Expression> &left = child_bound_expressions[0];
+    if (left.get() != left_expr.get()) {
+      left_expr.reset(left.release());
+    }
   }
 
-  if (child_bound_expressions.size() != 1) {
-    LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
-  }
-
-  unique_ptr<Expression> &left = child_bound_expressions[0];
-  if (left.get() != left_expr.get()) {
-    left_expr.reset(left.release());
-  }
 
   child_bound_expressions.clear();
   rc = bind_expression(right_expr, child_bound_expressions);

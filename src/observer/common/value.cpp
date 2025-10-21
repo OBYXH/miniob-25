@@ -54,7 +54,7 @@ bool Value::is_valid_date() const
   unsigned int day   = date % 100;
 
   if (year < 1 || year > 9999)  // 简单处理
-    return false;               //
+    return false;               
   if (month < 1 || month > 12)
     return false;
   if (day < 1 || day > 31)
@@ -72,7 +72,7 @@ bool Value::is_valid_date() const
     if (day > 30)
       return false;
   }
-
+  
   return true;
 }
 Value::Value(const string_t &s) { set_string(s.data(), s.size()); }
@@ -289,7 +289,7 @@ void Value::set_date(const char *s)
   int year = 0, month = 0, day = 0;
   if (sscanf(s, "%d-%d-%d", &year, &month, &day) == 3) {
     // 将日期转换为8位整数格式 YYYYMMDD
-    LOG_DEBUG("%year: %d, month: %d, day: %d", year, month, day);
+    LOG_DEBUG("year: %d, month: %d, day: %d", year, month, day);
     value_.int_value_ = year * 10000 + month * 100 + day;
   } else {
     value_.int_value_ = -1;
