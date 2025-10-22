@@ -219,6 +219,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <relation_list>       rel_list
 %type <expression>          expression
 %type <expression>          aggregate_expression
+%type <expression>          vector_expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
 %type <cstring>             fields_terminated_by
@@ -745,13 +746,20 @@ expression:
     | aggregate_expression {
       $$ = $1;
     }
+    | vector_expression {
+      $$ = $1;
+    }
     ;
 
 aggregate_expression:
     ID LBRACE expression RBRACE {
       $$ = create_aggregate_expression($1, $3, sql_string, &@$);
     }
-    | DISTANCE LBRACE expression COMMA expression COMMA DISTANCE_TYPE RBRACE
+    // your code here
+    ;
+
+vector_expression:
+    DISTANCE LBRACE expression COMMA expression COMMA DISTANCE_TYPE RBRACE
     {
       char * tmp = common::substr($7,1,strlen($7)-2);
       $$ = create_distance_expression(tmp, $3, $5, sql_string, &@$);
@@ -769,7 +777,6 @@ aggregate_expression:
     {
       $$ = create_distance_expression("INNER", $3, $5, sql_string, &@$);
     }
-    // your code here
     ;
 
 rel_attr:
