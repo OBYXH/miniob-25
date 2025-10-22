@@ -47,20 +47,13 @@ RC CountAggregator::accumulate(const Value &value)
   if (value.attr_type() == AttrType::NULLS) {
     return RC::SUCCESS;
   }
-  if (value_.attr_type() == AttrType::UNDEFINED) {
-    value_.set_int(1);
-    return RC::SUCCESS;
-  }
-  Value result;
-  result.set_type(AttrType::INTS);
-  Value::add(value_, Value(1), result);
-  value_.set_value(result);
+  count_ += 1;
   return RC::SUCCESS;
 }
 
 RC CountAggregator::evaluate(Value &result)
 {
-  result = value_;
+  result.set_int(count_);
   return RC::SUCCESS;
 }
 

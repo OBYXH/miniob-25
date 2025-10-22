@@ -34,6 +34,8 @@ class CountAggregator : public Aggregator
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
+  protected:
+  int count_ = 0;
 };
 
 class SumAggregator : public Aggregator
