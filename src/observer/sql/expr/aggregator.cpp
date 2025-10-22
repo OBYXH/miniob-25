@@ -44,6 +44,9 @@ RC SumAggregator::evaluate(Value &result)
 
 RC CountAggregator::accumulate(const Value &value)
 {
+  if (value.attr_type() == AttrType::NULLS) {
+    return RC::SUCCESS;
+  }
   if (value_.attr_type() == AttrType::UNDEFINED) {
     value_.set_int(1);
     return RC::SUCCESS;
@@ -84,7 +87,7 @@ RC AvgAggregator::evaluate(Value &result)
   RC rc = RC::SUCCESS;
   if (value_.attr_type() == AttrType::INTS) {
     rc = Value::cast_to(value_, AttrType::FLOATS, result);
-  }else{
+  } else {
     result.set_value(value_);
   }
 
