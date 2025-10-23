@@ -14,8 +14,12 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/log/log.h"
 #include "sql/operator/scalar_group_by_physical_operator.h"
+#include "common/value.h"
 #include "sql/expr/expression_tuple.h"
 #include "sql/expr/composite_tuple.h"
+#include "sql/expr/tuple.h"
+#include "sql/expr/tuple_cell.h"
+#include <cstdint>
 
 using namespace std;
 using namespace common;
@@ -76,6 +80,8 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
   if (RC::RECORD_EOF == rc) {
     rc = RC::SUCCESS;
   }
+  //Value test;
+  //rc = get<1>(*group_value_).cell_at(0, test);
 
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to get next tuple. rc=%s", strrc(rc));
@@ -85,8 +91,27 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
   // 得到最终聚合后的值
   if (group_value_) {
     rc = evaluate(*group_value_);
+  } else {
+    AggregatorList aggregator_list;
+    create_aggregator_list(aggregator_list);
+    ValueListTuple empty_tuple;
+    vector<Value>  empty_values;
+    for (uint32_t i = 0; i < aggregator_list.size(); i++) {
+      Value value;
+      value.set_null();
+      empty_values.push_back(value);
+    }
+    vector<TupleCellSpec> aggregate_names;
+    for (auto &expr : aggregate_expressions_) {
+      aggregate_names.emplace_back(expr->name());
+    }
+    empty_tuple.set_cells(empty_values);
+    empty_tuple.set_names(aggregate_names);
+    CompositeTuple composite_tuple;
+    composite_tuple.add_tuple(make_unique<ValueListTuple>(std::move(empty_tuple)));
+    group_value_ = make_unique<GroupValueType>(std::move(aggregator_list), std::move(composite_tuple));
   }
-
+  //rc       = get<1>(*group_value_).cell_at(0, test);
   emitted_ = false;
   return rc;
 }
