@@ -198,6 +198,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         LENGTH
         DATE_FORMAT
         LIMIT
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -214,6 +216,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<ConditionSqlNode> *                 condition_list;
   vector<RelAttrSqlNode> *                   rel_attr_list;
   vector<RelationNode> *                     relation_list;
+  JoinSqlNode *                              join_clause;
+  vector<JoinSqlNode>*                       join_clauses;
   vector<string> *                           key_list;
   OrderBySqlNode *                           orderby_unit;
   std::vector<OrderBySqlNode> *              orderby_list;
@@ -266,6 +270,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <key_list>            primary_key
 %type <key_list>            attr_list
 %type <relation_list>       rel_list
+%type <join_clause>        join_clause
+%type <join_clauses>       join_clauses
 %type <expression>          expression
 %type <expression>          aggregate_expression
 %type <expression>          vector_expression
@@ -724,6 +730,7 @@ update_list:
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT expression_list FROM rel_list where group_by having_condition opt_order_by opt_limit
     {
+      LOG_DEBUG("hit select_stmt normal");
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.expressions.swap(*$2);
@@ -768,6 +775,41 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($2 != nullptr) {
         $$->selection.expressions.swap(*$2);
         delete $2;
+      }
+    }
+    // 支持 COMMA混用的 INNER JOIN 语法
+    | SELECT expression_list FROM relation join_clauses where group_by
+    {
+      LOG_DEBUG("HIT Select with JOIN clauses");
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($2 != nullptr) {
+        $$->selection.expressions.swap(*$2);
+        delete $2;
+      }
+
+      if ($4 != nullptr) {
+        $$->selection.relations.emplace_back($4);
+        // free $4;
+
+      }
+
+      if ($6 != nullptr) {
+        $$->selection.conditions.swap(*$6);
+        delete $6;
+      }
+
+      if ($5 != nullptr) {
+        for (auto &join : *$5) {
+          $$->selection.relations.emplace_back(join.relation);
+          if (join.condition != nullptr) 
+          $$->selection.conditions.emplace_back(std::move(*join.condition));
+        }
+        delete $5;
+      }
+
+      if ($7 != nullptr) {
+        $$->selection.group_by.swap(*$7);
+        delete $7;
       }
     }
     ;
@@ -986,7 +1028,32 @@ rel_list:
       $$->insert($$->begin(), RelationNode($1,$2) );
     }
     ;
+join_clause:
+    INNER JOIN relation ON condition
+    {
+      $$ = new JoinSqlNode;
+      $$->relation = $3;
+      $$->condition = std::unique_ptr<ConditionSqlNode>($5);
+    }
+    | COMMA relation {
+      $$ = new JoinSqlNode;
+      $$->relation = $2;
+      $$->condition = nullptr;
+    }
 
+join_clauses:
+    join_clause
+    {
+      $$ = new vector<JoinSqlNode>;
+      $$->emplace_back(std::move(*$1));
+      delete $1;
+    }
+    | join_clause join_clauses {
+      $$ = $2;
+      $$->emplace_back(std::move(*$1));
+      delete $1;
+    }
+    ;
 where:
     /* empty */
     {

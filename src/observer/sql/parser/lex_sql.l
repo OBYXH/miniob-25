@@ -154,6 +154,8 @@ ROUND                                   RETURN_TOKEN(ROUND);
 LENGTH                                  RETURN_TOKEN(LENGTH);
 DATE_FORMAT                             RETURN_TOKEN(DATE_FORMAT);
 LIMIT                                   RETURN_TOKEN(LIMIT);
+INNER                                   RETURN_TOKEN(INNER);
+JOIN                                    RETURN_TOKEN(JOIN);  
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

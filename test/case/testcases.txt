@@ -24,3 +24,4 @@ primary-simple-sub-query
 primary-function
 primary-complex-sub-query
 primary-complex-sub-query-plus
+primary-join-tables

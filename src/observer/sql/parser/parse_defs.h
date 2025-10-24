@@ -140,6 +140,17 @@ struct SelectSqlNode
 };
 
 /**
+ * @brief 描述一个join语句
+ * @ingroup SQLParser
+ * @details 支持INNER JOIN和逗号的隐式内连接，前者必须带ON条件，后者不能带ON条件
+ */
+struct JoinSqlNode
+{
+  std::string      relation;   ///< 查询的表
+  std::unique_ptr<ConditionSqlNode> condition;  ///< 查询条件(已在expression中支持嵌套)
+};
+
+/**
  * @brief 算术表达式计算的语法树
  * @ingroup SQLParser
  */
