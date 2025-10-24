@@ -34,7 +34,8 @@ class CountAggregator : public Aggregator
 public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
-  protected:
+
+protected:
   int count_ = 0;
 };
 
@@ -51,13 +52,13 @@ public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
 
-  protected:
+protected:
   int count_ = 0;
 };
 
 class MaxAggregator : public Aggregator
 {
-  public:
+public:
   RC accumulate(const Value &value) override;
   RC evaluate(Value &result) override;
 };

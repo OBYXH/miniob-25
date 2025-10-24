@@ -80,8 +80,8 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
   if (RC::RECORD_EOF == rc) {
     rc = RC::SUCCESS;
   }
-  //Value test;
-  //rc = get<1>(*group_value_).cell_at(0, test);
+  // Value test;
+  // rc = get<1>(*group_value_).cell_at(0, test);
 
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to get next tuple. rc=%s", strrc(rc));
@@ -111,7 +111,7 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
     composite_tuple.add_tuple(make_unique<ValueListTuple>(std::move(empty_tuple)));
     group_value_ = make_unique<GroupValueType>(std::move(aggregator_list), std::move(composite_tuple));
   }
-  //rc       = get<1>(*group_value_).cell_at(0, test);
+  // rc       = get<1>(*group_value_).cell_at(0, test);
   emitted_ = false;
   return rc;
 }

@@ -1,0 +1,34 @@
+-- echo 1. initialization
+-- Description: Create a table and insert records with NULL values in grouping and aggregation columns.
+CREATE TABLE t_group_by_null (id int, score int, name char);
+INSERT INTO t_group_by_null VALUES(1, 10, 'a');
+INSERT INTO t_group_by_null VALUES(2, 20, 'a');
+INSERT INTO t_group_by_null VALUES(3, NULL, 'a');
+INSERT INTO t_group_by_null VALUES(4, 30, 'b');
+INSERT INTO t_group_by_null VALUES(5, NULL, 'b');
+INSERT INTO t_group_by_null VALUES(6, 40, NULL);
+INSERT INTO t_group_by_null VALUES(7, 50, NULL);
+INSERT INTO t_group_by_null VALUES(8, NULL, NULL);
+
+-- echo 2. group by a column with null
+-- sort select name, count(*) from t_group_by_null group by name;
+
+-- echo 3. aggregation functions with null values
+-- sort select name, count(id) as count_id, count(score) as count_score from t_group_by_null group by name;
+-- sort select name, sum(score) from t_group_by_null group by name;
+-- sort select name, avg(score) from t_group_by_null group by name;
+-- sort select name, min(score), max(score) from t_group_by_null group by name;
+
+-- echo 4. comprehensive aggregation test
+-- sort select name, count(*), count(score), sum(score), avg(score) from t_group_by_null group by name;
+
+-- echo 5. having clause with null group
+-- sort select name, count(*) from t_group_by_null group by name having name is null;
+-- sort select name, count(*) from t_group_by_null group by name having count(score) >= 2;
+
+-- echo 6. group by on a column that is all NULLs
+create table t_all_null (id int, val int);
+insert into t_all_null values(NULL, 10);
+insert into t_all_null values(NULL, 20);
+insert into t_all_null values(NULL, 30);
+select id, sum(val) from t_all_null group by id;  

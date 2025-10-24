@@ -16,7 +16,10 @@ See the Mulan PSL v2 for more details. */
 
 int NullType::compare(const Value &left, const Value &right) const
 {
-  return INT32_MAX;
+  if (left.is_null() && right.is_null()) {
+    return 0;
+  }
+  return -1;
 }
 
 RC NullType::cast_to(const Value &val, AttrType type, Value &result) const

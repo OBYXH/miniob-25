@@ -113,6 +113,13 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     return rc;
   }
 
+  unique_ptr<LogicalOperator> having_oper;
+  rc = create_plan(select_stmt->having_filter_stmt(), having_oper);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to create having logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
   const vector<Table *> &tables = select_stmt->tables();
   for (Table *table : tables) {
 
@@ -148,6 +155,14 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
 
     last_oper = &group_by_oper;
+  }
+
+  if (having_oper) {
+    if (*last_oper) {
+      having_oper->add_child(std::move(*last_oper));
+    }
+
+    last_oper = &having_oper;
   }
 
   unique_ptr<LogicalOperator> project_oper =

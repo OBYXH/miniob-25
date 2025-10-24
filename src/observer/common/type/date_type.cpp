@@ -6,6 +6,9 @@
 
 int DateType::compare(const Value &left, const Value &right) const
 {
+  if (right.is_null()) {
+    return 1;
+  }
   ASSERT(left.attr_type() == AttrType::DATES && right.attr_type() == AttrType::DATES, "invalid cmp type");
   return common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
 }
