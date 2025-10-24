@@ -32,12 +32,19 @@ class FieldMeta;
 class FilterStmt
 {
 public:
+  enum Type
+  {
+    WHERE,
+    HAVING
+  };
+
+public:
   FilterStmt() = default;
   virtual ~FilterStmt();
 
 public:
   static RC create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-      std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt);
+      std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type);
 
   std::vector<std::unique_ptr<Expression>> conditions_;
 };

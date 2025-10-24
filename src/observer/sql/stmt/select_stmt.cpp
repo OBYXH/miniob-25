@@ -89,14 +89,16 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC          rc          = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt);
+  RC          rc =
+      FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt, FilterStmt::Type::WHERE);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
 
   FilterStmt *having_filter_stmt = nullptr;
-  rc = FilterStmt::create(db, default_table, &table_map, select_sql.having_conditions, having_filter_stmt);
+  rc                             = FilterStmt::create(
+      db, default_table, &table_map, select_sql.having_conditions, having_filter_stmt, FilterStmt::Type::HAVING);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct having filter stmt");
     return rc;

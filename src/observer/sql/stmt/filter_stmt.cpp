@@ -58,13 +58,19 @@ RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table
   return RC::SUCCESS;
 }
 RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt)
+    std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type)
 {
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
 
   vector<unique_ptr<Expression>> cond_exprs;
   for (auto &condition : conditions) {
+    if ((type == Type::WHERE) && (condition.left->type() == ExprType::UNBOUND_AGGREGATION ||
+                                     condition.right->type() == ExprType::UNBOUND_AGGREGATION)) {
+      // 聚合函数不在这里处理
+      LOG_WARN("unexpected aggregation expression in where condition");
+      return RC::INVALID_ARGUMENT;
+    }
     switch (condition.comp) {
       case EQUAL_TO:
       case LESS_EQUAL:
@@ -97,10 +103,6 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
           if (field_meta->type() == AttrType::DATES) {
             return RC::SCHEMA_FIELD_TYPE_MISMATCH;
           }
-        }else if (condition.left->type() == ExprType::UNBOUND_AGGREGATION || condition.right->type() == ExprType::UNBOUND_AGGREGATION) {
-          // 聚合函数不在这里处理
-          LOG_WARN("unexpected aggregation expression in where condition");
-          return RC::INVALID_ARGUMENT;
         }
         cond_exprs.emplace_back(
             new ComparisonExpr(condition.comp, std::move(condition.left), std::move(condition.right)));

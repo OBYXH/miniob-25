@@ -10,3 +10,4 @@ primary-vec
 primary-date
 primary-expression
 primary-aggregation-func
+primary-group-by

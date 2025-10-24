@@ -47,7 +47,7 @@ RC DeleteStmt::create(Db *db, DeleteSqlNode &delete_sql, Stmt *&stmt)
   table_map.insert(pair<string, Table *>(string(table_name), table));
 
   FilterStmt *filter_stmt = nullptr;
-  RC          rc          = FilterStmt::create(db, table, &table_map, delete_sql.conditions, filter_stmt);
+  RC rc = FilterStmt::create(db, table, &table_map, delete_sql.conditions, filter_stmt, FilterStmt::Type::WHERE);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;

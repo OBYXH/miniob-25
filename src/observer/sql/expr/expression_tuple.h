@@ -42,7 +42,7 @@ public:
     return get_value(expression, cell);
   }
 
-  RC cell_type_at(int index, ExprType &expr_type) const 
+  RC cell_type_at(int index, ExprType &expr_type) const
   {
     if (index < 0 || index >= cell_num()) {
       return RC::INVALID_ARGUMENT;
