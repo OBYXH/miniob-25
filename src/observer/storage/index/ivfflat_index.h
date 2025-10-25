@@ -10,6 +10,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "storage/field/field_meta.h"
 #include "storage/index/index.h"
 
 /**
@@ -22,13 +23,12 @@ public:
   IvfflatIndex(){};
   virtual ~IvfflatIndex() noexcept {};
 
-  RC create(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
+  RC create(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override
   {
     return RC::UNIMPLEMENTED;
   };
-  RC open(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
+  RC open(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override
   {
-
     return RC::UNIMPLEMENTED;
   };
 
@@ -42,8 +42,8 @@ public:
   RC sync() override { return RC::UNIMPLEMENTED; };
 
 private:
-  bool   inited_ = false;
-  Table *table_  = nullptr;
-  int    lists_  = 1;
-  int    probes_ = 1;
+  // bool   inited_ = false;
+  // Table *table_  = nullptr;
+  // int    lists_  = 1;
+  // int    probes_ = 1;
 };

@@ -61,6 +61,15 @@ enum CompOp
 };
 
 /**
+ * @brief 描述索引的类型
+ * @ingroup Index
+ */
+enum class IndexType
+{
+  BPlusTreeIndex,
+};
+
+/**
  * @brief 表示一个条件比较
  * @ingroup SQLParser
  * @details 条件比较就是SQL查询中的 where a>b 这种。
@@ -194,9 +203,19 @@ struct AnalyzeTableSqlNode
  */
 struct CreateIndexSqlNode
 {
-  string index_name;      ///< Index name
-  string relation_name;   ///< Relation name
-  string attribute_name;  ///< Attribute name
+  bool           unique = false;  ///< 是否是唯一索引
+  string         index_name;      ///< Index name
+  string         relation_name;   ///< Relation name
+  vector<string> attribute_name;  ///< Attribute name
+};
+
+/**
+ * @brief 描述一个show index语句
+ * @ingroup SQLParser
+ */
+struct ShowIndexSqlNode
+{
+  string relation_name;  ///< Relation name
 };
 
 /**
@@ -288,6 +307,7 @@ enum SqlCommandFlag
   SCF_DROP_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,
+  SCF_SHOW_INDEX,
   SCF_DESC_TABLE,
   SCF_BEGIN,  ///< 事务开始语句，可以在这里扩展只读事务
   SCF_COMMIT,
@@ -317,6 +337,7 @@ public:
   DropTableSqlNode    drop_table;
   AnalyzeTableSqlNode analyze_table;
   CreateIndexSqlNode  create_index;
+  ShowIndexSqlNode    show_index;
   DropIndexSqlNode    drop_index;
   DescTableSqlNode    desc_table;
   LoadDataSqlNode     load_data;

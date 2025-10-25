@@ -12,3 +12,6 @@ primary-expression
 primary-aggregation-func
 primary-group-by
 primary-group-by-null
+primary-show-index
+primary-multi-index
+primary-unique

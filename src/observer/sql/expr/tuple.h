@@ -172,14 +172,7 @@ public:
     speces_.clear();
   }
 
-  void set_record(Record *record)
-  {
-    this->record_            = record;
-    auto     null_flags_data = record->data();
-    uint32_t unserialized_null_flags;
-    memcpy(&unserialized_null_flags, null_flags_data, table_->table_meta().null_falg_bytes());
-    null_flags_ = std::bitset<32>(unserialized_null_flags);
-  }
+  void set_record(Record *record) { this->record_ = record; }
 
   void set_schema(const Table *table, const vector<FieldMeta> *fields)
   {
@@ -209,12 +202,18 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.reset();
     cell.set_type(field_meta->type());
-    if (null_flags_.test(index)) {
-      ASSERT(field_meta->nullable(), "field is not nullable but null flag is set. field=%s", field_meta->name());
-      cell.set_null();
-      return RC::SUCCESS;
+    if (field_meta->nullable()) {
+      bool is_null = this->record_->data()[field_meta->offset() + field_meta->len() - 1] == '1';
+      if (is_null) {
+        cell.set_null(is_null);
+      } else {
+        // 如果是字符型 null 值，这里虽然安全拷贝了 0 个数据，但因为 own_data，在发生拷贝构造时又由 length 0
+        // 而没有初始化指针，导致内存越界
+        cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len() - 1);
+      }
+    } else {
+      cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
-    cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     return RC::SUCCESS;
   }
 
@@ -283,7 +282,6 @@ private:
   Record             *record_ = nullptr;
   const Table        *table_  = nullptr;
   vector<FieldExpr *> speces_;
-  std::bitset<32>     null_flags_;
 };
 
 /**

@@ -9,13 +9,24 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by wangyunlai.wyl on 2021/5/19.
+// Created by Wangyunlai on 2023/6/13.
 //
 
-#include "storage/index/index.h"
+#pragma once
 
-RC Index::init(const IndexMeta &index_meta)
+#include "common/sys/rc.h"
+
+class SQLStageEvent;
+
+/**
+ * @brief 创建表的执行器
+ * @ingroup Executor
+ */
+class DropIndexExecutor
 {
-  index_meta_ = index_meta;
-  return RC::SUCCESS;
-}
+public:
+  DropIndexExecutor()          = default;
+  virtual ~DropIndexExecutor() = default;
+
+  RC execute(SQLStageEvent *sql_event);
+};

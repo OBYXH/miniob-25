@@ -50,6 +50,7 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+  explicit Value(const vector<float> &values) { set_vector(values); }
   static Value *from_date(const char *s);  // 从字符串转换为 Date Value类型
   bool          is_valid_date() const;     // 判断日期是否合法
   explicit Value(const string_t &val);
@@ -122,6 +123,8 @@ public:
   string_t           get_string_t() const;
   std::vector<float> get_vector() const;
   bool               get_boolean() const;
+  int                get_vector_length() const;
+  float              get_vector_element(int i) const;
   bool               is_null() const { return is_null_; }
   inline bool        is_str() const { return attr_type_ == AttrType::CHARS; }
 
@@ -130,6 +133,7 @@ public:
   void          set_float(float val);
   void          set_string(const char *s, int len = 0);
   void          set_empty_string(int len);
+  void          set_vector(float *array, int length);
   void          set_vector(const std::vector<float> &vec);
   void          set_vector(const char *s);
   static Value *string_to_vector(const char *s);
@@ -141,12 +145,12 @@ private:
 
   union Val
   {
-    int32_t             int_value_;
-    float               float_value_;
-    bool                bool_value_;
-    char               *pointer_value_;
-    std::vector<float> *vector_value_;
-    int32_t             null_value_;
+    int32_t int_value_;
+    float   float_value_;
+    bool    bool_value_;
+    char   *pointer_value_;
+    float  *vector_value_;
+    int32_t null_value_;
   } value_ = {.int_value_ = 0};
 
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false

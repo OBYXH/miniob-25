@@ -9,13 +9,19 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by wangyunlai.wyl on 2021/5/19.
+// Created by Wangyunlai on 2023/6/13.
 //
 
-#include "storage/index/index.h"
+#include "sql/stmt/show_index_stmt.h"
+#include "event/sql_debug.h"
+#include "storage/db/db.h"
 
-RC Index::init(const IndexMeta &index_meta)
+RC ShowIndexStmt::create(Db *db, const ShowIndexSqlNode &show_index, Stmt *&stmt)
 {
-  index_meta_ = index_meta;
+  if (db->find_table(show_index.relation_name.c_str()) == nullptr) {
+    sql_debug("table %s not found", show_index.relation_name.c_str());
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  stmt = new ShowIndexStmt(show_index.relation_name);
   return RC::SUCCESS;
 }

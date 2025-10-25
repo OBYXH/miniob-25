@@ -9,6 +9,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 #include "storage/table/heap_table_engine.h"
+#include "common/sys/rc.h"
 #include "storage/record/heap_record_scanner.h"
 #include "common/log/log.h"
 #include "storage/index/bplus_tree_index.h"
@@ -115,10 +116,17 @@ RC HeapTableEngine::update_record(const Record &old_record, const Record &new_re
   // 键重复了
   if (rc != RC::SUCCESS) {
     // 回滚
-    rc = delete_entry_of_indexes(new_record.data(), new_record.rid(), false);
-    ASSERT(RC::SUCCESS == rc,
-      "failed to rollback index data when insert index entries failed. table name=%s, rc=%s",
-                table_->name(), strrc(rc));
+    RC delete_rc = delete_entry_of_indexes(new_record.data(), new_record.rid(), false);
+    if (delete_rc != RC::SUCCESS) {
+      LOG_ERROR("failed to delete index data when update record failed. table name=%s, rc=%s", table_->name(), strrc(rc));
+      return delete_rc;
+    }
+    RC insert_rc = insert_entry_of_indexes(old_record.data(), old_record.rid());
+    if (insert_rc != RC::SUCCESS) {
+      LOG_WARN("failed to rollback index data when update record failed. table name=%s, rc=%s", table_->name(), strrc(insert_rc));
+      return insert_rc;
+    }
+    return rc;
   }
   rc = record_handler_->update_record(new_record.data(), &new_record.rid());
   return rc;
@@ -143,19 +151,20 @@ RC HeapTableEngine::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadW
   return rc;
 }
 
-RC HeapTableEngine::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name)
+RC HeapTableEngine::create_index(
+    Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique)
 {
-  if (common::is_blank(index_name) || nullptr == field_meta) {
+  if (common::is_blank(index_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", table_meta_->name());
     return RC::INVALID_ARGUMENT;
   }
 
   IndexMeta new_index_meta;
 
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, index_type, field_meta, unique);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", 
-             table_meta_->name(), index_name, field_meta->name());
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s", 
+             table_meta_->name(), index_name);
     return rc;
   }
 
@@ -163,7 +172,7 @@ RC HeapTableEngine::create_index(Trx *trx, const FieldMeta *field_meta, const ch
   BplusTreeIndex *index      = new BplusTreeIndex();
   string          index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_name);
 
-  rc = index->create(table_, index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(table_, index_file.c_str(), new_index_meta);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
@@ -242,6 +251,72 @@ RC HeapTableEngine::create_index(Trx *trx, const FieldMeta *field_meta, const ch
   return rc;
 }
 
+RC HeapTableEngine::drop_index(const char *index_name)
+{
+  RC rc = RC::SUCCESS;
+  if (common::is_blank(index_name)) {
+    LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", table_meta_->name());
+    return RC::INVALID_ARGUMENT;
+  }
+  if (find_index(index_name) == nullptr) {
+    LOG_INFO("Index (%s) not found on table (%s) ", index_name, table_meta_->name());
+    return RC::INDEX_NOT_EXIST;
+  }
+
+  // 更新表的元数据，删除对应的索引信息
+  TableMeta new_table_meta(*table_meta_);
+  rc = new_table_meta.drop_index(index_name);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop index (%s) on table (%s). error=%d:%s", index_name, table_meta_->name(), rc, strrc(rc));
+    return rc;
+  }
+  string  tmp_file = table_meta_file(db_->path().c_str(), table_meta_->name()) + ".tmp";
+  fstream fs;
+  fs.open(tmp_file, ios_base::out | ios_base::binary | ios_base::trunc);
+  if (!fs.is_open()) {
+    LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
+    return RC::IOERR_OPEN;  // 删除索引中途出错，要做还原操作
+  }
+  if (new_table_meta.serialize(fs) < 0) {
+    LOG_ERROR("Failed to dump new table meta to file: %s. sys err=%d:%s", tmp_file.c_str(), errno, strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+  fs.close();
+
+  // 覆盖原始元数据文件
+  string meta_file = table_meta_file(db_->path().c_str(), table_meta_->name());
+
+  int ret = rename(tmp_file.c_str(), meta_file.c_str());
+  if (ret != 0) {
+    LOG_ERROR("Failed to rename tmp meta file (%s) to normal meta file (%s) while creating index (%s) on table (%s). "
+              "system error=%d:%s",
+              tmp_file.c_str(), meta_file.c_str(), index_name, table_meta_->name(), errno, strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  table_meta_->swap(new_table_meta);
+  LOG_INFO("Successfully deleted index (%s) on the table (%s)", index_name, table_meta_->name());
+
+  // 删除索引数据文件和内存中的索引对象
+  indexes_.erase(std::remove_if(indexes_.begin(),
+                     indexes_.end(),
+                     [&](Index *index) {
+                       if (0 == strcmp(index->index_meta().name(), index_name)) {
+                         ((BplusTreeIndex *)index)->close();
+                         delete index;
+                         return true;
+                       }
+                       return false;
+                     }),
+      indexes_.end());
+  string index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_name);
+  if (!filesystem::remove(index_file.c_str())) {
+    LOG_ERROR("Failed to remove index file. file name=%s, errmsg=%s", index_file.c_str(), strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+  return rc;
+}
+
 RC HeapTableEngine::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
@@ -258,9 +333,12 @@ RC HeapTableEngine::delete_entry_of_indexes(const char *record, const RID &rid, 
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
-    rc = index->delete_entry(record, &rid);
-    if (rc != RC::SUCCESS) {
-      if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+    RC delete_rc = index->delete_entry(record, &rid);
+    if (delete_rc != RC::SUCCESS) {
+      if (delete_rc == RC::RECORD_NOT_EXIST && !error_on_not_exists) {
+        continue;
+      } else {
+        rc = delete_rc;
         break;
       }
     }
@@ -299,9 +377,13 @@ Index *HeapTableEngine::find_index(const char *index_name) const
 }
 Index *HeapTableEngine::find_index_by_field(const char *field_name) const
 {
-  const IndexMeta *index_meta = table_meta_->find_index_by_field(field_name);
-  if (index_meta != nullptr) {
-    return this->find_index(index_meta->name());
+  for (const auto &index : indexes_) {
+    if (index->index_meta().fields().size() == 1) {
+      auto name = index->index_meta().fields().front().name();
+      if (0 == strcmp(name, field_name)) {
+        return index;
+      }
+    }
   }
   return nullptr;
 }
@@ -337,19 +419,11 @@ RC HeapTableEngine::open()
   const int index_num = table_meta_->index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_->index(i);
-    const FieldMeta *field_meta = table_meta_->field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
-                table_meta_->name(), index_meta->name(), index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::INTERNAL;
-    }
 
     BplusTreeIndex *index      = new BplusTreeIndex();
     string          index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_meta->name());
 
-    rc = index->open(table_, index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(table_, index_file.c_str(), *index_meta);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s",
@@ -359,6 +433,20 @@ RC HeapTableEngine::open()
       return rc;
     }
     indexes_.push_back(index);
+  }
+  return rc;
+}
+
+RC HeapTableEngine::drop()
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    ((BplusTreeIndex *)index)->close();
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to drop index. table=%s, index=%s, rc=%s",
+                table_meta_->name(), index->index_meta().name(), strrc(rc));
+      return rc;
+    }
   }
   return rc;
 }

@@ -194,7 +194,7 @@ RC Db::drop_table(const char *table_name)
     LOG_WARN("No such table: %s", table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-  rc = table->drop(this, table_name, path_.c_str());
+  rc = table->drop();
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to drop table %s.", table_name);
     return rc;

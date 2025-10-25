@@ -9,13 +9,24 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by wangyunlai.wyl on 2021/5/19.
+// Created by Wangyunlai on 2023/6/14.
 //
 
-#include "storage/index/index.h"
+#pragma once
 
-RC Index::init(const IndexMeta &index_meta)
+#include "common/sys/rc.h"
+#include "event/sql_event.h"
+
+/**
+ * @brief 显示所有表的执行器
+ * @ingroup Executor
+ * @note 与CreateIndex类似，不处理并发
+ */
+class ShowIndexExecutor
 {
-  index_meta_ = index_meta;
-  return RC::SUCCESS;
-}
+public:
+  ShowIndexExecutor()          = default;
+  virtual ~ShowIndexExecutor() = default;
+
+  RC execute(SQLStageEvent *sql_event);
+};

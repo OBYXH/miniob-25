@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/span.h"
 #include "storage/field/field_meta.h"
 #include "storage/index/index_meta.h"
+#include <vector>
 
 /**
  * @brief 表元数据
@@ -40,6 +41,7 @@ public:
       StorageEngine storage_engine);
 
   RC add_index(const IndexMeta &index);
+  RC drop_index(const char *index_name);
 
 public:
   int32_t             table_id() const { return table_id_; }
@@ -48,17 +50,17 @@ public:
   const FieldMeta    *field(int index) const;
   const FieldMeta    *field(const char *name) const;
   const FieldMeta    *find_field_by_offset(int offset) const;
+  RC                  get_field_metas(const vector<string> &fields, vector<FieldMeta> &field_metas) const;
   auto                field_metas() const -> const vector<FieldMeta>                *{ return &fields_; }
   auto                trx_fields() const -> span<const FieldMeta>;
   const StorageFormat storage_format() const { return storage_format_; }
   const StorageEngine storage_engine() const { return storage_engine_; }
-  int                 null_falg_bytes() const { return null_falg_bytes_; }
 
   int field_num() const;  // sys field included
   int sys_field_num() const;
 
   const IndexMeta *index(const char *name) const;
-  const IndexMeta *find_index_by_field(const char *field) const;
+  // const IndexMeta *find_index_by_field(const char *field) const;
   const IndexMeta *index(int i) const;
   int              index_num() const;
 
@@ -82,7 +84,6 @@ protected:
   vector<string>    primary_keys_;
   StorageFormat     storage_format_;
   StorageEngine     storage_engine_;
-  int               null_falg_bytes_ = 4;
 
   int record_size_ = 0;
 };

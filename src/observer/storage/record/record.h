@@ -105,7 +105,8 @@ public:
   {
     if (owner_ && data_ != nullptr) {
       free(data_);
-      data_ = nullptr;
+      owner_ = false;
+      data_  = nullptr;
     }
   }
 
@@ -140,6 +141,18 @@ public:
     this->key_ = other.key_;
     memcpy(data_, other.data_, other.len_);
     return *this;
+  }
+
+  Record clone()
+  {
+    Record new_record;
+    new_record.rid_  = this->rid_;
+    new_record.key_  = this->key_;
+    new_record.len_  = this->len_;
+    new_record.data_ = (char *)malloc(this->len_);
+    memcpy(new_record.data_, this->data_, this->len_);
+    new_record.owner_ = true;
+    return new_record;
   }
 
   Record(Record &&other)
@@ -213,7 +226,7 @@ public:
     return RC::SUCCESS;
   }
 
-  RC set_field(int field_offset, int field_len, char *data)
+  RC set_field(int field_offset, int field_len, const Value &value)
   {
     if (!owner_) {
       LOG_ERROR("cannot set field when record does not own the memory");
@@ -224,7 +237,49 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
-    memcpy(data_ + field_offset, data, field_len);
+    // 实际数据长度
+    auto len = std::min(field_len, value.length());
+    // 如果是字符串类型，长度可变，要根据实际长度拷贝数据
+    memcpy(data_ + field_offset, value.data(), len);
+    // 因为列数据是连续的，如果中间某些列加了'\0'，会导致后面列没数据
+    // 需要判断更新的字符串是否小于上限，只有小于才需要加'\0'，而大于应该抛出异常
+    // 除了字符串类型其他都是定长的
+    if (len < field_len) {
+      data_[field_offset + len] = '\0';
+    }
+    return RC::SUCCESS;
+  }
+
+  RC get_field(const FieldMeta &field_meta, Value &value) const
+  {
+    int field_offset = field_meta.offset();
+    int data_len     = field_meta.len() - field_meta.nullable();
+
+    if (field_offset + field_meta.len() > len_) {
+      LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_meta.len(), len_);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    value.set_type(field_meta.type());
+
+    if (field_meta.nullable()) {
+      // 只有字段是可为空的，取标记位才有意义
+      bool is_null = data_[field_offset + field_meta.len() - 1] == '1';
+      if (is_null) {
+        value.set_null();
+        return RC::SUCCESS;
+      }
+    }
+
+    char *data = new char[data_len];
+    memcpy(data, data_ + field_offset, data_len);
+    value.set_data(data, data_len);
+
+    // vector 不释放内存
+    if (!(field_meta.type() == AttrType::VECTORS)) {
+      delete[] data;
+    }
+
     return RC::SUCCESS;
   }
 
