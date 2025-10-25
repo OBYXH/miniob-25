@@ -95,6 +95,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         CREATE
         DROP
         GROUP
+        ORDER
+        ASC
         TABLE
         TABLES
         INDEX
@@ -177,6 +179,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<RelAttrSqlNode> *                   rel_attr_list;
   vector<string> *                           relation_list;
   vector<string> *                           key_list;
+  OrderBySqlNode *                           orderby_unit;
+  std::vector<OrderBySqlNode> *              orderby_list;
   char *                                     cstring;
   int                                        number;
   float                                      floats;
@@ -230,6 +234,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <expression>          vector_expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
+%type <orderby_unit>        sort_unit
+%type <orderby_list>        sort_list
+%type <orderby_list>        opt_order_by
 %type <cstring>             fields_terminated_by
 %type <cstring>             enclosed_by
 %type <cstring>             alias
@@ -672,7 +679,7 @@ update_list:
       delete $5;
     }
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list where group_by having_condition
+    SELECT expression_list FROM rel_list where group_by having_condition opt_order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -698,6 +705,11 @@ select_stmt:        /*  select 语句的语法解析树*/
       if( $7 != nullptr) {
         $$->selection.having_conditions.swap(*$7);
         delete $7;
+      }
+
+      if ($8 != nullptr) {
+        $$->selection.order_by.swap(*$8);
+        delete $8;
       }
     }
     | SELECT expression_list
@@ -926,6 +938,53 @@ comp_op:
     ;
 
 // your code here
+opt_order_by:
+	/* empty */
+    {
+      $$ = nullptr;
+    }
+    | ORDER BY sort_list
+    {
+      $$ = $3;
+      std::reverse($$->begin(),$$->end());
+    }
+    ;
+
+sort_list:
+	  sort_unit
+	{
+      $$ = new std::vector<OrderBySqlNode>;
+      $$->emplace_back(std::move(*$1));
+	}
+    | sort_unit COMMA sort_list
+	{
+      $3->emplace_back(std::move(*$1));
+      $$ = $3;
+	}
+	;
+
+sort_unit:
+	  expression
+	{
+      $$ = new OrderBySqlNode();
+      $$->expr = std::unique_ptr<Expression>($1);
+      $$->is_asc = true;
+	}
+	| expression DESC
+	{
+      $$ = new OrderBySqlNode();
+      $$->expr = std::unique_ptr<Expression>($1);
+      $$->is_asc = false;
+	}
+	| expression ASC
+	{
+      $$ = new OrderBySqlNode(); // 默认升序
+      $$->expr = std::unique_ptr<Expression>($1);
+      $$->is_asc = true;
+	}
+	;
+
+
 group_by:
     /* empty */
     {
