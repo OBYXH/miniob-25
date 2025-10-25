@@ -158,6 +158,7 @@ void Value::reset()
 
   attr_type_ = AttrType::UNDEFINED;
   length_    = 0;
+  is_null_   = false;
   own_data_  = false;
 }
 
@@ -181,7 +182,7 @@ void Value::set_data(char *data, int length)
     } break;
     case AttrType::VECTORS: {
       float              vec_data;
-      auto               offset = 0;
+      size_t             offset = 0;
       std::vector<float> vec_;
       while (offset < length * sizeof(float)) {
         memcpy(&vec_data, data + offset, sizeof(float));

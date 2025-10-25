@@ -17,6 +17,7 @@ INSERT INTO t_group_by_null VALUES(8, NULL, NULL);
 -- sort select name, sum(score) from t_group_by_null group by name;
 -- sort select name, avg(score) from t_group_by_null group by name;
 -- sort select name, min(score), max(score) from t_group_by_null group by name;
+-- sort select name, count(name), min(score), max(score) from t_group_by_null group by name;
 
 -- echo 4. comprehensive aggregation test
 -- sort select name, count(*), count(score), sum(score), avg(score) from t_group_by_null group by name;
@@ -31,3 +32,56 @@ insert into t_all_null values(NULL, 10);
 insert into t_all_null values(NULL, 20);
 insert into t_all_null values(NULL, 30);
 -- sort select id, sum(val) from t_all_null group by id;  
+
+-- echo 7. group with all-null aggregate values (NEW)
+INSERT INTO t_group_by_null VALUES(9, NULL, 'c');
+INSERT INTO t_group_by_null VALUES(10, NULL, 'c');
+-- sort select name, count(*), count(score), sum(score), avg(score), min(score), max(score) from t_group_by_null group by name;
+
+-- echo 8. having on null aggregate results (NEW)
+-- sort select name, sum(score) from t_group_by_null group by name having sum(score) is null;
+-- sort select name, count(score) from t_group_by_null group by name having count(score) = 0;
+-- sort select name, sum(score) from t_group_by_null group by name having sum(score) > 0;
+
+-- echo 9. group by composite key with nulls (NEW)
+create table t_group_by_multi (val int, group1 char, group2 char);
+insert into t_group_by_multi values(10, 'a', 'x');
+insert into t_group_by_multi values(20, 'a', 'y');
+insert into t_group_by_multi values(30, 'a', NULL);
+insert into t_group_by_multi values(40, 'b', 'x');
+insert into t_group_by_multi values(50, NULL, 'x');
+insert into t_group_by_multi values(60, NULL, 'y');
+insert into t_group_by_multi values(70, NULL, 'y');
+insert into t_group_by_multi values(80, NULL, NULL);
+insert into t_group_by_multi values(90, 'a', NULL);
+-- sort select group1, group2, count(*), sum(val) from t_group_by_multi group by group1, group2;
+
+-- echo 10. where clause interaction with null (NEW)
+-- sort select name, count(*) from t_group_by_null where score is not null group by name;
+-- sort select name, count(*) from t_group_by_null where name is not null group by name;
+
+-- echo 11. group by on empty table (NEW)
+create table t_empty (id int, val int);
+-- sort select id, sum(val) from t_empty group by id;
+
+-- echo 12. add null aggregate values (NEW)
+insert into t_group_by_multi values(NULL, 'a', 'x');
+insert into t_group_by_multi values(NULL, NULL, NULL);
+
+-- echo 13. composite key test with null aggregates (NEW)
+-- sort select group1, group2, count(*), count(val), sum(val), avg(val) from t_group_by_multi group by group1, group2;
+
+-- echo 14. group by single column from composite (NEW)
+-- sort select group1, count(*), sum(val), avg(val) from t_group_by_multi group by group1;
+select group2, count(*), sum(val), avg(val) from t_group_by_multi group by group2;
+
+-- echo 15. having clause on composite group (NEW)
+-- sort select group1, group2, sum(val) from t_group_by_multi group by group1, group2 having sum(val) > 100;
+-- sort select group1, group2, count(*) from t_group_by_multi group by group1, group2 having group1 IS NULL and group2 <> 'x';
+-- sort select group1, group2, count(*) from t_group_by_multi group by group1, group2 having count(*) > 1 AND group1 = 'a';
+
+insert into t_group_by_multi values(NULL, 'c', 'z');
+-- sort select group1, group2, sum(val) from t_group_by_multi group by group1, group2 having sum(val) IS NULL;
+
+-- echo 16. where + group by + having composite (NEW)
+-- sort select group1, group2, count(*), sum(val) from t_group_by_multi where group1 IS NOT NULL group by group1, group2 having count(*) >= 2;
