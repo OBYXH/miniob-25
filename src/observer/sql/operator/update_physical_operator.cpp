@@ -62,20 +62,46 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     new_record.set_rid(old_record.rid());
     new_record.copy_data(old_record.data(), old_record.len());
     for (uint32_t i = 0; i < field_metas_.size(); i++) {
+      auto field = field_metas_[i];
       auto value = *values_[i];
-      if (field_metas_[i].nullable()) {
-        auto null_offset = field_metas_[i].offset() + field_metas_[i].len() - 1;
-        if (value.is_null()) {
-          new_record.data()[null_offset] = '1';
-        } else {
-          new_record.data()[null_offset] = 0;
+      if (value.is_null()) {
+        if (!field.nullable()) {
+          LOG_WARN("field is not nullable. table name:%s,field name:%s", table_->name(), field.name());
+          return RC::UNSUPPORTED_NULL_VALUE;
         }
-      } else if (value.is_null()) {
-        return RC::UNSUPPORTED_NULL_VALUE;
-      }
-      if (!value.is_null()) {
-        // 非空才更新数据
-        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), value);
+        new_record.data()[field.offset() + field.len() - 1] = '1';
+      } else {
+        Value real_value = value;
+        if (field.type() != value.attr_type()) {
+          if (field.type() == AttrType::TEXTS && value.attr_type() == AttrType::CHARS) {
+            rc = real_value.borrow_text(value);
+            if (OB_FAIL(rc)) {
+              LOG_WARN("failed to borrow text value. table name:%s, field name:%s, value length:%d",
+                  table_->name(), field.name(), value.length());
+              break;
+            }
+          } else {
+            // 插入不允许非目标类型的类型提升
+            rc = Value::cast_to(value, field.type(), real_value);
+
+            if (OB_FAIL(rc)) {
+              LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
+                  table_->name(), field.name(), value.to_string().c_str());
+              return rc;
+            }
+          }
+        }
+        // 进行长度校验
+        if (real_value.length() > field.len() - field.nullable()) {
+          LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s, Type: %s, Offset: %d, Length: %d, Max Length: %d",
+                    field.name(),
+                    attr_type_to_string(field.type()),
+                    field.offset(),
+                    value.length(),
+                    field.len());
+          return RC::IOERR_TOO_LONG;
+        }
+        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), real_value);
         if (OB_FAIL(rc)) {
           LOG_WARN("failed to set field value. table name=%s, field name=%s, rc=%s",
               table_->name(), field_metas_[i].name(), strrc(rc));

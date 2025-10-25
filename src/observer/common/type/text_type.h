@@ -8,20 +8,28 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
-//
-// Created by Longda on 2021/4/14.
-//
-
 #pragma once
 
-//! this document is used for ini setting
+#include "common/type/data_type.h"
 
-#define CLIENT_ADDRESS "CLIENT_ADDRESS"
-#define MAX_CONNECTION_NUM "MAX_CONNECTION_NUM"
-#define MAX_CONNECTION_NUM_DEFAULT 8192
-#define PORT "PORT"
-#define PORT_DEFAULT 6789
+/**
+ * @brief 浮点型数据类型
+ * @ingroup DataType
+ */
+class TextType : public DataType
+{
+public:
+  TextType() : DataType(AttrType::TEXTS) {}
 
-#define SOCKET_BUFFER_SIZE 8192 * 1024
+  ~TextType() override = default;
 
-#define SESSION_STAGE_NAME "SessionStage"
+  int compare(const Value &left, const Value &right) const override;
+
+  RC cast_to(const Value &val, AttrType type, Value &result) const override;
+
+  RC set_value_from_str(Value &val, const string &data) const override;
+
+  int cast_cost(AttrType type) override;
+
+  RC to_string(const Value &val, string &result) const override;
+};

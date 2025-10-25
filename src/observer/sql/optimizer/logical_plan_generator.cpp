@@ -354,7 +354,7 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     find_unbound_column(expression);
   }
 
-   for (unique_ptr<Expression> &expression : having_expressions) {
+  for (unique_ptr<Expression> &expression : having_expressions) {
     bind_group_by_expr(expression);
   }
 
@@ -370,8 +370,6 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
   for (unique_ptr<Expression> &expression : having_expressions) {
     collector(expression);
   }
-
-
 
   if (group_by_expressions.empty() && aggregate_expressions.empty()) {
     // 既没有group by也没有聚合函数，不需要group by

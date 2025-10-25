@@ -15,3 +15,4 @@ primary-group-by-null
 primary-show-index
 primary-multi-index
 primary-unique
+primary-text

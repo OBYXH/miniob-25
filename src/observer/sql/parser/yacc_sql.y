@@ -159,6 +159,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         IS
         AS
         HAVING
+        TEXT_T
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -463,6 +464,8 @@ attr_def:
         $$->length = sizeof(char) * 4;
       } else if ($$->type == AttrType::VECTORS) {
         $$->length = sizeof(float) * 1;
+      } else if ($$->type == AttrType::TEXTS) {
+        $$->length = 65535;
       } else {
         ASSERT(false, "$$->type is invalid.");
       }
@@ -501,6 +504,7 @@ type:
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | VECTOR_T { $$ = static_cast<int>(AttrType::VECTORS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
+    | TEXT_T   { $$ = static_cast<int>(AttrType::TEXTS); }
     ;
 primary_key:
     /* empty */

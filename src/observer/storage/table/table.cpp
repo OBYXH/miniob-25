@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Wangyunlai on 2021/5/13.
 //
 
+#include <algorithm>
 #include <bitset>
 #include <cstdint>
 #include <limits.h>
@@ -265,12 +266,21 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
     } else {
       Value real_value = value;
       if (field->type() != value.attr_type()) {
-        // 插入不允许非目标类型的类型提升
-        rc = Value::cast_to(value, field->type(), real_value);
-        if (OB_FAIL(rc)) {
-          LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
-              table_meta_.name(), field->name(), value.to_string().c_str());
-          break;
+        if (field->type() == AttrType::TEXTS && value.attr_type() == AttrType::CHARS) {
+          rc = real_value.borrow_text(value);
+          if (OB_FAIL(rc)) {
+            LOG_WARN("failed to borrow text value. table name:%s, field name:%s, value length:%d",
+                table_meta_.name(), field->name(), value.length());
+            break;
+          }
+        } else {
+          // 插入不允许非目标类型的类型提升
+          rc = Value::cast_to(value, field->type(), real_value);
+          if (OB_FAIL(rc)) {
+            LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
+                table_meta_.name(), field->name(), value.to_string().c_str());
+            break;
+          }
         }
       }
       // 进行长度校验
@@ -300,10 +310,8 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
 {
   size_t       copy_len = field->len();
   const size_t data_len = value.length();
-  if (field->type() == AttrType::CHARS) {
-    if (copy_len > data_len) {
-      copy_len = data_len + 1;
-    }
+  if (field->type() == AttrType::CHARS || field->type() == AttrType::TEXTS) {
+    copy_len = min(copy_len, data_len + 1);
   } else if (field->type() == AttrType::VECTORS) {
     // ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(),
     // value.length());
@@ -315,6 +323,8 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
       copy_len = data_len;
     }
   }
+  LOG_INFO("set value to record, field name:%s, field offset:%d, field len:%d, value len:%d, copy len:%d",
+    field->name(), field->offset(), field->len(), value.length(), copy_len);
   memcpy(record_data + field->offset(), value.data(), copy_len);
   return RC::SUCCESS;
 }
