@@ -1,5 +1,4 @@
 -- echo 1. initialization
--- Description: Create a table and insert records with NULL values in grouping and aggregation columns.
 CREATE TABLE t_group_by_null (id int, score int, name char);
 INSERT INTO t_group_by_null VALUES(1, 10, 'a');
 INSERT INTO t_group_by_null VALUES(2, 20, 'a');
@@ -31,4 +30,4 @@ create table t_all_null (id int, val int);
 insert into t_all_null values(NULL, 10);
 insert into t_all_null values(NULL, 20);
 insert into t_all_null values(NULL, 30);
-select id, sum(val) from t_all_null group by id;  
+-- sort select id, sum(val) from t_all_null group by id;  

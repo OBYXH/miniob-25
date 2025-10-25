@@ -20,38 +20,38 @@ SUCCESS
 
 2. GROUP BY A COLUMN WITH NULL
 select name, count(*) from t_group_by_null group by name;
+NULL | 3
 A | 3
 B | 2
-NULL | 3
 NAME | COUNT(*)
 
 3. AGGREGATION FUNCTIONS WITH NULL VALUES
 select name, count(id) as count_id, count(score) as count_score from t_group_by_null group by name;
+NULL | 3 | 2
 A | 3 | 2
 B | 2 | 1
-NULL | 3 | 2
 NAME | COUNT_ID | COUNT_SCORE
 select name, sum(score) from t_group_by_null group by name;
+NULL | 90
 A | 30
 B | 30
-NULL | 90
 NAME | SUM(SCORE)
 select name, avg(score) from t_group_by_null group by name;
+NULL | 45
 A | 15
 B | 30
-NULL | 45
 NAME | AVG(SCORE)
 select name, min(score), max(score) from t_group_by_null group by name;
+NULL | 40 | 50
 A | 10 | 20
 B | 30 | 30
-NULL | 40 | 50
 NAME | MIN(SCORE) | MAX(SCORE)
 
 4. COMPREHENSIVE AGGREGATION TEST
 select name, count(*), count(score), sum(score), avg(score) from t_group_by_null group by name;
+NULL | 3 | 2 | 90 | 45
 A | 3 | 2 | 30 | 15
 B | 2 | 1 | 30 | 30
-NULL | 3 | 2 | 90 | 45
 NAME | COUNT(*) | COUNT(SCORE) | SUM(SCORE) | AVG(SCORE)
 
 5. HAVING CLAUSE WITH NULL GROUP
@@ -59,8 +59,8 @@ select name, count(*) from t_group_by_null group by name having name is null;
 NULL | 3
 NAME | COUNT(*)
 select name, count(*) from t_group_by_null group by name having count(score) >= 2;
-A | 3
 NULL | 3
+A | 3
 NAME | COUNT(*)
 
 6. GROUP BY ON A COLUMN THAT IS ALL NULLS

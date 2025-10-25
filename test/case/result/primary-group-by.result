@@ -83,3 +83,51 @@ ID | NAME | AVG(T_GROUP_BY.SCORE) | AVG(T_GROUP_BY_2.AGE)
 6. AGGREGATION IN WHERE
 select id from t_group_by where sum(score)>1;
 FAILURE
+
+7. BASIC HAVING CLAUSE
+SELECT name, count(*) FROM t_group_by GROUP BY name HAVING count(*) > 1;
+C | 3
+NAME | COUNT(*)
+
+SELECT id, avg(score) FROM t_group_by GROUP BY id HAVING avg(score) < 3.0;
+1 | 2
+3 | 2.4
+ID | AVG(SCORE)
+
+SELECT name, sum(score) FROM t_group_by GROUP BY name HAVING sum(score) > 5.0;
+C | 9
+NAME | SUM(SCORE)
+
+8. HAVING WITH COMPLEX CONDITIONS
+SELECT name, count(*), max(score) FROM t_group_by GROUP BY name HAVING count(*) > 1 AND max(score) = 4.0;
+C | 3 | 4
+NAME | COUNT(*) | MAX(SCORE)
+
+9. HAVING WITH GROUPING COLUMN
+SELECT id, avg(score) FROM t_group_by GROUP BY id HAVING id > 1;
+3 | 2.4
+4 | 3
+ID | AVG(SCORE)
+
+10. HAVING WITH 'WHERE' AND 'GROUP BY'
+SELECT name, count(*) FROM t_group_by WHERE score > 1.5 GROUP BY name HAVING count(*) >= 2;
+C | 3
+NAME | COUNT(*)
+
+11. HAVING WITH MULTI-COLUMN GROUP BY
+SELECT id, name, avg(score) FROM t_group_by GROUP BY id, name HAVING avg(score) >= 3.0;
+3 | C | 3
+3 | D | 3
+4 | C | 3
+ID | NAME | AVG(SCORE)
+
+12. HAVING WITHOUT GROUP BY (IMPLICIT GROUP)
+SELECT sum(score) FROM t_group_by HAVING count(*) > 5;
+17
+SUM(SCORE)
+SELECT sum(score) FROM t_group_by HAVING count(*) > 10;
+SUM(SCORE)
+
+13. HAVING ERROR CASES
+SELECT id, sum(score) FROM t_group_by GROUP BY id HAVING score > 1.0;
+FAILURE

@@ -11,3 +11,4 @@ primary-date
 primary-expression
 primary-aggregation-func
 primary-group-by
+primary-group-by-null

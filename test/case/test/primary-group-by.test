@@ -35,3 +35,29 @@ insert into t_group_by_2 values(4, 20);
 
 -- echo 6. aggregation in where
 -- sort select id from t_group_by where sum(score)>1;
+
+-- echo 7. basic having clause
+-- sort SELECT name, count(*) FROM t_group_by GROUP BY name HAVING count(*) > 1;
+
+-- sort SELECT id, avg(score) FROM t_group_by GROUP BY id HAVING avg(score) < 3.0;
+
+-- sort SELECT name, sum(score) FROM t_group_by GROUP BY name HAVING sum(score) > 5.0;
+
+-- echo 8. having with complex conditions
+-- sort SELECT name, count(*), max(score) FROM t_group_by GROUP BY name HAVING count(*) > 1 AND max(score) = 4.0;
+
+-- echo 9. having with grouping column
+-- sort SELECT id, avg(score) FROM t_group_by GROUP BY id HAVING id > 1;
+
+-- echo 10. having with 'where' and 'group by'
+-- sort SELECT name, count(*) FROM t_group_by WHERE score > 1.5 GROUP BY name HAVING count(*) >= 2;
+
+-- echo 11. having with multi-column group by
+-- sort SELECT id, name, avg(score) FROM t_group_by GROUP BY id, name HAVING avg(score) >= 3.0;
+
+-- echo 12. having without group by (implicit group)
+-- sort SELECT sum(score) FROM t_group_by HAVING count(*) > 5;
+-- sort SELECT sum(score) FROM t_group_by HAVING count(*) > 10;
+
+-- echo 13. having error cases
+SELECT id, sum(score) FROM t_group_by GROUP BY id HAVING score > 1.0;

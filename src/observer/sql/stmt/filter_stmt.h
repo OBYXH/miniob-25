@@ -41,6 +41,7 @@ public:
 public:
   FilterStmt() = default;
   virtual ~FilterStmt();
+  std::vector<std::unique_ptr<Expression>> &conditions() { return conditions_; }
 
 public:
   static RC create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
