@@ -39,6 +39,7 @@ public:
   friend class DateType;
   friend class VectorType;
   friend class NullType;
+  friend class TextType;
 
   Value() = default;
 
@@ -111,6 +112,7 @@ public:
 
   int      length() const { return length_; }
   AttrType attr_type() const { return attr_type_; }
+  RC       borrow_text(const Value &v);
 
 public:
   /**
@@ -133,6 +135,7 @@ public:
   void          set_float(float val);
   void          set_string(const char *s, int len = 0);
   void          set_empty_string(int len);
+  void          set_text(const char *s, int len = 65535);
   void          set_vector(float *array, int length);
   void          set_vector(const std::vector<float> &vec);
   void          set_vector(const char *s);

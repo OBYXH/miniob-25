@@ -32,7 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/linereader/line_reader.h"
 #include "common/log/log.h"
 
-#define MAX_MEM_BUFFER_SIZE 8192
+#define MAX_MEM_BUFFER_SIZE 8192 * 1024
 #define PORT_DEFAULT 6789
 
 using namespace std;
