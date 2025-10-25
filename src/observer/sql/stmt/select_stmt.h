@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/sys/rc.h"
+#include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
@@ -41,13 +42,19 @@ public:
 public:
   const vector<Table *> &tables() const { return tables_; }
   FilterStmt            *filter_stmt() const { return filter_stmt_; }
+  FilterStmt            *having_filter_stmt() const { return having_filter_stmt_; }
 
   vector<unique_ptr<Expression>> &query_expressions() { return query_expressions_; }
   vector<unique_ptr<Expression>> &group_by() { return group_by_; }
+  vector<unique_ptr<Expression>> &having_expressions()
+  {
+    return having_filter_stmt_ ? having_filter_stmt_->conditions() : *(new vector<unique_ptr<Expression>>());
+  }
 
 private:
   vector<unique_ptr<Expression>> query_expressions_;
   vector<Table *>                tables_;
-  FilterStmt                    *filter_stmt_ = nullptr;
+  FilterStmt                    *filter_stmt_        = nullptr;
+  FilterStmt                    *having_filter_stmt_ = nullptr;
   vector<unique_ptr<Expression>> group_by_;
 };

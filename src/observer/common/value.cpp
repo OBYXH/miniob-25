@@ -54,7 +54,7 @@ bool Value::is_valid_date() const
   unsigned int day   = date % 100;
 
   if (year < 1 || year > 9999)  // 简单处理
-    return false;               
+    return false;
   if (month < 1 || month > 12)
     return false;
   if (day < 1 || day > 31)
@@ -72,7 +72,7 @@ bool Value::is_valid_date() const
     if (day > 30)
       return false;
   }
-  
+
   return true;
 }
 Value::Value(const string_t &s) { set_string(s.data(), s.size()); }
@@ -158,6 +158,7 @@ void Value::reset()
 
   attr_type_ = AttrType::UNDEFINED;
   length_    = 0;
+  is_null_   = false;
   own_data_  = false;
 }
 
@@ -181,7 +182,7 @@ void Value::set_data(char *data, int length)
     } break;
     case AttrType::VECTORS: {
       float              vec_data;
-      auto               offset = 0;
+      size_t             offset = 0;
       std::vector<float> vec_;
       while (offset < length * sizeof(float)) {
         memcpy(&vec_data, data + offset, sizeof(float));

@@ -86,10 +86,11 @@ struct ConditionSqlNode
 
 struct SelectSqlNode
 {
-  vector<unique_ptr<Expression>> expressions;  ///< 查询的表达式
-  vector<string>                 relations;    ///< 查询的表
-  vector<ConditionSqlNode>       conditions;   ///< 查询条件，使用AND串联起来多个条件
-  vector<unique_ptr<Expression>> group_by;     ///< group by clause
+  vector<unique_ptr<Expression>> expressions;        ///< 查询的表达式
+  vector<string>                 relations;          ///< 查询的表
+  vector<ConditionSqlNode>       conditions;         ///< 查询条件，使用AND串联起来多个条件
+  vector<unique_ptr<Expression>> group_by;           ///< group by clause
+  vector<ConditionSqlNode>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
 };
 
 /**

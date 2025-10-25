@@ -156,6 +156,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NULL_T
         IS
         AS
+        HAVING
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -213,6 +214,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <value_list>          value_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
+%type <condition_list>      having_condition
 %type <cstring>             storage_format
 %type <key_list>            primary_key
 %type <key_list>            attr_list
@@ -627,7 +629,7 @@ update_list:
       delete update; 
     }
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list where group_by
+    SELECT expression_list FROM rel_list where group_by having_condition
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -648,6 +650,11 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($6 != nullptr) {
         $$->selection.group_by.swap(*$6);
         delete $6;
+      }
+
+      if( $7 != nullptr) {
+        $$->selection.having_conditions.swap(*$7);
+        delete $7;
       }
     }
     | SELECT expression_list
@@ -756,6 +763,12 @@ aggregate_expression:
       $$ = create_aggregate_expression($1, $3, sql_string, &@$);
     }
     // your code here
+    | ID LBRACE expression_list RBRACE{
+      $$ = new UnboundAggregateExpr("max", new StarExpr());
+    }
+    | ID LBRACE RBRACE{
+      $$ = new UnboundAggregateExpr("max", new StarExpr());
+    }
     ;
 
 vector_expression:
@@ -843,6 +856,16 @@ condition:
       $$->left = std::unique_ptr<Expression>($1);
       $$->right = std::unique_ptr<Expression>($3);
       $$->comp = $2;
+    }
+    ;
+
+having_condition:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | HAVING condition_list {
+      $$ = $2;  
     }
     ;
 

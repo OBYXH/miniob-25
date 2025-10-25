@@ -709,7 +709,7 @@ unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
     case Type::MIN: {
       aggregator = make_unique<MinAggregator>();
       break;
-    } 
+    }
     default: {
       ASSERT(false, "unsupported aggregate type");
       break;

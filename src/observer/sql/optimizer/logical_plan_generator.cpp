@@ -41,6 +41,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/expression_iterator.h"
 #include <memory>
+#include <vector>
 
 using namespace std;
 using namespace common;
@@ -148,6 +149,21 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
 
     last_oper = &group_by_oper;
+  }
+
+  unique_ptr<LogicalOperator> having_oper;
+  rc = create_plan(select_stmt->having_filter_stmt(), having_oper);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to create having logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  if (having_oper) {
+    if (*last_oper) {
+      having_oper->add_child(std::move(*last_oper));
+    }
+
+    last_oper = &having_oper;
   }
 
   unique_ptr<LogicalOperator> project_oper =
@@ -287,8 +303,9 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 {
   vector<unique_ptr<Expression>>        &group_by_expressions = select_stmt->group_by();
   vector<Expression *>                   aggregate_expressions;
-  vector<unique_ptr<Expression>>        &query_expressions = select_stmt->query_expressions();
-  function<RC(unique_ptr<Expression> &)> collector         = [&](unique_ptr<Expression> &expr) -> RC {
+  vector<unique_ptr<Expression>>        &query_expressions  = select_stmt->query_expressions();
+  vector<unique_ptr<Expression>>        &having_expressions = select_stmt->having_expressions();
+  function<RC(unique_ptr<Expression> &)> collector          = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       expr->set_pos(aggregate_expressions.size() + group_by_expressions.size());
@@ -337,10 +354,24 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     find_unbound_column(expression);
   }
 
+   for (unique_ptr<Expression> &expression : having_expressions) {
+    bind_group_by_expr(expression);
+  }
+
+  for (unique_ptr<Expression> &expression : having_expressions) {
+    find_unbound_column(expression);
+  }
+
   // collect all aggregate expressions
   for (unique_ptr<Expression> &expression : query_expressions) {
     collector(expression);
   }
+
+  for (unique_ptr<Expression> &expression : having_expressions) {
+    collector(expression);
+  }
+
+
 
   if (group_by_expressions.empty() && aggregate_expressions.empty()) {
     // 既没有group by也没有聚合函数，不需要group by

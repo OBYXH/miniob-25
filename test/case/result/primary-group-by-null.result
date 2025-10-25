@@ -1,0 +1,210 @@
+1. INITIALIZATION
+CREATE TABLE t_group_by_null (id int, score int, name char);
+SUCCESS
+INSERT INTO t_group_by_null VALUES(1, 10, 'a');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(2, 20, 'a');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(3, NULL, 'a');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(4, 30, 'b');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(5, NULL, 'b');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(6, 40, NULL);
+SUCCESS
+INSERT INTO t_group_by_null VALUES(7, 50, NULL);
+SUCCESS
+INSERT INTO t_group_by_null VALUES(8, NULL, NULL);
+SUCCESS
+
+2. GROUP BY A COLUMN WITH NULL
+select name, count(*) from t_group_by_null group by name;
+NULL | 3
+A | 3
+B | 2
+NAME | COUNT(*)
+
+3. AGGREGATION FUNCTIONS WITH NULL VALUES
+select name, count(id) as count_id, count(score) as count_score from t_group_by_null group by name;
+NULL | 3 | 2
+A | 3 | 2
+B | 2 | 1
+NAME | COUNT_ID | COUNT_SCORE
+select name, sum(score) from t_group_by_null group by name;
+NULL | 90
+A | 30
+B | 30
+NAME | SUM(SCORE)
+select name, avg(score) from t_group_by_null group by name;
+NULL | 45
+A | 15
+B | 30
+NAME | AVG(SCORE)
+select name, min(score), max(score) from t_group_by_null group by name;
+NULL | 40 | 50
+A | 10 | 20
+B | 30 | 30
+NAME | MIN(SCORE) | MAX(SCORE)
+select name, count(name), min(score), max(score) from t_group_by_null group by name;
+NULL | 0 | 40 | 50
+a | 3 | 10 | 20
+b | 2 | 30 | 30
+name | count(name) | min(score) | max(score)
+
+4. COMPREHENSIVE AGGREGATION TEST
+select name, count(*), count(score), sum(score), avg(score) from t_group_by_null group by name;
+NULL | 3 | 2 | 90 | 45
+A | 3 | 2 | 30 | 15
+B | 2 | 1 | 30 | 30
+NAME | COUNT(*) | COUNT(SCORE) | SUM(SCORE) | AVG(SCORE)
+
+5. HAVING CLAUSE WITH NULL GROUP
+select name, count(*) from t_group_by_null group by name having name is null;
+NULL | 3
+NAME | COUNT(*)
+select name, count(*) from t_group_by_null group by name having count(score) >= 2;
+NULL | 3
+A | 3
+NAME | COUNT(*)
+
+6. GROUP BY ON A COLUMN THAT IS ALL NULLS
+create table t_all_null (id int, val int);
+SUCCESS
+insert into t_all_null values(NULL, 10);
+SUCCESS
+insert into t_all_null values(NULL, 20);
+SUCCESS
+insert into t_all_null values(NULL, 30);
+SUCCESS
+select id, sum(val) from t_all_null group by id;
+NULL | 60
+ID | SUM(VAL)
+
+7. GROUP WITH ALL-NULL AGGREGATE VALUES (NEW)
+INSERT INTO t_group_by_null VALUES(9, NULL, 'c');
+SUCCESS
+INSERT INTO t_group_by_null VALUES(10, NULL, 'c');
+SUCCESS
+select name, count(*), count(score), sum(score), avg(score), min(score), max(score) from t_group_by_null group by name;
+NULL | 3 | 2 | 90 | 45 | 40 | 50
+A | 3 | 2 | 30 | 15 | 10 | 20
+B | 2 | 1 | 30 | 30 | 30 | 30
+C | 2 | 0 | NULL | NULL | NULL | NULL
+NAME | COUNT(*) | COUNT(SCORE) | SUM(SCORE) | AVG(SCORE) | MIN(SCORE) | MAX(SCORE)
+
+8. HAVING ON NULL AGGREGATE RESULTS (NEW)
+select name, sum(score) from t_group_by_null group by name having sum(score) is null;
+C | NULL
+NAME | SUM(SCORE)
+select name, count(score) from t_group_by_null group by name having count(score) = 0;
+C | 0
+NAME | COUNT(SCORE)
+select name, sum(score) from t_group_by_null group by name having sum(score) > 0;
+NULL | 90
+A | 30
+B | 30
+NAME | SUM(SCORE)
+
+9. GROUP BY COMPOSITE KEY WITH NULLS (NEW)
+create table t_group_by_multi (val int, group1 char, group2 char);
+SUCCESS
+insert into t_group_by_multi values(10, 'a', 'x');
+SUCCESS
+insert into t_group_by_multi values(20, 'a', 'y');
+SUCCESS
+insert into t_group_by_multi values(30, 'a', NULL);
+SUCCESS
+insert into t_group_by_multi values(40, 'b', 'x');
+SUCCESS
+insert into t_group_by_multi values(50, NULL, 'x');
+SUCCESS
+insert into t_group_by_multi values(60, NULL, 'y');
+SUCCESS
+insert into t_group_by_multi values(70, NULL, 'y');
+SUCCESS
+insert into t_group_by_multi values(80, NULL, NULL);
+SUCCESS
+insert into t_group_by_multi values(90, 'a', NULL);
+SUCCESS
+select group1, group2, count(*), sum(val) from t_group_by_multi group by group1, group2;
+NULL | NULL | 1 | 80
+NULL | X | 1 | 50
+NULL | Y | 2 | 130
+A | NULL | 2 | 120
+A | X | 1 | 10
+A | Y | 1 | 20
+B | X | 1 | 40
+GROUP1 | GROUP2 | COUNT(*) | SUM(VAL)
+
+10. WHERE CLAUSE INTERACTION WITH NULL (NEW)
+select name, count(*) from t_group_by_null where score is not null group by name;
+NULL | 2
+A | 2
+B | 1
+NAME | COUNT(*)
+select name, count(*) from t_group_by_null where name is not null group by name;
+A | 3
+B | 2
+C | 2
+NAME | COUNT(*)
+
+11. GROUP BY ON EMPTY TABLE (NEW)
+create table t_empty (id int, val int);
+SUCCESS
+select id, sum(val) from t_empty group by id;
+ID | SUM(VAL)
+
+12. ADD NULL AGGREGATE VALUES (NEW)
+insert into t_group_by_multi values(NULL, 'a', 'x');
+SUCCESS
+insert into t_group_by_multi values(NULL, NULL, NULL);
+SUCCESS
+
+13. COMPOSITE KEY TEST WITH NULL AGGREGATES (NEW)
+select group1, group2, count(*), count(val), sum(val), avg(val) from t_group_by_multi group by group1, group2;
+NULL | NULL | 2 | 1 | 80 | 80
+NULL | X | 1 | 1 | 50 | 50
+NULL | Y | 2 | 2 | 130 | 65
+A | NULL | 2 | 2 | 120 | 60
+A | X | 2 | 1 | 10 | 10
+A | Y | 1 | 1 | 20 | 20
+B | X | 1 | 1 | 40 | 40
+GROUP1 | GROUP2 | COUNT(*) | COUNT(VAL) | SUM(VAL) | AVG(VAL)
+
+14. GROUP BY SINGLE COLUMN FROM COMPOSITE (NEW)
+select group1, count(*), sum(val), avg(val) from t_group_by_multi group by group1;
+NULL | 5 | 260 | 65
+A | 5 | 150 | 37.5
+B | 1 | 40 | 40
+GROUP1 | COUNT(*) | SUM(VAL) | AVG(VAL)
+select group2, count(*), sum(val), avg(val) from t_group_by_multi group by group2;
+GROUP2 | COUNT(*) | SUM(VAL) | AVG(VAL)
+X | 4 | 100 | 33.33
+Y | 3 | 150 | 50
+NULL | 4 | 200 | 66.67
+
+15. HAVING CLAUSE ON COMPOSITE GROUP (NEW)
+select group1, group2, sum(val) from t_group_by_multi group by group1, group2 having sum(val) > 100;
+NULL | Y | 130
+A | NULL | 120
+GROUP1 | GROUP2 | SUM(VAL)
+select group1, group2, count(*) from t_group_by_multi group by group1, group2 having group1 IS NULL and group2 <> 'x';
+NULL | Y | 2
+GROUP1 | GROUP2 | COUNT(*)
+select group1, group2, count(*) from t_group_by_multi group by group1, group2 having count(*) > 1 AND group1 = 'a';
+A | NULL | 2
+A | X | 2
+GROUP1 | GROUP2 | COUNT(*)
+
+insert into t_group_by_multi values(NULL, 'c', 'z');
+SUCCESS
+select group1, group2, sum(val) from t_group_by_multi group by group1, group2 having sum(val) IS NULL;
+C | Z | NULL
+GROUP1 | GROUP2 | SUM(VAL)
+
+16. WHERE + GROUP BY + HAVING COMPOSITE (NEW)
+select group1, group2, count(*), sum(val) from t_group_by_multi where group1 IS NOT NULL group by group1, group2 having count(*) >= 2;
+A | NULL | 2 | 120
+A | X | 2 | 10
+GROUP1 | GROUP2 | COUNT(*) | SUM(VAL)
