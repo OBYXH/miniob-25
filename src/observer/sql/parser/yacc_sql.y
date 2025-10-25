@@ -804,7 +804,6 @@ select_stmt:        /*  select 语句的语法解析树*/
           for (auto &condition : join.conditions)
             $$->selection.conditions.emplace_back(std::move(condition));
         }
-        delete $5;
       }
 
       if ($7 != nullptr) {
@@ -1048,12 +1047,10 @@ join_clauses:
     {
       $$ = new vector<JoinSqlNode>;
       $$->emplace_back(std::move(*$1));
-      delete $1;
     }
     | join_clauses join_clause {
       $$ = $1;
       $$->emplace_back(std::move(*$2));
-      delete $2;
     }
     ;
 where:
@@ -1074,21 +1071,11 @@ condition_list:
       LOG_DEBUG("HIT condition_list stop");
       $$ = new vector<ConditionSqlNode>;
       $$->emplace_back(std::move(*$1)); // 由于Condition中有不可Copy的unique_ptr成员，所以这里必须用move语义
-      $1->conjunction_type = 0;
-      delete $1;
     }
     | condition AND condition_list {
       LOG_DEBUG("HIT condition_list continue");
       $$ = $3;
-      $1->conjunction_type = 1;
-      $$->push_back(std::move(*$1));
-      delete $1;
-    }
-    | condition OR condition_list {
-      $$ = $3;
-      $1->conjunction_type = 2;
-      $$->push_back(std::move(*$1));
-      delete $1;
+      $$->emplace_back(std::move(*$1));
     }
     ;
 condition:
