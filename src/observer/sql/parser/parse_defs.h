@@ -83,6 +83,15 @@ struct ConditionSqlNode
 };
 
 /**
+ * @brief 描述一个orderby的节点
+ */
+struct OrderBySqlNode
+{
+  std::unique_ptr<Expression> expr;
+  bool                        is_asc;  ///< 默认true 为升序
+};
+
+/**
  * @brief 描述一个select语句
  * @ingroup SQLParser
  * @details 一个正常的select语句描述起来比这个要复杂很多，这里做了简化。
@@ -99,6 +108,7 @@ struct SelectSqlNode
   vector<string>                 relations;          ///< 查询的表
   vector<ConditionSqlNode>       conditions;         ///< 查询条件，使用AND串联起来多个条件
   vector<unique_ptr<Expression>> group_by;           ///< group by clause
+  std::vector<OrderBySqlNode>    order_by; 
   vector<ConditionSqlNode>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
 };
 
