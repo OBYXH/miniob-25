@@ -13,10 +13,12 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/optimizer/predicate_rewrite.h"
+#include "common/log/log.h"
 #include "sql/operator/logical_operator.h"
 
 RC PredicateRewriteRule::rewrite(unique_ptr<LogicalOperator> &oper, bool &change_made)
 {
+  LOG_DEBUG("HIT PREDICT REWRITE");
   vector<unique_ptr<LogicalOperator>> &child_opers = oper->children();
   if (child_opers.size() != 1) {
     return RC::SUCCESS;

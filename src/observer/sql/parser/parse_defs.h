@@ -147,7 +147,7 @@ struct SelectSqlNode
 struct JoinSqlNode
 {
   std::string      relation;   ///< 查询的表
-  std::unique_ptr<ConditionSqlNode> condition;  ///< 查询条件(已在expression中支持嵌套)
+  vector<ConditionSqlNode> conditions;  ///< 查询条件(已在expression中支持嵌套)
 };
 
 /**

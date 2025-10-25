@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 
 RC PredicatePushdownRewriter::rewrite(unique_ptr<LogicalOperator> &oper, bool &change_made)
 {
+  LOG_DEBUG("HIT PREDICATE PUSHDOWN");
   RC rc = RC::SUCCESS;
   if (oper->type() != LogicalOperatorType::PREDICATE) {
     return rc;
@@ -30,6 +31,7 @@ RC PredicatePushdownRewriter::rewrite(unique_ptr<LogicalOperator> &oper, bool &c
   }
 
   unique_ptr<LogicalOperator> &child_oper = oper->children().front();
+  LOG_DEBUG("child operator type=%d", static_cast<int>(child_oper->type()));
   if (child_oper->type() != LogicalOperatorType::TABLE_GET) {
     return rc;
   }

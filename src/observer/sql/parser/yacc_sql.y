@@ -801,8 +801,8 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($5 != nullptr) {
         for (auto &join : *$5) {
           $$->selection.relations.emplace_back(join.relation);
-          if (join.condition != nullptr) 
-          $$->selection.conditions.emplace_back(std::move(*join.condition));
+          for (auto &condition : join.conditions)
+            $$->selection.conditions.emplace_back(std::move(condition));
         }
         delete $5;
       }
@@ -1029,16 +1029,18 @@ rel_list:
     }
     ;
 join_clause:
-    INNER JOIN relation ON condition
+    INNER JOIN relation ON condition_list
     {
+      LOG_DEBUG("HIT INNER JOIN clause");
       $$ = new JoinSqlNode;
       $$->relation = $3;
-      $$->condition = std::unique_ptr<ConditionSqlNode>($5);
+      $$->conditions = std::move(*$5);
     }
     | COMMA relation {
+      LOG_DEBUG("HIT COMMA JOIN clause");
       $$ = new JoinSqlNode;
       $$->relation = $2;
-      $$->condition = nullptr;
+      $$->conditions = vector<ConditionSqlNode>();
     }
 
 join_clauses:
@@ -1048,10 +1050,10 @@ join_clauses:
       $$->emplace_back(std::move(*$1));
       delete $1;
     }
-    | join_clause join_clauses {
-      $$ = $2;
-      $$->emplace_back(std::move(*$1));
-      delete $1;
+    | join_clauses join_clause {
+      $$ = $1;
+      $$->emplace_back(std::move(*$2));
+      delete $2;
     }
     ;
 where:
@@ -1069,12 +1071,14 @@ condition_list:
       $$ = nullptr;
     }
     | condition {
+      LOG_DEBUG("HIT condition_list stop");
       $$ = new vector<ConditionSqlNode>;
       $$->emplace_back(std::move(*$1)); // 由于Condition中有不可Copy的unique_ptr成员，所以这里必须用move语义
       $1->conjunction_type = 0;
       delete $1;
     }
     | condition AND condition_list {
+      LOG_DEBUG("HIT condition_list continue");
       $$ = $3;
       $1->conjunction_type = 1;
       $$->push_back(std::move(*$1));
@@ -1089,6 +1093,7 @@ condition_list:
     ;
 condition:
     expression comp_op expression {
+      LOG_DEBUG("HIT condition");
       $$ = new ConditionSqlNode;
       $$->left = std::unique_ptr<Expression>($1);
       $$->right = std::unique_ptr<Expression>($3);
