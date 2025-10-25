@@ -67,7 +67,7 @@ public:
    * @param table_name 表名
    * @param base_dir 表数据存放的路径
    */
-  RC drop(Db *db, const char *table_name, const char *base_dir);
+  RC drop();
 
   /**
    * 打开一个表
@@ -102,7 +102,10 @@ public:
   RC get_record(const RID &rid, Record &record);
 
   // TODO refactor
-  RC create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name);
+  RC create_index(
+      Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique);
+
+  RC drop_index(Trx *trx, const char *index_name);
 
   RC get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode);
 
@@ -132,19 +135,14 @@ public:
 private:
   RC set_value_to_record(char *record_data, const Value &value, const FieldMeta *field);
 
-private:
-  // RC init_record_handler(const char *base_dir);
-
 public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
 
 private:
-  Db       *db_ = nullptr;
-  TableMeta table_meta_;
-  // DiskBufferPool    *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
-  // RecordFileHandler *record_handler_   = nullptr;  /// 记录操作
-  // vector<Index *>    indexes_;
+  Db                     *db_ = nullptr;
+  string                  base_dir_;
+  TableMeta               table_meta_{};
   unique_ptr<TableEngine> engine_      = nullptr;
   LobFileHandler         *lob_handler_ = nullptr;
 };

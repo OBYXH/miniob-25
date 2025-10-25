@@ -9,12 +9,11 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by Wangyunlai on 2023/4/25.
+// Created by Wangyunlai on 2023/6/13.
 //
 
-#include "sql/stmt/create_index_stmt.h"
+#include "sql/stmt/drop_index_stmt.h"
 #include "common/lang/string.h"
-#include "common/lang/vector.h"
 #include "common/log/log.h"
 #include "common/sys/rc.h"
 #include "storage/db/db.h"
@@ -23,17 +22,16 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 using namespace common;
 
-RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt *&stmt)
+RC DropIndexStmt::create(Db *db, const DropIndexSqlNode &drop_index, Stmt *&stmt)
 {
   stmt = nullptr;
 
-  const char *table_name = create_index.relation_name.c_str();
-  if (is_blank(table_name) || is_blank(create_index.index_name.c_str())) {
+  const char *table_name = drop_index.relation_name.c_str();
+  if (is_blank(table_name) || is_blank(drop_index.index_name.c_str())) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, index name=%s",
-        db, table_name, create_index.index_name.c_str());
+        db, table_name, drop_index.index_name.c_str());
     return RC::INVALID_ARGUMENT;
   }
-
   // check whether the table exists
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
@@ -41,20 +39,11 @@ RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt 
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  vector<FieldMeta> field_meta;
-  RC                rc = table->table_meta().get_field_metas(create_index.attribute_name, field_meta);
-  if (OB_FAIL(rc)) {
-    LOG_WARN("failed to get field metas. table name=%s", table_name);
-    return rc;
+  Index *index = table->find_index(drop_index.index_name.c_str());
+  if (nullptr == index) {
+    LOG_WARN("index with name(%s) does not exist. table name=%s", drop_index.index_name.c_str(), table_name);
+    return RC::INDEX_NOT_EXIST;
   }
-
-  Index *index = table->find_index(create_index.index_name.c_str());
-  if (nullptr != index) {
-    LOG_WARN("index with name(%s) already exists. table name=%s", create_index.index_name.c_str(), table_name);
-    return RC::SCHEMA_INDEX_NAME_REPEAT;
-  }
-
-  stmt =
-      new CreateIndexStmt(table, IndexType::BPlusTreeIndex, field_meta, create_index.index_name, create_index.unique);
+  stmt = new DropIndexStmt(table, drop_index.relation_name, drop_index.index_name);
   return RC::SUCCESS;
 }

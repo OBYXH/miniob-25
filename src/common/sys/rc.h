@@ -59,6 +59,7 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(IOERR_SEEK)                  \
   DEFINE_RC(IOERR_TOO_LONG)              \
   DEFINE_RC(IOERR_SYNC)                  \
+  DEFINE_RC(INDEX_NOT_EXIST)             \
   DEFINE_RC(LOCKED_UNLOCK)               \
   DEFINE_RC(LOCKED_NEED_WAIT)            \
   DEFINE_RC(LOCKED_CONCURRENCY_CONFLICT) \
@@ -87,7 +88,7 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(VECTOR_DIMENSION_MISMATCH)   \
   DEFINE_RC(VECTOR_NORM_ZERO)            \
   DEFINE_RC(UNSUPPORTED)                 \
-  DEFINE_RC(UNSUUPPORTED_NULL_VALUE)
+  DEFINE_RC(UNSUPPORTED_NULL_VALUE)
 
 enum class RC
 {

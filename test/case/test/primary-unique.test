@@ -1,13 +1,55 @@
 -- echo initialization
 CREATE TABLE unique_table(id int, col1 int, col2 int);
+CREATE TABLE unique_table2(id1 int, id2 int, col1 int, col2 int);
+CREATE TABLE unique_table3(id int, col1 int, col2 int);
+CREATE TABLE unique_table4(id int, col1 int, col2 int);
 INSERT INTO unique_table VALUES (1,1,1);
+INSERT INTO unique_table2 VALUES (1,1,1,1);
 
--- echo 1. unique test
+-- echo 1. basic unique test
 CREATE UNIQUE INDEX index_id on unique_table(id);
 INSERT INTO unique_table VALUES (2,1,1);
 CREATE UNIQUE INDEX index_id on unique_table(id);
 INSERT INTO unique_table VALUES (3,2,1);
 INSERT INTO unique_table VALUES (1,2,1);
+CREATE UNIQUE INDEX index_id2 on unique_table2(id1, id2);
+INSERT INTO unique_table2 VALUES (1,1,2,1);
+INSERT INTO unique_table2 VALUES (1,2,1,1);
+INSERT INTO unique_table2 VALUES (1,2,2,1);
+INSERT INTO unique_table2 VALUES (1,3,4,2);
+INSERT INTO unique_table2 VALUES (2,1,1,1);
 
--- echo 2. select
+-- echo 2. select after basic tests
+-- sort SELECT * FROM unique_table;
+-- sort SELECT * FROM unique_table2;
+
+-- echo 3. update test
+UPDATE unique_table2 SET id1=1,id2=4 where id2=2;
+-- sort SELECT * FROM unique_table2;
+UPDATE unique_table2 SET id1=1,id2=3 where id2=2;
+-- sort SELECT * FROM unique_table2;
+UPDATE unique_table2 SET id1=1,id2=3 where id2=4;
+-- sort SELECT * FROM unique_table2;
+
+-- echo 4. multiple unique indexes test
+CREATE UNIQUE INDEX index_col1_col2 ON unique_table3(col1, col2);
+INSERT INTO unique_table3 VALUES (1, 10, 10);
+INSERT INTO unique_table3 VALUES (4, 1, 1);
+INSERT INTO unique_table3 VALUES (4, 10, 10);
+-- sort SELECT * FROM unique_table3;
+
+-- echo 5. NULL value test (UNIQUE constraint allows multiple NULLs)
+CREATE UNIQUE INDEX index_col1_col2 ON unique_table4(col1, col2);
+INSERT INTO unique_table4 VALUES (1, 100, 100);
+INSERT INTO unique_table4 VALUES (2, 200, NULL);
+INSERT INTO unique_table4 VALUES (3, NULL, 10);
+INSERT INTO unique_table4 VALUES (4, NULL, 20);
+INSERT INTO unique_table4 VALUES (5, NULL, NULL);
+INSERT INTO unique_table4 VALUES (6, 200, NULL);
+-- sort SELECT * FROM unique_table4;
+
+-- echo 6. DROP INDEX test
+DROP INDEX index_id ON unique_table;
+INSERT INTO unique_table VALUES (1, 400, 400);
+SHOW INDEX FROM unique_table;
 -- sort SELECT * FROM unique_table;

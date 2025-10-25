@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/update_physical_operator.h"
 #include "common/log/log.h"
+#include "common/sys/rc.h"
 #include "common/type/attr_type.h"
 #include "common/value.h"
 #include "storage/table/table.h"
@@ -58,33 +59,35 @@ RC UpdatePhysicalOperator::open(Trx *trx)
 
   for (auto &old_record : records_) {
     Record new_record;
-    new_record.new_record(old_record.len());
-    new_record = old_record;
-    uint32_t null_flags_data;
-    memcpy(&null_flags_data, new_record.data(), table_->table_meta().null_falg_bytes());
-    std::bitset<32> null_flags(null_flags_data);
+    new_record.set_rid(old_record.rid());
+    new_record.copy_data(old_record.data(), old_record.len());
     for (uint32_t i = 0; i < field_metas_.size(); i++) {
-      auto field       = field_metas_[i];
-      auto field_index = field.field_id();
-      auto value       = *values_[i];
-      if (value.is_null()) {
-        if (!null_flags.test(field_index)) {
-          null_flags.set(field_index);
+      auto value = *values_[i];
+      if (field_metas_[i].nullable()) {
+        auto null_offset = field_metas_[i].offset() + field_metas_[i].len() - 1;
+        if (value.is_null()) {
+          new_record.data()[null_offset] = '1';
+        } else {
+          new_record.data()[null_offset] = 0;
         }
-      } else {
-        if (null_flags.test(field_index)) {
-          null_flags.reset(field_index);
-        }
-        memcpy(new_record.data() + field.offset(), value.data(), std::min(value.length(), field.len()));
-        if (field.type() == AttrType::CHARS && field.len() > value.length()) {
-          // pad '\0' for char type
-          memset(new_record.data() + field.offset() + value.length(), 0, field.len() - value.length());
+      } else if (value.is_null()) {
+        return RC::UNSUPPORTED_NULL_VALUE;
+      }
+      if (!value.is_null()) {
+        // 非空才更新数据
+        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), value);
+        if (OB_FAIL(rc)) {
+          LOG_WARN("failed to set field value. table name=%s, field name=%s, rc=%s",
+              table_->name(), field_metas_[i].name(), strrc(rc));
+          return rc;
         }
       }
     }
-    null_flags_data = static_cast<uint32_t>(null_flags.to_ulong());
-    memcpy(new_record.data(), &null_flags_data, table_->table_meta().null_falg_bytes());
     rc = trx_->update_record(table_, old_record, new_record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to update record. table name=%s, rc=%s", table_->name(), strrc(rc));
+      return rc;
+    }
   }
 
   return RC::SUCCESS;

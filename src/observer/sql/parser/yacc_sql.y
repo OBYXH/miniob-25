@@ -129,6 +129,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         ON
         LOAD
         DATA
+        UNIQUE
         INFILE
         EXPLAIN
         STORAGE
@@ -154,6 +155,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         VECTOR_TO_STRING
         STRING_TO_VECTOR
         NULL_T
+        NULLABLE
         IS
         AS
         HAVING
@@ -177,6 +179,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     cstring;
   int                                        number;
   float                                      floats;
+  bool                                       nullable_info;
+  bool                                       unique;
   vector<UpdateField> *                             update_list;
 }
 
@@ -209,6 +213,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <cstring>             relation
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
+%type <nullable_info>       nullable_constraint
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
@@ -227,6 +232,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <cstring>             fields_terminated_by
 %type <cstring>             enclosed_by
 %type <cstring>             alias
+%type <unique>              opt_unique
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -236,6 +242,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            drop_table_stmt
 %type <sql_node>            analyze_table_stmt
 %type <sql_node>            show_tables_stmt
+%type <sql_node>            show_index_stat
 %type <sql_node>            desc_table_stmt
 %type <sql_node>            create_index_stmt
 %type <sql_node>            drop_index_stmt
@@ -275,6 +282,7 @@ command_wrapper:
   | drop_table_stmt
   | analyze_table_stmt
   | show_tables_stmt
+  | show_index_stat
   | desc_table_stmt
   | create_index_stmt
   | drop_index_stmt
@@ -343,6 +351,13 @@ show_tables_stmt:
     }
     ;
 
+show_index_stat:
+    SHOW INDEX FROM relation {
+      $$ = new ParsedSqlNode(SCF_SHOW_INDEX);
+      ShowIndexSqlNode &show_index = $$->show_index;
+      show_index.relation_name = $4;
+    }
+
 desc_table_stmt:
     DESC ID  {
       $$ = new ParsedSqlNode(SCF_DESC_TABLE);
@@ -351,13 +366,23 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE opt_unique INDEX ID ON ID LBRACE attr_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      create_index.unique = $2;
+      create_index.index_name = $4;
+      create_index.relation_name = $6;
+      create_index.attribute_name.swap(*$8);
+      delete $8;
+    }
+    ;
+  
+opt_unique:
+    UNIQUE {
+      $$ = true;
+    } | {
+      $$ = false;
     }
     ;
 
@@ -406,54 +431,67 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE nullable_constraint
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = $4;
+      if ($$->type == AttrType::CHARS) {
+        $$->length = $4;
+      } else if ($$->type == AttrType::VECTORS) {
+        $$->length = sizeof(float) * $4;
+      } else {
+        ASSERT(false, "$$->type is invalid.");
+      }
+      $$->nullable = $6;
+      if ($$->nullable) {
+        $$->length++;
+      }
     }
-    | ID type
+    | ID type nullable_constraint
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
-      $$->nullable = true;
-    }
-    | ID type NULL_T
-    {
-      $$ = new AttrInfoSqlNode;
-      $$->type = (AttrType)$2;
-      $$->name = $1;
-      $$->length = 4;
-      $$->nullable = true;
-    }
-    | ID type NOT NULL_T
-    {
-      $$ = new AttrInfoSqlNode;
-      $$->type = (AttrType)$2;
-      $$->name = $1;
-      $$->length = 4;
-      $$->nullable = false;
-    }
-    | ID type LBRACE number RBRACE NOT NULL_T
-    {
-      $$ = new AttrInfoSqlNode;
-      $$->type = (AttrType)$2;
-      $$->name = $1;
-      $$->length = $4;
-      $$->nullable = false;
-    }
-    | ID type LBRACE number RBRACE NULL_T
-    {
-      $$ = new AttrInfoSqlNode;
-      $$->type = (AttrType)$2;
-      $$->name = $1;
-      $$->length = $4;
-      $$->nullable = true;
+      if ($$->type == AttrType::INTS) {
+        $$->length = sizeof(int);
+      } else if ($$->type == AttrType::FLOATS) {
+        $$->length = sizeof(float);
+      } else if ($$->type == AttrType::DATES) {
+        $$->length = sizeof(int);
+      } else if ($$->type == AttrType::CHARS) {
+        $$->length = sizeof(char) * 4;
+      } else if ($$->type == AttrType::VECTORS) {
+        $$->length = sizeof(float) * 1;
+      } else {
+        ASSERT(false, "$$->type is invalid.");
+      }
+      $$->nullable = $3;
+      if ($$->nullable) {
+        $$->length++;
+      }
     }
     ;
+
+nullable_constraint:
+    NOT NULL_T
+    {
+      $$ = false;  // NOT NULL 对应的可空性为 false
+    }
+    | NULLABLE
+    {
+      $$ = true;  // NULLABLE 对应的可空性为 true 2022
+    }
+    | NULL_T
+    {
+      $$ = true;  // NULL 对应的可空性也为 true 2023
+    }
+    | /* empty */
+    {
+      $$ = true;  // 默认情况为 NULL
+    }
+    ;
+
 number:
     NUMBER {$$ = $1;}
     ;
@@ -478,7 +516,7 @@ primary_key:
 attr_list:
     ID {
       $$ = new vector<string>();
-      $$->push_back($1);
+      $$->emplace_back($1);
     }
     | ID COMMA attr_list {
       if ($3 != nullptr) {
@@ -487,7 +525,7 @@ attr_list:
         $$ = new vector<string>;
       }
 
-      $$->insert($$->begin(), $1);
+      $$->emplace($$->begin(), $1);
     }
     ;
 
@@ -547,6 +585,7 @@ value:
       } else {
         $$ = Value::string_to_vector($1);
       }
+      free($1);
     }
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
@@ -614,19 +653,19 @@ update_stmt:      /*  update 语句的语法解析树*/
 update_list:
     ID EQ value{
       $$ = new vector<UpdateField>;
-      UpdateField *update = new UpdateField;
-      update->attribute_name = $1;
-      update->value = *$3;
-      $$->push_back(*update);
-      delete update;
+      UpdateField update;
+      update.attribute_name = $1;
+      update.value = *$3;
+      $$->push_back(update);
+      delete $3;
     }
     | update_list COMMA ID EQ value{
       $$ = $1;
-      UpdateField *update = new UpdateField;
-      update->attribute_name = $3;
-      update->value = *$5;
-      $$->push_back(*update);
-      delete update; 
+      UpdateField update;
+      update.attribute_name = $3;
+      update.value = *$5;
+      $$->push_back(update);
+      delete $5;
     }
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT expression_list FROM rel_list where group_by having_condition

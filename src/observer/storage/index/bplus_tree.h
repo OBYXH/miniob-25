@@ -26,9 +26,12 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/buffer/disk_buffer_pool.h"
+#include "storage/buffer/page.h"
+#include "storage/index/index_meta.h"
 #include "storage/record/record_manager.h"
 #include "storage/index/latch_memo.h"
 #include "storage/index/bplus_tree_log.h"
+#include "storage/index/index.h"
 
 class BplusTreeHandler;
 class BplusTreeMiniTransaction;
@@ -56,6 +59,9 @@ enum class BplusTreeOperationType
 class AttrComparator
 {
 public:
+  AttrComparator() = default;
+  AttrComparator(AttrType type, int length) { init(type, length); }
+
   void init(AttrType type, int length)
   {
     attr_type_   = type;
@@ -89,24 +95,57 @@ private:
 class KeyComparator
 {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(const IndexMeta &index)
+  {
+    index_ = index;
+    for (const auto &field : index_.fields()) {
+      attr_comparators_.emplace_back(field.type(), field.len());
+    }
+  }
 
-  const AttrComparator &attr_comparator() const { return attr_comparator_; }
+  int compare_key(const char *v1, const char *v2) const
+  {
+    auto  field_number  = index_.fields().size();
+    auto &fields_offset = index_.fields_offset();
+    for (size_t i = 0; i < field_number; i++) {
+      int   offset = fields_offset[i];
+      auto &field  = index_.fields()[i];
+      if (field.nullable()) {
+        bool v1_is_null = v1[offset + field.len() - 1] == '1';
+        bool v2_is_null = v2[offset + field.len() - 1] == '1';
+        if (v1_is_null && v2_is_null) {
+          continue;
+        }
+        if (v1_is_null) {
+          return -1;
+        }
+        if (v2_is_null) {
+          return 1;
+        }
+      }
+      int result = attr_comparators_[i](v1 + offset, v2 + offset);
+      if (result != 0) {
+        return result;
+      }
+    }
+    return 0;
+  }
 
   int operator()(const char *v1, const char *v2) const
   {
-    int result = attr_comparator_(v1, v2);
+    auto result = compare_key(v1, v2);
     if (result != 0) {
       return result;
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
-    const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
+    const RID *rid1 = (const RID *)(v1 + index_.fields_total_len());
+    const RID *rid2 = (const RID *)(v2 + index_.fields_total_len());
     return RID::compare(rid1, rid2);
   }
 
 private:
-  AttrComparator attr_comparator_;
+  IndexMeta              index_;
+  vector<AttrComparator> attr_comparators_;
 };
 
 /**
@@ -142,24 +181,24 @@ private:
 class KeyPrinter
 {
 public:
-  void init(AttrType type, int length) { attr_printer_.init(type, length); }
-
-  const AttrPrinter &attr_printer() const { return attr_printer_; }
+  void init(const IndexMeta &index) { index_ = index; }
 
   string operator()(const char *v) const
   {
     stringstream ss;
-    ss << "{key:" << attr_printer_(v) << ",";
+    ss << "{key:" << index_.to_string() << ",";
 
-    const RID *rid = (const RID *)(v + attr_printer_.attr_length());
+    const RID *rid = (const RID *)(v + index_.fields_total_len());
     ss << "rid:{" << rid->to_string() << "}}";
     return ss.str();
   }
 
 private:
-  AttrPrinter attr_printer_;
+  IndexMeta index_;
 };
 
+const int MAX_KEY_NUM =
+    (BP_PAGE_DATA_SIZE - sizeof(PageNum) - 5 * sizeof(int32_t)) / (sizeof(AttrType) + sizeof(int32_t));
 /**
  * @brief the meta information of bplus tree
  * @ingroup BPlusTree
@@ -168,17 +207,13 @@ private:
  */
 struct IndexFileHeader
 {
-  IndexFileHeader()
-  {
-    memset(this, 0, sizeof(IndexFileHeader));
-    root_page = BP_INVALID_PAGE_NUM;
-  }
-  PageNum  root_page;          ///< 根节点在磁盘中的页号
-  int32_t  internal_max_size;  ///< 内部节点最大的键值对数
-  int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  attr_length;        ///< 键值的长度
-  int32_t  key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;          ///< 键值的类型
+  RC init(const IndexMeta &index_meta);
+
+  PageNum root_page = BP_INVALID_PAGE_NUM;  ///< 根节点在磁盘中的页号
+  int32_t internal_max_size;                ///< 内部节点最大的键值对数
+  int32_t leaf_max_size;                    ///< 叶子节点最大的键值对数
+  int32_t attr_length;                      ///< 属性的总长度
+  int32_t key_length;                       ///< attr length + sizeof(RID)
 
   const string to_string() const
   {
@@ -186,7 +221,6 @@ struct IndexFileHeader
 
     ss << "attr_length:" << attr_length << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type_to_string(attr_type) << ","
        << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
@@ -459,10 +493,8 @@ public:
    * @param internal_max_size 内部节点最大大小
    * @param leaf_max_size 叶子节点最大大小
    */
-  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, AttrType attr_type, int attr_length,
-      int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, int attr_length,
-      int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, const IndexMeta &index_meta);
+  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, const IndexMeta &index_meta);
 
   /**
    * @brief 打开一个B+树
@@ -640,6 +672,7 @@ protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;  /// 磁盘缓冲池
   bool            header_dirty_     = false;    /// 是否需要更新头页面
   IndexFileHeader file_header_;
+  IndexMeta       index_meta_;
 
   // 在调整根节点时，需要加上这个锁。
   // 这个锁可以使用递归读写锁，但是这里偷懒先不改
@@ -696,11 +729,6 @@ public:
   RC close();
 
 private:
-  /**
-   * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
-   */
-  RC fix_user_key(const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive);
-
   void fetch_item(RID &rid);
 
   /**

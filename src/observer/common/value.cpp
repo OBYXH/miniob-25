@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include "common/type/date_type.h"
 #include <cstdio>
@@ -181,16 +182,9 @@ void Value::set_data(char *data, int length)
       length_            = length;
     } break;
     case AttrType::VECTORS: {
-      float              vec_data;
-      size_t             offset = 0;
-      std::vector<float> vec_;
-      while (offset < length * sizeof(float)) {
-        memcpy(&vec_data, data + offset, sizeof(float));
-        vec_.push_back(vec_data);
-        offset += sizeof(float);
-      }
-      value_.vector_value_ = new std::vector<float>(vec_);
-      length_              = value_.vector_value_->size();
+      value_.vector_value_ = (float *)data;
+      length_              = length;
+      set_vector((float *)data, length);
     } break;
     case AttrType::DATES: {
       value_.int_value_ = *(int *)data;
@@ -252,10 +246,23 @@ void Value::set_string(const char *s, int len /*= 0*/)
 
 void Value::set_vector(const std::vector<float> &vec)
 {
-  reset();
   attr_type_           = AttrType::VECTORS;
-  value_.vector_value_ = new std::vector<float>(vec);
-  length_              = value_.vector_value_->size();
+  length_              = vec.size() * sizeof(float);
+  value_.vector_value_ = new float[vec.size()];
+  for (size_t i = 0; i < vec.size(); i++) {
+    value_.vector_value_[i] = vec[i];
+  }
+
+  own_data_ = true;
+}
+
+void Value::set_vector(float *array, int length)
+{
+  attr_type_           = AttrType::VECTORS;
+  length_              = length;
+  value_.vector_value_ = new float[length / sizeof(float)];
+  memcpy(value_.vector_value_, array, length);
+  own_data_ = true;
 }
 
 void Value::set_vector(const char *s)
@@ -270,8 +277,11 @@ void Value::set_vector(const char *s)
   while (std::getline(iss, token, ',')) {
     vec_.push_back(stof(token));
   }
-  value_.vector_value_ = new std::vector<float>(vec_);
-  length_              = value_.vector_value_->size();
+  length_              = vec_.size() * sizeof(float);
+  value_.vector_value_ = new float[vec_.size()];
+  for (size_t i = 0; i < vec_.size(); i++) {
+    value_.vector_value_[i] = vec_[i];
+  }
 }
 
 Value *Value::string_to_vector(const char *s)
@@ -372,13 +382,7 @@ char *Value::data() const
       return value_.pointer_value_;
     } break;
     case AttrType::VECTORS: {
-      char *data   = new char[value_.vector_value_->size() * sizeof(float)];
-      int   offset = 0;
-      for (float val : *value_.vector_value_) {
-        memcpy(data + offset, (const char *)&val, sizeof(float));
-        offset += sizeof(float);
-      }
-      return data;
+      return (char *)value_.vector_value_;
     } break;
     default: {
       return (char *)&value_;
@@ -407,7 +411,6 @@ bool Value::LIKE(const Value &other) const
   const std::string  left_str  = this->get_string();
   const std::string &right_str = other.get_string();
 
-  // TODO(yjs): _存在问题
   std::string regex_str = std::regex_replace(right_str, std::regex("%"), ".*");
   regex_str             = std::regex_replace(regex_str, std::regex("_"), ".");
 
@@ -478,15 +481,24 @@ string Value::get_string() const { return this->to_string(); }
 
 std::vector<float> Value::get_vector() const
 {
-  switch (attr_type_) {
-    case AttrType::VECTORS: {
-      return *value_.vector_value_;
-    } break;
-    default: {
-      LOG_WARN("unknown data type. type=%d", attr_type_);
-      return std::vector<float>{};
-    }
+  assert(attr_type_ == AttrType::VECTORS);
+  std::vector<float> vector(get_vector_length());
+  for (int i = 0; i < vector.size(); ++i) {
+    vector[i] = get_vector_element(i);
   }
+  return vector;
+}
+
+int Value::get_vector_length() const
+{
+  assert(attr_type_ == AttrType::VECTORS);
+  return length_ / sizeof(float);
+}
+
+float Value::get_vector_element(int i) const
+{
+  assert(attr_type_ == AttrType::VECTORS);
+  return value_.vector_value_[i];
 }
 
 string_t Value::get_string_t() const

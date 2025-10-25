@@ -32,6 +32,7 @@ class UpdateStmt : public Stmt
 {
 public:
   UpdateStmt() = default;
+  ~UpdateStmt() override;
   UpdateStmt(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas, FilterStmt *filter_stmt);
   StmtType    type() const override { return StmtType::UPDATE; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }

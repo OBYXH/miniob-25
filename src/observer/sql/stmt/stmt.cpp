@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/desc_table_stmt.h"
 #include "sql/stmt/drop_table_stmt.h"
+#include "sql/stmt/drop_index_stmt.h"
 #include "sql/stmt/exit_stmt.h"
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/help_stmt.h"
@@ -29,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/set_variable_stmt.h"
 #include "sql/stmt/show_tables_stmt.h"
+#include "sql/stmt/show_index_stmt.h"
 #include "sql/stmt/trx_begin_stmt.h"
 #include "sql/stmt/trx_end_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -81,6 +83,10 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
       return DropTableStmt::create(db, sql_node.drop_table, stmt);
     }
 
+    case SCF_DROP_INDEX: {
+      return DropIndexStmt::create(db, sql_node.drop_index, stmt);
+    }
+
     case SCF_DESC_TABLE: {
       return DescTableStmt::create(db, sql_node.desc_table, stmt);
     }
@@ -95,6 +101,10 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
 
     case SCF_SHOW_TABLES: {
       return ShowTablesStmt::create(db, stmt);
+    }
+
+    case SCF_SHOW_INDEX: {
+      return ShowIndexStmt::create(db, sql_node.show_index, stmt);
     }
 
     case SCF_BEGIN: {

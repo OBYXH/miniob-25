@@ -27,6 +27,14 @@ UpdateStmt::UpdateStmt(
     : table_(table), values_(std::move(values)), field_metas_(std::move(field_metas)), filter_stmt_(filter_stmt)
 {}
 
+UpdateStmt::~UpdateStmt()
+{
+  if (nullptr != filter_stmt_) {
+    delete filter_stmt_;
+    filter_stmt_ = nullptr;
+  }
+}
+
 RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
 {
   // TODO
@@ -69,7 +77,7 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
     }
     if (update_field.value.is_null() && !field_meta->nullable()) {
       LOG_WARN("field is not nullable. table name:%s,field name:%s", table->table_meta().name(), field_meta->name());
-      return RC::UNSUUPPORTED_NULL_VALUE;
+      return RC::UNSUPPORTED_NULL_VALUE;
     }
 
     if (field_meta->type() == AttrType::VECTORS) {

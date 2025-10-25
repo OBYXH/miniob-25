@@ -12,8 +12,10 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/types.h"
 #include "common/lang/functional.h"
+#include "storage/field/field_meta.h"
 #include "storage/table/table_meta.h"
 #include "storage/common/chunk.h"
+#include <vector>
 
 struct RID;
 class Record;
@@ -47,14 +49,17 @@ public:
   virtual RC update_record_with_trx(const Record &old_record, const Record &new_record, Trx *trx) = 0;
   virtual RC get_record(const RID &rid, Record &record)                                           = 0;
 
-  virtual RC     create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name) = 0;
-  virtual RC     get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode)   = 0;
-  virtual RC     get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode)  = 0;
-  virtual RC     visit_record(const RID &rid, function<bool(Record &)> visitor)              = 0;
-  virtual RC     sync()                                                                      = 0;
-  virtual Index *find_index(const char *index_name) const                                    = 0;
-  virtual Index *find_index_by_field(const char *field_name) const                           = 0;
-  virtual RC     open()                                                                      = 0;
+  virtual RC create_index(
+      Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique) = 0;
+  virtual RC     drop_index(const char *index_name)                                                             = 0;
+  virtual RC     get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode)                      = 0;
+  virtual RC     get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode)                     = 0;
+  virtual RC     visit_record(const RID &rid, function<bool(Record &)> visitor)                                 = 0;
+  virtual RC     sync()                                                                                         = 0;
+  virtual Index *find_index(const char *index_name) const                                                       = 0;
+  virtual Index *find_index_by_field(const char *field_name) const                                              = 0;
+  virtual RC     open()                                                                                         = 0;
+  virtual RC     drop()                                                                                         = 0;
   // TODO: remove this function
   virtual RC init() = 0;
 

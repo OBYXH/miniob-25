@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "sql/executor/analyze_table_executor.h"
 #include "sql/executor/create_index_executor.h"
+#include "sql/executor/show_index_executor.h"
+#include "sql/executor/drop_index_executor.h"
 #include "sql/executor/create_table_executor.h"
 #include "sql/executor/desc_table_executor.h"
 #include "sql/executor/drop_table_executor.h"
@@ -49,6 +51,11 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
       rc = executor.execute(sql_event);
     } break;
 
+    case StmtType::DROP_INDEX: {
+      DropIndexExecutor executor;
+      rc = executor.execute(sql_event);
+    } break;
+
     case StmtType::DESC_TABLE: {
       DescTableExecutor executor;
       rc = executor.execute(sql_event);
@@ -66,6 +73,11 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
 
     case StmtType::SHOW_TABLES: {
       ShowTablesExecutor executor;
+      rc = executor.execute(sql_event);
+    } break;
+
+    case StmtType::SHOW_INDEX: {
+      ShowIndexExecutor executor;
       rc = executor.execute(sql_event);
     } break;
 

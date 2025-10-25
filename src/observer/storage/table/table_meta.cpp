@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/global_context.h"
 #include "storage/table/table_meta.h"
+#include "storage/field/field.h"
 #include "storage/trx/trx.h"
 #include "json/json.h"
 
@@ -62,7 +63,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
 
   RC rc = RC::SUCCESS;
 
-  int field_offset  = 0 + null_falg_bytes_;
+  int field_offset  = 0;
   int trx_field_num = 0;
 
   if (trx_fields != nullptr) {
@@ -128,6 +129,15 @@ RC TableMeta::add_index(const IndexMeta &index)
   return RC::SUCCESS;
 }
 
+RC TableMeta::drop_index(const char *index_name)
+{
+  indexes_.erase(std::remove_if(indexes_.begin(),
+                     indexes_.end(),
+                     [index_name](const IndexMeta &index) { return 0 == strcmp(index.name(), index_name); }),
+      indexes_.end());
+  return RC::SUCCESS;
+}
+
 const char *TableMeta::name() const { return name_.c_str(); }
 
 const FieldMeta *TableMeta::trx_field() const { return &fields_[0]; }
@@ -157,6 +167,24 @@ const FieldMeta *TableMeta::find_field_by_offset(int offset) const
   }
   return nullptr;
 }
+
+RC TableMeta::get_field_metas(const vector<string> &fields, vector<FieldMeta> &field_metas) const
+{
+  for (const string &field_name : fields) {
+    FieldMeta field_meta;
+    for (const FieldMeta &field : fields_) {
+      if (0 == strcmp(field.name(), field_name.c_str())) {
+        field_meta = field;
+        break;
+      }
+    }
+    if (field_meta.len() == 0) {
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
+    field_metas.emplace_back(field_meta);
+  }
+  return RC::SUCCESS;
+}
 int TableMeta::field_num() const { return fields_.size(); }
 
 int TableMeta::sys_field_num() const { return static_cast<int>(trx_fields_.size()); }
@@ -165,16 +193,6 @@ const IndexMeta *TableMeta::index(const char *name) const
 {
   for (const IndexMeta &index : indexes_) {
     if (0 == strcmp(index.name(), name)) {
-      return &index;
-    }
-  }
-  return nullptr;
-}
-
-const IndexMeta *TableMeta::find_index_by_field(const char *field) const
-{
-  for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
       return &index;
     }
   }
@@ -303,10 +321,9 @@ int TableMeta::deserialize(istream &is)
   name_.swap(table_name);
   fields_.swap(fields);
   if (fields_.back().type() == AttrType::VECTORS) {
-    record_size_ =
-        fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset() + null_falg_bytes_;
+    record_size_ = fields_.back().offset() + fields_.back().len() * sizeof(float) - fields_.begin()->offset();
   } else {
-    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset() + null_falg_bytes_;
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
   }
 
   for (const FieldMeta &field_meta : fields_) {
@@ -327,7 +344,7 @@ int TableMeta::deserialize(istream &is)
       IndexMeta &index = indexes[i];
 
       const Json::Value &index_value = indexes_value[i];
-      rc                             = IndexMeta::from_json(*this, index_value, index);
+      rc                             = IndexMeta::from_json(index_value, index);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("Failed to deserialize table meta. table name=%s", table_name.c_str());
         return -1;

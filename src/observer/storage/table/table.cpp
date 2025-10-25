@@ -16,6 +16,8 @@ See the Mulan PSL v2 for more details. */
 #include <cstdint>
 #include <limits.h>
 #include <string.h>
+#include <system_error>
+#include <unistd.h>
 
 #include "common/defs.h"
 #include "common/lang/string.h"
@@ -101,7 +103,8 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   table_meta_.serialize(fs);
   fs.close();
 
-  db_ = db;
+  db_       = db;
+  base_dir_ = base_dir;
 
   string             data_file = table_data_file(base_dir, name);
   BufferPoolManager &bpm       = db->buffer_pool_manager();
@@ -130,26 +133,40 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   return rc;
 }
 
-RC Table::drop(Db *db, const char *table_name, const char *base_dir)
+RC Table::drop()
 {
-  std::string meta_file_path = table_meta_file(base_dir, table_name);
-  if (unlink(meta_file_path.c_str()) != 0) {
+  RC rc = RC::SUCCESS;
+  rc    = sync();  // 刷新数据到磁盘
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to sync table before drop. table name=%s", name());
+    return rc;
+  }
+
+  rc = engine_->drop();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop table engine. table name=%s", name());
+    return rc;
+  }
+
+  auto table_name = name();
+
+  std::string meta_file_path = table_meta_file(base_dir_.c_str(), table_name);
+  if (!filesystem::remove(meta_file_path.c_str())) {
     LOG_ERROR("Failed to remove table meta file. file name=%s, errmsg=%s", meta_file_path.c_str(), strerror(errno));
     return RC::IOERR_WRITE;
   }
 
-  std::string data_file_path = table_data_file(base_dir, table_name);
-  if (unlink(data_file_path.c_str()) != 0) {
+  std::string data_file_path = table_data_file(base_dir_.c_str(), table_name);
+  if (!filesystem::remove(data_file_path.c_str())) {
     LOG_ERROR("Failed to remove table data file. file name=%s, errmsg=%s", data_file_path.c_str(), strerror(errno));
     return RC::IOERR_WRITE;
   }
 
   auto index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
-    // ((BplusTreeIndex *)(indexes_[i]))->close();
     auto        index_name      = table_meta_.index(i)->name();
-    std::string index_file_path = table_index_file(base_dir, table_name, index_name);
-    if (unlink(index_file_path.c_str()) != 0) {
+    std::string index_file_path = table_index_file(base_dir_.c_str(), table_name, index_name);
+    if (!filesystem::remove(index_file_path.c_str())) {
       LOG_ERROR("Failed to remove index file. file name=%s, errmsg=%s", index_file_path.c_str(), strerror(errno));
       return RC::IOERR_WRITE;
     }
@@ -160,6 +177,7 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 RC Table::open(Db *db, const char *meta_file, const char *base_dir)
 {
   // 加载元数据文件
+  RC      rc = RC::SUCCESS;
   fstream fs;
   string  meta_file_path = string(base_dir) + common::FILE_PATH_SPLIT_STR + meta_file;
   fs.open(meta_file_path, ios_base::in | ios_base::binary);
@@ -174,16 +192,8 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   }
   fs.close();
 
-  db_ = db;
-
-  // // 加载数据文件
-  // RC rc = init_record_handler(base_dir);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_ERROR("Failed to open table %s due to init record handler failed.", base_dir);
-  //   // don't need to remove the data_file
-  //   return rc;
-  // }
-  RC rc = RC::SUCCESS;
+  db_       = db;
+  base_dir_ = base_dir;
 
   if (table_meta_.storage_engine() == StorageEngine::HEAP) {
     engine_ = make_unique<HeapTableEngine>(&table_meta_, db_, this);
@@ -242,34 +252,40 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
   char *record_data = (char *)malloc(record_size);
   memset(record_data, 0, record_size);
 
-  std::bitset<32> null_flags;
   for (int i = 0; i < value_num && OB_SUCC(rc); i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value     &value = values[i];
+    // 判断是否在 NOT NULL 字段设置 NULL 值
     if (value.is_null()) {
       if (!field->nullable()) {
         LOG_WARN("field is not nullable. table name:%s,field name:%s", table_meta_.name(), field->name());
-        rc = RC::UNSUUPPORTED_NULL_VALUE;
-        break;
+        return RC::UNSUPPORTED_NULL_VALUE;
       }
-      null_flags.set(i);
+      record_data[field->offset() + field->len() - 1] = '1';
     } else {
+      Value real_value = value;
       if (field->type() != value.attr_type()) {
-        Value real_value;
+        // 插入不允许非目标类型的类型提升
         rc = Value::cast_to(value, field->type(), real_value);
         if (OB_FAIL(rc)) {
-          LOG_WARN("failed to cast value. table name:%s,field name:%s,value:%s ",
-            table_meta_.name(), field->name(), value.to_string().c_str());
+          LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
+              table_meta_.name(), field->name(), value.to_string().c_str());
           break;
         }
-        rc = set_value_to_record(record_data, real_value, field);
-      } else {
-        rc = set_value_to_record(record_data, value, field);
       }
+      // 进行长度校验
+      if (real_value.length() > field->len() - field->nullable()) {
+        LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s, Type: %s, Offset: %d, Length: %d, Max Length: %d",
+                  field->name(),
+                  attr_type_to_string(field->type()),
+                  field->offset(),
+                  value.length(),
+                  field->len());
+        return RC::IOERR_TOO_LONG;
+      }
+      rc = set_value_to_record(record_data, real_value, field);
     }
   }
-  auto serialized_null_flags = static_cast<uint32_t>(null_flags.to_ulong());
-  memcpy(record_data, &serialized_null_flags, table_meta_.null_falg_bytes());
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to make record. table name:%s", table_meta_.name());
     free(record_data);
@@ -291,10 +307,13 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   } else if (field->type() == AttrType::VECTORS) {
     // ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(),
     // value.length());
-    if (field->len() != value.length()) {
+    LOG_ERROR("vector dimension mismatch, should be %d, but got %d", field->len(), value.length());
+    if (copy_len / sizeof(float) != data_len / sizeof(float)) {
       return RC::VECTOR_DIMENSION_MISMATCH;
     }
-    copy_len = field->len() * sizeof(float);
+    if (copy_len > data_len) {
+      copy_len = data_len;
+    }
   }
   memcpy(record_data + field->offset(), value.data(), copy_len);
   return RC::SUCCESS;
@@ -310,9 +329,21 @@ RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode m
   return engine_->get_chunk_scanner(scanner, trx, mode);
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name)
+RC Table::create_index(
+    Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique)
 {
-  return engine_->create_index(trx, field_meta, index_name);
+  return engine_->create_index(trx, index_type, field_meta, index_name, unique);
+}
+
+RC Table::drop_index(Trx *trx, const char *index_name)
+{
+  RC rc = RC::SUCCESS;
+  rc    = sync();  // 刷新数据到磁盘
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to sync table before drop. table name=%s", name());
+    return rc;
+  }
+  return engine_->drop_index(index_name);
 }
 
 RC Table::delete_record(const Record &record) { return engine_->delete_record(record); }

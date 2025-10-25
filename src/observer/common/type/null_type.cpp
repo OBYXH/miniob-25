@@ -24,6 +24,7 @@ int NullType::compare(const Value &left, const Value &right) const
 
 RC NullType::cast_to(const Value &val, AttrType type, Value &result) const
 {
+  result.set_type(type);
   result.set_null();
   return RC::SUCCESS;
 }
