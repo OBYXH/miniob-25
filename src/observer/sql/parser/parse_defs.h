@@ -68,7 +68,9 @@ enum CompOp
   NOT_LIKE_OP,  ///< "not like"
   IS_OP,
   IS_NOT_OP,
-  NO_OP
+  NO_OP,
+  IN_OP,
+  NOT_IN_OP,
 };
 
 /**

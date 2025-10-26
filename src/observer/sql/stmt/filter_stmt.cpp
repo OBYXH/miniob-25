@@ -81,7 +81,9 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
       case LIKE_OP:
       case NOT_LIKE_OP:
       case IS_OP:
-      case IS_NOT_OP: {
+      case IS_NOT_OP: 
+      case IN_OP:
+      case NOT_IN_OP: {
         // 暂时进行Chars到Date的神秘特判, 搞不懂为什么MYSQL会这样设计
         //  date_field comp value 这种情况居然只在 value = CHARS 时才报 Date类型值非法
         //  INTS甚至FLOATS均不会报错???

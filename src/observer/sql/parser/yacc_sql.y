@@ -186,6 +186,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NULL_T
         NULLABLE
         IS
+        IN
         AS
         HAVING
         TEXT_T
@@ -828,6 +829,11 @@ expression:
     | expression '/' expression {
       $$ = create_arithmetic_expression(ArithmeticExpr::Type::DIV, $1, $3, sql_string, &@$);
     }
+    | LBRACE select_stmt RBRACE
+    {
+      $$ = new SubqueryExpr($2);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     | LBRACE expression RBRACE {
       $$ = $2;
       $$->set_name(token_name(sql_string, &@$));
@@ -845,6 +851,12 @@ expression:
       $$ = new ValueExpr(*$1);
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
+    }
+    | LBRACE value value_list RBRACE  {
+      std::vector<Value> *values = $3;
+      values->emplace_back(*$2);
+      $$ = new ValueListExpr(*values);
+      $$->set_name(token_name(sql_string, &@$));
     }
     | rel_attr {
       RelAttrSqlNode *node = $1;
@@ -1020,6 +1032,8 @@ comp_op:
     | NOT LIKE { $$ = NOT_LIKE_OP; }
     | IS { $$ = IS_OP; }
     | IS NOT { $$ = IS_NOT_OP; }
+    | IN { $$ = IN_OP; }
+    | NOT IN { $$ = NOT_IN_OP; }
     ;
 
 // your code here

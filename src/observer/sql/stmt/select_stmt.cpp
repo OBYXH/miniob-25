@@ -31,6 +31,51 @@ SelectStmt::~SelectStmt()
   }
 }
 
+static RC check_sub_select_legal(Db *db, ParsedSqlNode *sub_select, std::vector<RelationNode> main_query_relations)
+{
+  // 这个方法主要是检查子查询的合法性：子查询的查询的属性只能有一个。
+  FieldExpr *field_expr = nullptr;
+  StarExpr  *star_expr   = nullptr;
+  for (auto &expr : sub_select->selection.expressions) {
+    if (field_expr != nullptr) {
+      // 当左子查询的属性不止一个时，报错
+      LOG_WARN("invalid subquery attributes. It should be only one");
+      return RC::INVALID_ARGUMENT;
+    }
+    if (expr->type() == ExprType::FIELD) {
+      field_expr = static_cast<FieldExpr *>(expr.get());
+    } else if (expr->type() == ExprType::STAR) {
+      star_expr = static_cast<StarExpr *>(expr.get());
+    }
+  }
+  if (field_expr != nullptr && star_expr != nullptr) {
+    LOG_WARN("star_expr and field_expr cannot be used together in subquery");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  if (star_expr != nullptr) {
+    // 如果是 *，需要先获得 table，然后看其中的 fields 的大小是不是 1，如果不是，报错
+    int fields_num = 0;
+    for (size_t j = 0; j < sub_select->selection.relations.size(); ++j) {
+      const char *table_name = sub_select->selection.relations[j].relation_name.c_str();
+      if (nullptr == table_name) {
+        LOG_WARN("invalid argument. relation name is null. index=%d", j);
+        return RC::INVALID_ARGUMENT;
+      }
+      Table *table = db->find_table(table_name);
+      if (nullptr == table) {
+        LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+        return RC::SCHEMA_TABLE_NOT_EXIST;
+      }
+      fields_num += table->table_meta().field_num();
+    }
+    if (fields_num != 1) {
+      LOG_WARN("invalid subquery attributes");
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+  return RC::SUCCESS;
+}
 RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
 {
   if (nullptr == db) {
@@ -70,6 +115,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     tables.emplace_back(table);
   }
 
+  // 下面做的是绑定表达式操作，各种新算子都需要走下面流程
+
   // table_map.insert(table_alias_map.begin(), table_alias_map.end());
   binder_context.set_table_map(&table_map);
   // collect query fields in `select` statement
@@ -90,6 +137,41 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     if (OB_FAIL(rc)) {
       LOG_INFO("bind expression failed. rc=%s", strrc(rc));
       return rc;
+    }
+  }
+
+  // 子查询，遍历 conditions 中的表达式，（递归）创建对应的 stmt。
+  // 这个 for 会将所有的子查询的 stmt 都创建好，放到 SubqueryExpr 中
+  for (auto &condition : select_sql.conditions) {
+    // exists/not exists 可能会使得 left_expr 为空
+    if (condition.left != nullptr && condition.left->type() == ExprType::SUBQUERY) {
+      SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.left.get());
+      Stmt         *stmt          = nullptr;
+      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot construct subquery stmt");
+        return rc;
+      }
+      // 检查子查询的合法性：子查询的查询的属性只能有一个
+      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn(), select_sql.relations);
+      if (rc_ != RC::SUCCESS) {
+        return rc_;
+      }
+      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
+    } else if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
+      SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right.get());
+      Stmt         *stmt          = nullptr;
+      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot construct subquery stmt");
+        return rc;
+      }
+      // 检查子查询的合法性：子查询的查询的属性只能有一个
+      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn(), select_sql.relations);
+      if (rc_ != RC::SUCCESS) {
+        return rc_;
+      }
+      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     }
   }
 
