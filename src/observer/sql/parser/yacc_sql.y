@@ -852,9 +852,8 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
-    | LBRACE value value_list RBRACE  {
-      std::vector<Value> *values = $3;
-      values->emplace_back(*$2);
+    | LBRACE value_list RBRACE  {
+      std::vector<Value> *values = $2;
       $$ = new ValueListExpr(*values);
       $$->set_name(token_name(sql_string, &@$));
     }

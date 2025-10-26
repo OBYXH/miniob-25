@@ -583,7 +583,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
 
       rc = compare_value(left_value, right_value, bool_value);
 
-      if (rc == RC::SUCCESS && comp_ != IN_OP && bool_value) {
+      if (rc == RC::SUCCESS && comp_ != NOT_IN_OP && bool_value) {
         value.set_boolean(bool_value);
         break;
       } else if (rc == RC::SUCCESS && comp_ == NOT_IN_OP && !bool_value) {
@@ -597,7 +597,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
 
     // EOF判断
     if (rc == RC::RECORD_EOF) {
-      if (comp_ == IN_OP) {
+      if (comp_ == NOT_IN_OP) {
         value.set_boolean(true);
         rc = RC::SUCCESS;
         return rc;
