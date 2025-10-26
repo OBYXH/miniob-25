@@ -22,7 +22,7 @@ See the Mulan PSL v2 for more details. */
 
 using namespace std;
 
-RC VecStrExpr::get_value(const Tuple &tuple, Value &value) const
+RC VectorToStringExpr::get_value(const Tuple &tuple, Value &value) const
 {
   RC    rc = RC::SUCCESS;
   Value child_value;
@@ -31,28 +31,30 @@ RC VecStrExpr::get_value(const Tuple &tuple, Value &value) const
     LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
     return rc;
   }
-  switch (type_) {
-    case Type::VectorToString: {
-      if (child_value.attr_type() != AttrType::VECTORS) {
-        LOG_WARN("VectorToString function only support vector type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      auto str_vec = child_value.to_string();
-      value.set_string(str_vec.c_str(), str_vec.size());
-    } break;
-    case Type::StringToVector: {
-      if (child_value.attr_type() != AttrType::CHARS) {
-        LOG_WARN("StringToVector function only support chars type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      auto vec = Value::string_to_vector(child_value.get_string().c_str());
-      value.set_value(*vec);
-    } break;
-    default: {
-      LOG_WARN("unsupported function type: %d", static_cast<int>(type_));
-      return RC::UNSUPPORTED;
-    }
+  if (child_value.attr_type() != AttrType::VECTORS) {
+    LOG_WARN("VectorToString function only support vector type");
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   }
+  auto str_vec = child_value.to_string();
+  value.set_string(str_vec.c_str(), str_vec.size());
+  return rc;
+}
+
+RC VectorToStringExpr::try_get_value(Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value child_value;
+  rc = child_->try_get_value(child_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  if (child_value.attr_type() != AttrType::VECTORS) {
+    LOG_WARN("VectorToString function only support vector type");
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  auto str_vec = child_value.to_string();
+  value.set_string(str_vec.c_str(), str_vec.size());
   return rc;
 }
 
@@ -106,6 +108,67 @@ RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
     return rc;
   }
   rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
+    LOG_WARN("vector distance expr only support vector type");
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  if (left_value.get_vector().size() != right_value.get_vector().size()) {
+    LOG_WARN("vector dimension mismatch, left size: %d, right size: %d", left_value.get_vector().size(),
+             right_value.get_vector().size());
+    return RC::VECTOR_DIMENSION_MISMATCH;
+  }
+  switch (distance_type_) {
+    case Type::L2: {
+      float sum = 0.0;
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
+        float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
+        sum += diff * diff;
+      }
+      value.set_float(round(sqrt(sum) * 100) / 100);
+    } break;
+    case Type::COSINE: {
+      float dot_product = 0.0;
+      float left_norm   = 0.0;
+      float right_norm  = 0.0;
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
+        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
+        left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
+        right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
+      }
+      if (left_norm == 0 || right_norm == 0) {
+        LOG_WARN("vector norm is zero");
+        value.set_null();
+        return RC::SUCCESS;
+      }
+      value.set_float(round((1 - dot_product / (sqrt(left_norm) * sqrt(right_norm))) * 100) / 100);
+    } break;
+    case Type::INNER: {
+      float dot_product = 0.0;
+      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
+        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
+      }
+      value.set_float(round(dot_product * 100) / 100);
+    } break;
+    default: return RC::UNSUPPORTED;
+  }
+  return RC::SUCCESS;
+}
+
+RC VecDistanceExpr::try_get_value(Value &value) const
+{
+  RC    rc = RC::SUCCESS;
+  Value left_value;
+  Value right_value;
+  rc = left_->try_get_value(left_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+    return rc;
+  }
+  rc = right_->try_get_value(right_value);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
     return rc;

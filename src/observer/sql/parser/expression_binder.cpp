@@ -96,7 +96,7 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_function_expression(expr, bound_expressions);
     } break;
 
-    case ExprType::VECSTR: {
+    case ExprType::VECTOSTRING: {
       return bind_vecstr_expression(expr, bound_expressions);
     } break;
 

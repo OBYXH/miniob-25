@@ -81,11 +81,12 @@ RC ProjectPhysicalOperator::close()
 }
 Tuple *ProjectPhysicalOperator::current_tuple()
 {
-  if (children_[0]->type() == PhysicalOperatorType::ORDER_BY) {
-    return children_[0]->current_tuple();
-  }
   if (children_.empty()) {
     return &tuple_;
+  }
+  // children_为空时，说明是单独的计算表达式，这里会出错，应该移到empty的判断下方
+  if (children_[0]->type() == PhysicalOperatorType::ORDER_BY) {
+    return children_[0]->current_tuple();
   }
   tuple_.set_tuple(children_[0]->current_tuple());
   return &tuple_;

@@ -234,8 +234,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <cstring> ID
-%token <cstring> SSS
 %token <cstring> VECTOR
+%token <cstring> SSS
 %token <cstring> DISTANCE_TYPE
 %token <cstring> DATE
 //非终结符
@@ -617,18 +617,6 @@ value:
       $$ = new Value(tmp);
       free(tmp);
     }
-    |VECTOR{
-      if ($1[0] =='\'' || $1[0] == '\"') {
-        // 去掉引号
-        char *tmp = common::substr($1,1,strlen($1)-2);
-        
-        $$ = Value::string_to_vector(tmp);
-        free(tmp);
-      } else {
-        $$ = Value::string_to_vector($1);
-      }
-      free($1);
-    }
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
@@ -643,16 +631,31 @@ value:
       $$ = new Value();
       $$->set_null();
     }
-    | STRING_TO_VECTOR LBRACE VECTOR RBRACE {
+    |STRING_TO_VECTOR LBRACE VECTOR RBRACE {
       if ($3[0] =='\'' || $3[0] == '\"') {
         // 去掉引号
         char *tmp = common::substr($3,1,strlen($3)-2);
+        
         $$ = Value::string_to_vector(tmp);
         free(tmp);
       } else {
         $$ = Value::string_to_vector($3);
       }
+      free($3);
     }
+    |VECTOR{
+      if ($1[0] =='\'' || $1[0] == '\"') {
+        // 去掉引号
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        
+        $$ = Value::string_to_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::string_to_vector($1);
+      }
+      free($1);
+    }
+
     ;
 storage_format:
     /* empty */
@@ -891,6 +894,11 @@ vector_expression:
     | INNER_PRODUCT_DISTANCE LBRACE expression COMMA expression RBRACE
     {
       $$ = create_distance_expression("DOT", $3, $5, sql_string, &@$);
+    }
+    | VECTOR_TO_STRING LBRACE expression RBRACE
+    {
+      $$ = new VectorToStringExpr($3);
+      $$->set_name(token_name(sql_string, &@$));
     }
     ;
 

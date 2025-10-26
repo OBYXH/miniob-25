@@ -48,8 +48,8 @@ enum class ExprType
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
   DISTANCE,     ///< 向量距离计算
-  FUNCTION,      ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
-  VECSTR       ///< 向量字符串表达式
+  FUNCTION,     ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
+  VECTOSTRING   ///< 向量字符串表达式
 };
 
 /**
@@ -150,49 +150,27 @@ private:
   string filed_alias_;
 };
 
-class VecStrExpr : public Expression
+class VectorToStringExpr : public Expression
 {
 public:
-  enum class Type
-  {
-    VectorToString,
-    StringToVector
-  };
-  VecStrExpr(Type type, unique_ptr<Expression> child)
-      : child_(std::move(child)),  type_(type)
-  {}
-  VecStrExpr(Type type, Expression *child) : child_(child),  type_(type) {}
-  virtual ~VecStrExpr() = default;
+  VectorToStringExpr(unique_ptr<Expression> child) : child_(std::move(child)) {}
+  VectorToStringExpr(Expression *child) : child_(child) {}
+  virtual ~VectorToStringExpr() = default;
 
-  unique_ptr<Expression> copy() const override { return make_unique<VecStrExpr>(type_, child_->copy()); }
+  unique_ptr<Expression> copy() const override { return make_unique<VectorToStringExpr>(child_->copy()); }
 
-  ExprType type() const override { return ExprType::VECSTR; }
+  ExprType type() const override { return ExprType::VECTOSTRING; }
   RC       get_value(const Tuple &tuple, Value &value) const override;
-  AttrType value_type() const override
-  {
-    switch (type_) {
-      case Type::VectorToString: {
-        return AttrType::CHARS;
-      }
-      case Type::StringToVector: {
-        return AttrType::VECTORS;
-      }
-      default: {
-        LOG_WARN("unsupported function type: %d", static_cast<int>(type_));
-        return AttrType::UNDEFINED;
-      }
-    }
-  }
+  AttrType value_type() const override { return AttrType::CHARS; }
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
 
-  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+  RC try_get_value(Value &value) const override;
 
   unique_ptr<Expression> &child() { return child_; }
 
 private:
   unique_ptr<Expression> child_;
-  Type                   type_;
 };
 
 class FunctionExpr : public Expression
@@ -271,7 +249,7 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
 
-  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+  RC try_get_value(Value &value) const override;
 
   unique_ptr<Expression> &left() { return left_; }
   unique_ptr<Expression> &right() { return right_; }

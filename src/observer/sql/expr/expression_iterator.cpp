@@ -74,8 +74,8 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
       rc                  = callback(function_expr.child());
     } break;
 
-    case ExprType::VECSTR: {
-      auto &vecstr_expr = static_cast<VecStrExpr &>(expr);
+    case ExprType::VECTOSTRING: {
+      auto &vecstr_expr = static_cast<VectorToStringExpr &>(expr);
       rc                = callback(vecstr_expr.child());
     } break;
 

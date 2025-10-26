@@ -2,6 +2,8 @@
 #include "common/log/log.h"
 #include "common/lang/comparator.h"
 #include "common/sys/rc.h"
+#include <iomanip>
+#include <ios>
 #include <sstream>
 #include <cmath>
 
@@ -77,10 +79,10 @@ RC VectorType::to_string(const Value &val, string &result) const
   stringstream ss;
   ss << "[";
   for (size_t i = 0; i < val.get_vector().size() - 1; i++) {
-    ss << val.get_vector()[i] << ",";
+    ss << std::scientific << std::setprecision(5) << val.get_vector()[i] << ",";
   }
   if (val.get_vector().size() > 0) {
-    ss << val.get_vector()[val.get_vector().size() - 1];
+    ss << std::scientific << std::setprecision(5) << val.get_vector()[val.get_vector().size() - 1];
   }
   ss << "]";
   result = ss.str();
