@@ -462,7 +462,6 @@ private:
   CompOp                 comp_;
   unique_ptr<Expression> left_;
   unique_ptr<Expression> right_;
-  mutable bool has_sub_queried_ = false;
 };
 
 /**
