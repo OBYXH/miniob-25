@@ -119,6 +119,7 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
   for (auto &table : *tables) {
     context.add_table(table.second);
   }
+  context.set_table_map(tables);
 
   vector<unique_ptr<Expression>> bound_expressions;
   ExpressionBinder               expr_binder(context);

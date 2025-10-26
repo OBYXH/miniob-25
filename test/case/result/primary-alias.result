@@ -1,0 +1,103 @@
+1. INITIALIZATION
+CREATE TABLE t_alias_1 (id INT, name CHAR(10), score INT);
+SUCCESS
+CREATE TABLE t_alias_2 (id INT, city CHAR(10));
+SUCCESS
+INSERT INTO t_alias_1 VALUES (1, 'a', 100);
+SUCCESS
+INSERT INTO t_alias_1 VALUES (2, 'b', 90);
+SUCCESS
+INSERT INTO t_alias_2 VALUES (1, 'city_x');
+SUCCESS
+INSERT INTO t_alias_2 VALUES (2, 'city_y');
+SUCCESS
+
+2. BASIC COLUMN ALIAS (EXPLICIT AS)
+SELECT id AS user_id, name AS user_name FROM t_alias_1;
+1 | A
+2 | B
+USER_ID | USER_NAME
+SELECT id user_id, name user_name FROM t_alias_1;
+1 | A
+2 | B
+USER_ID | USER_NAME
+
+3. BASIC TABLE ALIAS (QUALIFIED COLUMNS)
+SELECT t1.id, t1.name FROM t_alias_1 AS t1;
+1 | A
+2 | B
+T1.ID | T1.NAME
+
+4. IMPLICIT TABLE ALIAS (QUALIFIED COLUMNS)
+SELECT t1.id, t1.name FROM t_alias_1 t1;
+1 | A
+2 | B
+T1.ID | T1.NAME
+
+5. QUALIFIED COLUMN WITHOUT TABLE ALIAS
+SELECT t_alias_1.id, t_alias_1.name FROM t_alias_1;
+1 | A
+2 | B
+T_ALIAS_1.ID | T_ALIAS_1.NAME
+
+6. MULTI-TABLE WITH QUALIFIED COLUMNS
+SELECT t1.id, t1.name, t2.city FROM t_alias_1 AS t1, t_alias_2 AS t2 WHERE t1.id = t2.id;
+1 | A | CITY_X
+2 | B | CITY_Y
+T1.ID | T1.NAME | T2.CITY
+
+7. MULTI-TABLE WITH AMBIGUOUS COLUMNS (NEW)
+SELECT t1.id, t2.id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+1 | 1
+2 | 2
+T1.ID | T2.ID
+
+8. MIXED QUALIFIED AND EXPLICIT ALIAS
+SELECT t1.id AS user_id, t1.name, t2.city AS user_city FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+1 | A | CITY_X
+2 | B | CITY_Y
+USER_ID | T1.NAME | USER_CITY
+
+9. ERROR - DUPLICATE TABLE ALIAS
+SELECT * FROM t_alias_1 AS t, t_alias_2 AS t;
+FAILURE
+
+10. SUCCESS - DUPLICATE TABLE ALIAS IN SUBQUERY
+SELECT t.id FROM t_alias_1 t WHERE t.id IN (SELECT t.id FROM t_alias_2 t WHERE t.city = 'city_x');
+
+11. ERROR - COLUMN ALIAS IN WHERE
+SELECT id AS user_id FROM t_alias_1 WHERE user_id = 1;
+FAILURE
+
+12. CONTROL TEST FOR ECHO 11
+SELECT id AS user_id FROM t_alias_1 WHERE id = 1;
+1
+USER_ID
+
+13. MIXED QUALIFICATION HEADERS (COMPREHENSIVE)
+SELECT t1.id, name FROM t_alias_1 t1;
+1 | A
+2 | B
+T1.ID | NAME
+SELECT id, t1.name FROM t_alias_1 t1;
+1 | A
+2 | B
+ID | T1.NAME
+SELECT t_alias_1.id, name FROM t_alias_1;
+1 | A
+2 | B
+T_ALIAS_1.ID | NAME
+SELECT t1.* FROM t_alias_1 t1;
+1 | A | 100
+2 | B | 90
+ID | NAME | SCORE
+SELECT t_alias_1.* FROM t_alias_1;
+1 | A | 100
+2 | B | 90
+ID | NAME | SCORE
+
+14. AMBIGUOUS COLUMN ERRORS (COMPREHENSIVE)
+SELECT id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+FAILURE
+SELECT t1.id, id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+FAILURE

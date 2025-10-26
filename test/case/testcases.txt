@@ -17,3 +17,4 @@ primary-multi-index
 primary-unique
 primary-text
 primary-order-by
+primary-alias

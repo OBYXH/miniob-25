@@ -11,6 +11,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/type/data_type.h"
+#include "common/type/attr_type.h"
 
 /**
  * @brief 浮点型数据类型
