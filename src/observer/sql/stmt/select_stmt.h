@@ -47,6 +47,7 @@ public:
   vector<unique_ptr<Expression>> &query_expressions() { return query_expressions_; }
   vector<unique_ptr<Expression>> &group_by() { return group_by_; }
   std::vector<OrderBySqlNode>    &order_by() { return order_by_; }
+  int                             limit() const { return limit_; }
   vector<unique_ptr<Expression>> &having_expressions()
   {
     return having_filter_stmt_ ? having_filter_stmt_->conditions() : *(new vector<unique_ptr<Expression>>());
@@ -59,4 +60,5 @@ private:
   FilterStmt                    *having_filter_stmt_ = nullptr;
   vector<unique_ptr<Expression>> group_by_;
   std::vector<OrderBySqlNode>    order_by_;
+  int                            limit_ = -1;
 };
