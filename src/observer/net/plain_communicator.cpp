@@ -243,6 +243,25 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     rc = write_tuple_result(sql_result);
   }
 
+  // 暂时专门针对向量维度不匹配的情况做特殊处理，输出FAILURE给客户端
+  if (rc == RC::VECTOR_DIMENSION_MISMATCH) {
+    const int   buf_size = 2048;
+    char       *buf      = new char[buf_size];
+    const char *result   = "FAILURE";
+    snprintf(buf, buf_size, "%s\n", result);
+    RC rc = writer_->writen(buf, strlen(buf));
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+      need_disconnect = true;
+      delete[] buf;
+      return RC::IOERR_WRITE;
+    }
+
+    need_disconnect = false;
+    delete[] buf;
+    return RC::SUCCESS;
+  }
+
   if (OB_FAIL(rc)) {
     return rc;
   }
