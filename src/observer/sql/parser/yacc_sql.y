@@ -38,13 +38,13 @@ VecDistanceExpr *create_distance_expression(const char *distance_type,
   std::string type_str(distance_type);
   std::cout<<"Distance type: " << type_str << std::endl;
   VecDistanceExpr::Type type;
-  if(type_str == "L2") {
+  if(type_str == "EUCLIDEAN") {
     // L2
     type = VecDistanceExpr::Type::L2;
   } else if(type_str == "COSINE") {
     // COSINE
     type = VecDistanceExpr::Type::COSINE;
-  } else if(type_str == "INNER") {
+  } else if(type_str == "DOT") {
     // INNER
     type = VecDistanceExpr::Type::INNER;
   } else {
@@ -52,6 +52,33 @@ VecDistanceExpr *create_distance_expression(const char *distance_type,
     return nullptr;
   }
   VecDistanceExpr *expr = new VecDistanceExpr(type, left, right);
+  expr->set_name(token_name(sql_string, llocp));
+  return expr;
+}
+
+FunctionExpr *create_function_expression(const char *function_type,
+                                             Expression *child,
+                                             const char *sql_string,
+                                             int round,
+                                             YYLTYPE *llocp)
+{
+  std::string type_str(function_type);
+    std::cout<<"Function type: " << type_str << std::endl;
+  FunctionExpr::Type type;
+  if(type_str == "LENGTH") {
+    // L2
+    type = FunctionExpr::Type::LENGTH;
+  } else if(type_str == "ROUND") {
+    // COSINE
+    type = FunctionExpr::Type::ROUND;
+  } else if(type_str == "DATE_FORMAT") {
+    // INNER
+    type = FunctionExpr::Type::DATE_FORMAT;
+  } else {
+    LOG_ERROR("Unsupported function type: %s", function_type);
+    return nullptr;
+  }
+  FunctionExpr *expr = new FunctionExpr(type, child, round);
   expr->set_name(token_name(sql_string, llocp));
   return expr;
 }
@@ -162,6 +189,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         AS
         HAVING
         TEXT_T
+        ROUND
+        LENGTH
+        DATE_FORMAT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -204,8 +234,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <cstring> ID
-%token <cstring> SSS
 %token <cstring> VECTOR
+%token <cstring> SSS
 %token <cstring> DISTANCE_TYPE
 %token <cstring> DATE
 //非终结符
@@ -232,6 +262,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <expression>          expression
 %type <expression>          aggregate_expression
 %type <expression>          vector_expression
+%type <expression>          function_expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
 %type <orderby_unit>        sort_unit
@@ -586,18 +617,6 @@ value:
       $$ = new Value(tmp);
       free(tmp);
     }
-    |VECTOR{
-      if ($1[0] =='\'' || $1[0] == '\"') {
-        // 去掉引号
-        char *tmp = common::substr($1,1,strlen($1)-2);
-        
-        $$ = Value::string_to_vector(tmp);
-        free(tmp);
-      } else {
-        $$ = Value::string_to_vector($1);
-      }
-      free($1);
-    }
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
@@ -612,6 +631,31 @@ value:
       $$ = new Value();
       $$->set_null();
     }
+    |STRING_TO_VECTOR LBRACE VECTOR RBRACE {
+      if ($3[0] =='\'' || $3[0] == '\"') {
+        // 去掉引号
+        char *tmp = common::substr($3,1,strlen($3)-2);
+        
+        $$ = Value::string_to_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::string_to_vector($3);
+      }
+      free($3);
+    }
+    |VECTOR{
+      if ($1[0] =='\'' || $1[0] == '\"') {
+        // 去掉引号
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        
+        $$ = Value::string_to_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::string_to_vector($1);
+      }
+      free($1);
+    }
+
     ;
 storage_format:
     /* empty */
@@ -814,6 +858,9 @@ expression:
     | vector_expression {
       $$ = $1;
     }
+    | function_expression {
+      $$ = $1;
+    }
     ;
 
 aggregate_expression:
@@ -838,7 +885,7 @@ vector_expression:
     }
     | L2_DISTANCE LBRACE expression COMMA expression RBRACE
     {
-      $$ = create_distance_expression("L2", $3, $5, sql_string, &@$);
+      $$ = create_distance_expression("EUCLIDEAN", $3, $5, sql_string, &@$);
     }
     | COSINE_DISTANCE LBRACE expression COMMA expression RBRACE
     {
@@ -846,7 +893,29 @@ vector_expression:
     }
     | INNER_PRODUCT_DISTANCE LBRACE expression COMMA expression RBRACE
     {
-      $$ = create_distance_expression("INNER", $3, $5, sql_string, &@$);
+      $$ = create_distance_expression("DOT", $3, $5, sql_string, &@$);
+    }
+    | VECTOR_TO_STRING LBRACE expression RBRACE
+    {
+      $$ = new VectorToStringExpr($3);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    ;
+
+function_expression:
+    // to be added later
+    | LENGTH LBRACE expression RBRACE {
+      $$ = create_function_expression("LENGTH", $3, sql_string, 0, &@$);
+    }
+    | ROUND LBRACE expression RBRACE {
+      $$ = create_function_expression("ROUND", $3, sql_string, 0, &@$);
+    }
+    | ROUND LBRACE expression COMMA NUMBER RBRACE {
+      int round = $5;
+      $$ = create_function_expression("ROUND", $3, sql_string, round, &@$);
+    }
+    | DATE_FORMAT LBRACE expression COMMA SSS RBRACE {
+
     }
     ;
 

@@ -69,6 +69,16 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
       }
     } break;
 
+    case ExprType::FUNCTION: {
+      auto &function_expr = static_cast<FunctionExpr &>(expr);
+      rc                  = callback(function_expr.child());
+    } break;
+
+    case ExprType::VECTOSTRING: {
+      auto &vecstr_expr = static_cast<VectorToStringExpr &>(expr);
+      rc                = callback(vecstr_expr.child());
+    } break;
+
     case ExprType::AGGREGATION: {
       auto &aggregate_expr = static_cast<AggregateExpr &>(expr);
       rc                   = callback(aggregate_expr.child());

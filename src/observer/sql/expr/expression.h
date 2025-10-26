@@ -47,7 +47,9 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
-  DISTANCE      ///< 向量距离计算
+  DISTANCE,     ///< 向量距离计算
+  FUNCTION,     ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
+  VECTOSTRING   ///< 向量字符串表达式
 };
 
 /**
@@ -148,6 +150,79 @@ private:
   string filed_alias_;
 };
 
+class VectorToStringExpr : public Expression
+{
+public:
+  VectorToStringExpr(unique_ptr<Expression> child) : child_(std::move(child)) {}
+  VectorToStringExpr(Expression *child) : child_(child) {}
+  virtual ~VectorToStringExpr() = default;
+
+  unique_ptr<Expression> copy() const override { return make_unique<VectorToStringExpr>(child_->copy()); }
+
+  ExprType type() const override { return ExprType::VECTOSTRING; }
+  RC       get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override { return AttrType::CHARS; }
+
+  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
+
+  RC try_get_value(Value &value) const override;
+
+  unique_ptr<Expression> &child() { return child_; }
+
+private:
+  unique_ptr<Expression> child_;
+};
+
+class FunctionExpr : public Expression
+{
+public:
+  enum class Type
+  {
+    LENGTH,
+    ROUND,
+    DATE_FORMAT
+  };
+  FunctionExpr(Type type, unique_ptr<Expression> child, int round = 0)
+      : child_(std::move(child)), round_(round), function_type_(type)
+  {}
+  FunctionExpr(Type type, Expression *child, int round = 0) : child_(child), round_(round), function_type_(type) {}
+  virtual ~FunctionExpr() = default;
+
+  unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
+
+  ExprType type() const override { return ExprType::FUNCTION; }
+  RC       get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override
+  {
+    switch (function_type_) {
+      case Type::LENGTH: {
+        return AttrType::INTS;
+      }
+      case Type::ROUND: {
+        return AttrType::FLOATS;
+      }
+      case Type::DATE_FORMAT: {
+        return AttrType::DATES;
+      }
+      default: {
+        LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
+        return AttrType::UNDEFINED;
+      }
+    }
+  }
+
+  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
+
+  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+
+  unique_ptr<Expression> &child() { return child_; }
+
+private:
+  unique_ptr<Expression> child_;
+  int                    round_ = 0;  // only for ROUND function
+  Type                   function_type_;
+};
+
 class VecDistanceExpr : public Expression
 {
 public:
@@ -174,7 +249,7 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
 
-  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
+  RC try_get_value(Value &value) const override;
 
   unique_ptr<Expression> &left() { return left_; }
   unique_ptr<Expression> &right() { return right_; }

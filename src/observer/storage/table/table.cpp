@@ -315,8 +315,8 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   } else if (field->type() == AttrType::VECTORS) {
     // ASSERT(field->len() == value.length(), "vector dimension mismatch, should be %d, but got %d", field->len(),
     // value.length());
-    LOG_ERROR("vector dimension mismatch, should be %d, but got %d", field->len(), value.length());
     if (copy_len / sizeof(float) != data_len / sizeof(float)) {
+      LOG_ERROR("vector dimension mismatch, should be %d, but got %d", copy_len/sizeof(float),data_len/sizeof(float));
       return RC::VECTOR_DIMENSION_MISMATCH;
     }
     if (copy_len > data_len) {
