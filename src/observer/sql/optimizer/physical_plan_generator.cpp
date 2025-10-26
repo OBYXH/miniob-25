@@ -99,7 +99,7 @@ RC PhysicalPlanGenerator::create(
     case LogicalOperatorType::ORDER_BY: {
       return create_plan(static_cast<OrderByLogicalOperator &>(logical_operator), oper, session);
     } break;
-    
+
     default: {
       ASSERT(false, "unknown logical operator type");
       return RC::INVALID_ARGUMENT;
@@ -423,7 +423,8 @@ RC PhysicalPlanGenerator::create_plan(
   return rc;
 }
 
-RC PhysicalPlanGenerator::create_plan(OrderByLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper, Session *session)
+RC PhysicalPlanGenerator::create_plan(
+    OrderByLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper, Session *session)
 {
   vector<unique_ptr<LogicalOperator>> &child_opers = logical_oper.children();
   unique_ptr<PhysicalOperator>         child_phy_oper;

@@ -44,7 +44,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   vector<Table *>                tables;
   unordered_map<string, Table *> table_map;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
-    const char *table_name = select_sql.relations[i].c_str();
+    const char *table_name = select_sql.relations[i].relation_name.c_str();
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
       return RC::INVALID_ARGUMENT;
@@ -55,12 +55,23 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
+    auto table_alias = select_sql.relations[i].ralation_alias;
+    if (!table_alias.empty()) {
+      const auto &success = table_map.emplace(table_alias, table);
+      if (!success.second) {
+        LOG_WARN("duplicate table alias %s", table_alias.c_str());
+        return RC::INVALID_ALIAS;
+      }
+    } else {
+      table_map.emplace(table_name, table);
+    }
 
     binder_context.add_table(table);
-    tables.push_back(table);
-    table_map.insert({table_name, table});
+    tables.emplace_back(table);
   }
 
+  // table_map.insert(table_alias_map.begin(), table_alias_map.end());
+  binder_context.set_table_map(&table_map);
   // collect query fields in `select` statement
   vector<unique_ptr<Expression>> bound_expressions;
   ExpressionBinder               expression_binder(binder_context);
@@ -81,7 +92,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
       return rc;
     }
   }
-  
+
   vector<unique_ptr<Expression>> order_by_expressions;
   for (OrderBySqlNode &unit : select_sql.order_by) {
     RC rc = expression_binder.bind_expression(unit.expr, order_by_expressions);
@@ -96,7 +107,6 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   for (size_t i = 0; i < order_by_expressions.size(); i++) {
     order_by_.push_back({std::move(order_by_expressions[i]), select_sql.order_by[i].is_asc});
   }
-
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {

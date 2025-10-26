@@ -177,7 +177,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<Value> *                            value_list;
   vector<ConditionSqlNode> *                 condition_list;
   vector<RelAttrSqlNode> *                   rel_attr_list;
-  vector<string> *                           relation_list;
+  vector<RelationNode> *                     relation_list;
   vector<string> *                           key_list;
   OrderBySqlNode *                           orderby_unit;
   std::vector<OrderBySqlNode> *              orderby_list;
@@ -794,6 +794,9 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
+    | ID DOT '*' {
+      $$ = new StarExpr($1);
+    }
     | value {
       $$ = new ValueExpr(*$1);
       $$->set_name(token_name(sql_string, &@$));
@@ -866,17 +869,30 @@ relation:
     ;
 rel_list:
     relation {
-      $$ = new vector<string>();
-      $$->push_back($1);
+      $$ = new vector<RelationNode>();
+      $$->emplace_back($1);
     }
     | relation COMMA rel_list {
       if ($3 != nullptr) {
         $$ = $3;
       } else {
-        $$ = new vector<string>;
+        $$ = new vector<RelationNode>();
       }
 
-      $$->insert($$->begin(), $1);
+      $$->insert($$->begin(), RelationNode($1) );
+    }
+    | relation alias{
+      $$ = new vector<RelationNode>();
+      $$->emplace_back($1,$2);
+    }
+    | relation alias COMMA rel_list {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new vector<RelationNode>();
+      }
+
+      $$->insert($$->begin(), RelationNode($1,$2) );
     }
     ;
 

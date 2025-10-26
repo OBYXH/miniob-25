@@ -405,7 +405,6 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
   return RC::SUCCESS;
 }
 
-
 RC LogicalPlanGenerator::create_order_by_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   if (select_stmt == nullptr) {

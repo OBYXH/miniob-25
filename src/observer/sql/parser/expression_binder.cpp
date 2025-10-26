@@ -25,12 +25,11 @@ using namespace common;
 
 Table *BinderContext::find_table(const char *table_name) const
 {
-  auto pred = [table_name](Table *table) { return 0 == strcasecmp(table_name, table->name()); };
-  auto iter = ranges::find_if(query_tables_, pred);
-  if (iter == query_tables_.end()) {
-    return nullptr;
+  auto iter = table_map_->find(table_name);
+  if (iter != table_map_->end()) {
+    return iter->second;
   }
-  return *iter;
+  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -178,6 +177,10 @@ RC ExpressionBinder::bind_unbound_field_expression(
     Field      field(table, field_meta);
     FieldExpr *field_expr = new FieldExpr(field);
     field_expr->set_name(field_name);
+    if (!is_blank(table_name)) {
+      string name_with_prefix = string(table_name) + "." + string(field_name);
+      field_expr->set_name(name_with_prefix);
+    }
     // 必须先检查指针是否为 NULL
     if (field_alias != nullptr && *field_alias != '\0') {
       field_expr->set_field_alias(field_alias);
