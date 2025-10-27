@@ -3,51 +3,56 @@ CREATE TABLE items (id INT, embedding VECTOR(3));
 CREATE TABLE test_ops (id INT, v1 VECTOR(3), v2 VECTOR(3));
 
 -- echo 1. BASIC INSERTS
-INSERT INTO items VALUES (1, '[1.0, 2.0, 3.0]');
-INSERT INTO items VALUES (2, [4.0, 5.0, 6.0]);
-INSERT INTO items VALUES (3, '[7.5, 8.5, 9.5]');
-INSERT INTO items VALUES (4, '[-1.0, 0.0, 1.0]');
-INSERT INTO items VALUES (5, [0,0,0]);
+INSERT INTO items VALUES (1, STRING_TO_VECTOR('[1.0, 2.0, 3.0]'));
+INSERT INTO items VALUES (2, STRING_TO_VECTOR('[4.0, 5.0, 6.0]'));
+INSERT INTO items VALUES (3, STRING_TO_VECTOR('[7.5, 8.5, 9.5]'));
+INSERT INTO items VALUES (4, STRING_TO_VECTOR('[-1.0, 0.0, 1.0]'));
+INSERT INTO items VALUES (5, STRING_TO_VECTOR('[0,0,0]'));
 
-INSERT INTO test_ops VALUES(1,  '[1 ,2, 3]' , '[4,  5  , 6]');
-INSERT INTO test_ops VALUES(2,  '[10,   0,  -10]' , '[-5,5,0]'  );
+INSERT INTO test_ops VALUES(1,  STRING_TO_VECTOR('[1 ,2, 3]') , STRING_TO_VECTOR('[4,  5  , 6]'));
+INSERT INTO test_ops VALUES(2,  STRING_TO_VECTOR('[10,   0,  -10]') , STRING_TO_VECTOR('[-5,5,0]')  );
 
 -- sort SELECT * FROM items;
 -- sort SELECT * FROM test_ops;
 
 -- echo 2. ARITHMETIC OPERATIONS
--- sort SELECT embedding + [1,1,1] FROM items;
--- sort SELECT embedding - '[0.5,0.5,0.5]' FROM items;
--- sort SELECT v1 * v2 FROM test_ops;
--- sort SELECT (v1 + v2) - v1 FROM test_ops;
+SELECT embedding + STRING_TO_VECTOR('[1,1,1]') FROM items;
+SELECT embedding - STRING_TO_VECTOR('[0.5,0.5,0.5]') FROM items;
+SELECT v1 * v2 FROM test_ops;
+SELECT (v1 + v2) - v1 FROM test_ops;
 
 -- echo 3. COMPARISON OPERATIONS
--- sort SELECT * FROM items WHERE embedding = '[1.0, 2.0, 3.0]';
--- sort SELECT * FROM items WHERE embedding > '[4.0, 0.0, 0.0]';
--- sort SELECT * FROM items WHERE embedding < '[1.0, 0.0, 0.0]';
--- sort SELECT * FROM items WHERE embedding <> '[0,0,0]';
+-- sort SELECT * FROM items WHERE embedding = STRING_TO_VECTOR('[1.0, 2.0, 3.0]');
+-- sort SELECT * FROM items WHERE embedding > STRING_TO_VECTOR('[4.0, 0.0, 0.0]');
+-- sort SELECT * FROM items WHERE embedding < STRING_TO_VECTOR('[1.0, 0.0, 0.0]');
+-- sort SELECT * FROM items WHERE embedding <> STRING_TO_VECTOR('[0,0,0]');
 
 -- echo 4. DISTANCE FUNCTIONS
--- sort SELECT id, L2_DISTANCE(embedding, '[0,0,0]') FROM items;
--- sort SELECT id, COSINE_DISTANCE(embedding, '[1,2,3]') FROM items;
--- sort SELECT id, INNER_PRODUCT(embedding, '[1,0,1]') FROM items;
+-- sort SELECT id, DISTANCE(embedding, STRING_TO_VECTOR('[0,0,0]'),'EUCLIDEAN') FROM items;
+-- sort SELECT id, DISTANCE(embedding, STRING_TO_VECTOR('[1,2,3]'),'COSINE') FROM items;
+-- sort SELECT id, DISTANCE(embedding, STRING_TO_VECTOR('[1,0,1]'),'DOT') FROM items;
 
--- sort SELECT id, L2_DISTANCE(v1, v2), COSINE_DISTANCE(v1, v2), INNER_PRODUCT(v1, v2) FROM test_ops;
+-- sort SELECT id, DISTANCE(v1, v2,'EUCLIDEAN'), DISTANCE(v1, v2,'COSINE'), DISTANCE(v1, v2,'DOT') FROM test_ops;
 
 -- echo 5. COMPREHENSIVE QUERIES
 CREATE TABLE test_search (id INT, c1 VECTOR(3));
-INSERT INTO test_search VALUES(1, '[1,1,1]');
-INSERT INTO test_search VALUES(2, '[1,2,3]');
-INSERT INTO test_search VALUES(3, '[9,9,9]');
--- echo SELECT c1, c1 + [0.5,0.5,0.5] FROM test_search WHERE L2_DISTANCE(c1, '[0,0,0]') > 5;
--- echo [9, 9, 9] | [9.5, 9.5, 9.5]
--- echo C1 | C1 + [0.5, 0.5, 0.5]
+INSERT INTO test_search VALUES(1, STRING_TO_VECTOR('[1,1,1]'));
+INSERT INTO test_search VALUES(2, STRING_TO_VECTOR('[1,2,3]'));
+INSERT INTO test_search VALUES(3, STRING_TO_VECTOR('[9,9,9]'));
 
 -- echo 6. ERROR HANDLING AND EDGE CASES
-INSERT INTO items VALUES (6, '[1,2,3,4]');
--- echo SELECT embedding + [1,1] FROM items;
--- echo embedding + [1,1]
--- echo SELECT L2_DISTANCE(embedding, '[1,2]') FROM items;
--- echo L2_DISTANCE(embedding, '[1,2]')
--- sort SELECT COSINE_DISTANCE(embedding, '[0,0,0]') FROM items WHERE id = 5;
-INSERT INTO items VALUES (7, '[1,2,');
+INSERT INTO items VALUES (6, STRING_TO_VECTOR('[1,2,3,4]'));
+-- sort SELECT embedding + STRING_TO_VECTOR('[1,1]') FROM items;
+-- sort SELECT DISTANCE(embedding, '[1,2]','EUCLIDEAN') FROM items;
+-- sort SELECT DISTANCE(embedding, STRING_TO_VECTOR('[0,0,0]'),'COSINE') FROM items WHERE id = 5;
+
+-- echo 7. Direct Calculate
+SELECT DISTANCE(STRING_TO_VECTOR('[5.97,3.35,-4.08,-2.65,-4.71]'), STRING_TO_VECTOR('[1.95,7.03,-1.43,1.85,1.7]'), 'COSINE') AS DIST_COSINE;
+
+SELECT DISTANCE(STRING_TO_VECTOR('[3.44,-5.6,0.3,-3.85,-0.29]'), STRING_TO_VECTOR('[0.28,0.61,3.05,-5.18,-9.06]'), 'EUCLIDEAN') AS DIST_EUC;
+
+SELECT DISTANCE(STRING_TO_VECTOR('[-9.69,-9.99,5.46,-8.27,-9.94]'), STRING_TO_VECTOR('[2.35,8.42,9.69,-3.83,-6.59]'), 'DOT') AS DIST_DOT;
+
+SELECT DISTANCE(STRING_TO_VECTOR('[0, 0]'), STRING_TO_VECTOR('[4, 0]'), 'EUCLIDEAN') AS DIST_EUC;
+
+SELECT DISTANCE(STRING_TO_VECTOR('[7.05,6.76,-7.8,0.37]'), STRING_TO_VECTOR('[-1.08,-9.34,-4.02,9.17,1.31]'), 'DOT') AS DIST_DOT;

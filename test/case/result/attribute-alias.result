@@ -61,4 +61,4 @@ MY_ID
 SELECT t_alias.id AS id1, t_alias.name, t_alias2.id AS id2, t_alias2.value FROM t_alias, t_alias2 WHERE t_alias.id = t_alias2.id;
 1 | A | 1 | X
 3 | C | 3 | Y
-ID1 | NAME | ID2 | VALUE
+ID1 | T_ALIAS.NAME | ID2 | T_ALIAS2.VALUE

@@ -150,7 +150,7 @@ ID | NUM | PRICE | BIRTHDAY | NAME
 8. CROSS-TABLE COMPARISONS (NULL IN JOIN CONDITIONS)
 SELECT t_null.id,t_null.num,t_null2.id,t_null2.num FROM t_null,t_null2 WHERE t_null.num = t_null2.num;
 1 | 10 | 1 | 10
-ID | NUM | ID | NUM
+T_NULL.ID | T_NULL.NUM | T_NULL2.ID | T_NULL2.NUM
 
 9. UPDATES INVOLVING NULL
 UPDATE t_null SET num = NULL WHERE id = 1;
@@ -207,4 +207,4 @@ FAILURE
 
 18. CROSS-TABLE WHERE SECOND TABLE HAS NULL NUM
 SELECT t_null.id, t_null.num, t_null2.id, t_null2.num FROM t_null, t_null2 WHERE t_null.num = t_null2.num;
-ID | NUM | ID | NUM
+T_NULL.ID | T_NULL.NUM | T_NULL2.ID | T_NULL2.NUM
