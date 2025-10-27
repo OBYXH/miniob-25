@@ -250,15 +250,16 @@ RC MvccTrx::visit_record(Table *table, Record &record, ReadWriteMode mode)
       // 如果当前想要修改此条数据，并且不是当前事务删除的，简单的报错
       // 这是事务并发处理的一种方式，非常简单粗暴。其它的并发处理方法，可以等待，或者让客户端重试
       // 或者等事务结束后，再检测修改的数据是否有冲突
-      if (-end_xid != trx_id_) {
-        LOG_TRACE("concurrency conflit. someone is deleting this record right now. trx id=%d, begin xid=%d, end xid=%d",
-                  trx_id_, begin_xid, end_xid);
-        rc = RC::LOCKED_CONCURRENCY_CONFLICT;
-      } else {
-        LOG_TRACE("record invisible. self has deleted this record. trx id=%d, begin xid=%d, end xid=%d",
-                  trx_id_, begin_xid, end_xid);
-        rc = RC::RECORD_INVISIBLE;
-      }
+      // if (-end_xid != trx_id_) {
+      //   LOG_TRACE("concurrency conflit. someone is deleting this record right now. trx id=%d, begin xid=%d, end xid=%d",
+      //             trx_id_, begin_xid, end_xid);
+      //   rc = RC::LOCKED_CONCURRENCY_CONFLICT;
+      // } else {
+      //   LOG_TRACE("record invisible. self has deleted this record. trx id=%d, begin xid=%d, end xid=%d",
+      //             trx_id_, begin_xid, end_xid);
+      //   rc = RC::RECORD_INVISIBLE;
+      // }
+      rc = RC::LOCKED_CONCURRENCY_CONFLICT;
     }
     
   } else if (begin_xid < 0) {
