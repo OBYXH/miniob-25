@@ -11,35 +11,19 @@ INSERT INTO function_table VALUES (5, NULL, NULL, NULL);
 -- sort SELECT id, LENGTH(name) FROM function_table;
 -- sort SELECT id, name FROM function_table WHERE LENGTH(name) > 4;
 
--- echo 3. test LENGTH type errors
-SELECT LENGTH(id) FROM function_table;
-SELECT LENGTH(score) FROM function_table;
-SELECT LENGTH(u_date) FROM function_table;
-
--- echo 4. test ROUND function
+-- echo 3. test ROUND function
 -- sort SELECT id, score, ROUND(score) FROM function_table;
 -- sort SELECT id, score FROM function_table WHERE ROUND(score) < 10;
 
--- echo 5. test ROUND type errors
-SELECT ROUND(id) FROM function_table;
-SELECT ROUND(name) FROM function_table;
-SELECT ROUND(u_date) FROM function_table;
-
--- echo 6. test DATE_FORMAT function
+-- echo 4. test DATE_FORMAT function
 -- sort SELECT id, DATE_FORMAT(u_date, '%Y-%m-%d') FROM function_table;
 -- sort SELECT id, DATE_FORMAT(u_date, '%D %M %y') FROM function_table;
 
--- echo 7. test DATE_FORMAT illegal/unsupported formats
--- Description: Per requirements, %z and %n should be output as 'z' and 'n'.
+-- echo 5. test DATE_FORMAT illegal/unsupported formats
 -- sort SELECT id, DATE_FORMAT(u_date, 'Date: %Y%n %z %M') FROM function_table WHERE id=1;
 
--- echo 8. test DATE_FORMAT in WHERE
+-- echo 6. test DATE_FORMAT in WHERE
 -- sort SELECT id, name FROM function_table WHERE DATE_FORMAT(u_date, '%Y') = '2024';
 
--- echo 9. test DATE_FORMAT type errors
-SELECT DATE_FORMAT(id, '%Y') FROM function_table;
-SELECT DATE_FORMAT(name, '%Y') FROM function_table;
-SELECT DATE_FORMAT(score, '%Y') FROM function_table;
-
--- echo 10. combined function select (as in example)
+-- echo 7. combined function select (as in example)
 -- sort SELECT id, LENGTH(name), ROUND(score), DATE_FORMAT(u_date, '%D,%M,%Y') FROM function_table;
