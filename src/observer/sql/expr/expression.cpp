@@ -484,7 +484,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
       if (comp_ != IN_OP && comp_ != NOT_IN_OP) {
         if (has_sub_queried_) {
           has_sub_queried_ = false;
-          rc               = RC::INVALID_ARGUMENT;
+          rc               = RC::SUB_QUERY_VALUES_DISMATCH;
           break;
         } else {
           has_sub_queried_ = true;
@@ -508,7 +508,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
       }
     }
 
-    if (rc == RC::INVALID_ARGUMENT) {
+    if (rc == RC::INVALID_ARGUMENT || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
       if (subquery_expr->close_physical_operator() != RC::SUCCESS) {
         LOG_WARN("failed to close physical operator.");
       }
@@ -524,7 +524,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
         return rc;
       } else if (comp_ == IN_OP) {
         bool_value = false;
-        rc = RC::SUCCESS;
+        rc         = RC::SUCCESS;
         return rc;
       }
     }
@@ -561,7 +561,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
       return rc;
     }
 
-    bool bool_value = false;
+    bool bool_value       = false;
     bool has_sub_queried_ = false;
 
     // 循环执行子查询的算子，直到找到一个满足条件的值
@@ -573,7 +573,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
 
       if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
         if (has_sub_queried_) {
-          has_sub_queried_ = false;  
+          has_sub_queried_ = false;
           rc               = RC::INVALID_ARGUMENT;
           break;
         } else {
@@ -639,7 +639,8 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     rc = RC::SUCCESS;
   }
 
-  if (rc == RC::RECORD_EOF) rc = RC::SUCCESS;
+  if (rc == RC::RECORD_EOF)
+    rc = RC::SUCCESS;
 
   return rc;
 }
@@ -1149,7 +1150,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value) const
   if (rc != RC::SUCCESS) {
     // 可能 EOF 了
     if (rc != RC::RECORD_EOF) {
-      close_physical_operator(); // 关闭子查询算子
+      close_physical_operator();  // 关闭子查询算子
       LOG_PANIC("failed to get next tuple. rc=%s", strrc(rc));
       return rc;
     }
@@ -1164,7 +1165,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value) const
   auto tuple_ = physical_operator_->current_tuple();
   if (tuple_->cell_num() > 1) {
     LOG_WARN("tuple cell count is not 1");
-    close_physical_operator(); // 关闭子查询算子
+    close_physical_operator();  // 关闭子查询算子
     return RC::INVALID_ARGUMENT;
   }
 
