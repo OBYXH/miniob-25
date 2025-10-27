@@ -103,9 +103,7 @@ RC HeapRecordScanner::fetch_next_record_in_page()
 
     // 让当前事务探测一下是否访问冲突，或者需要加锁、等锁等操作，由事务自己决定
     rc = trx_->visit_record(table_, next_record_, rw_mode_);
-    if (rc == RC::RECORD_INVISIBLE) {
-      // 可以参考MvccTrx，表示当前记录不可见
-      // 这种模式仅在 readonly 事务下是有效的
+    if (rc == RC::RECORD_INVISIBLE && rw_mode_ == ReadWriteMode::READ_ONLY) {
       continue;
     } else if (rc != RC::SUCCESS) {
       LOG_WARN("failed to visit record in trx. rid=%s, rc=%s",

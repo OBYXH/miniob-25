@@ -56,6 +56,10 @@ RC UpdatePhysicalOperator::open(Trx *trx)
   }
   // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
   child->close();
+  if (rc == RC::RECORD_INVISIBLE) {
+    LOG_WARN("record is invisible");
+    return rc;
+  }
 
   for (auto &old_record : records_) {
     Record new_record;
