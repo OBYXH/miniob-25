@@ -13,13 +13,17 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/expr/expression.h"
+#include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/sys/rc.h"
 #include "common/type/attr_type.h"
+#include "common/value.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
+#include <string>
 #include "sql/parser/parse_defs.h"
 #include "sql/operator/physical_operator.h"
 #include "sql/operator/logical_operator.h"
@@ -68,6 +72,83 @@ RC VectorToStringExpr::try_get_value(Value &value) const
   return rc;
 }
 
+// 日期后缀查找函数
+std::string get_day_suffix(int day)
+{
+  if (day >= 11 && day <= 13) {
+    return "th";
+  }
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+// 辅助函数：替换字符串中所有匹配的子串
+void replace_all(std::string &subject, const std::string &search, const std::string &replace)
+{
+  size_t pos = 0;
+  while ((pos = subject.find(search, pos)) != std::string::npos) {
+    // 替换操作
+    subject.replace(pos, search.length(), replace);
+    // 更新位置，从新替换字符串的末尾开始继续查找
+    pos += replace.length();
+  }
+}
+
+void date_format(string format, const Value &child_value, Value &value)
+{
+  int date = child_value.get_int();
+
+  unsigned int year  = date / 10000;
+  unsigned int month = (date / 100) % 100;
+  unsigned int day   = date % 100;
+
+  // 数组索引 0 留空（或存储占位符），月份 1 对应索引 1
+  const std::vector<std::string> MONTH_NAMES = {"",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"};
+  string                         Y           = to_string(year);
+  char                           buf[3];
+  snprintf(buf, sizeof(buf), "%02d", year % 100);
+  string y = string(buf);
+  string M = MONTH_NAMES[month];
+  snprintf(buf, sizeof(buf), "%02d", month);
+  string m = string(buf);
+  string D = to_string(day) + get_day_suffix(day);
+  snprintf(buf, sizeof(buf), "%02d", day);
+  string                             d          = string(buf);
+  std::map<std::string, std::string> format_map = {
+      {"%Y", Y},
+      {"%y", y},
+      {"%M", M},
+      {"%m", m},
+      {"%D", D},
+      {"%d", d},
+  };
+  string result_format = format;
+  for (const auto &pair : format_map) {
+    replace_all(result_format, pair.first, pair.second);
+  }
+  char char_to_remove = '%';
+  auto new_end        = std::remove(result_format.begin(), result_format.end(), char_to_remove);
+  // 2. 使用 string::erase 移除从逻辑末尾到物理末尾之间的字符。
+  result_format.erase(new_end, result_format.end());
+  value.set_string(result_format.c_str());
+}
+
 RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
 {
   RC    rc = RC::SUCCESS;
@@ -79,6 +160,10 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
   }
   switch (function_type_) {
     case Type::LENGTH: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::CHARS) {
         LOG_WARN("LENGTH function only support string type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -86,18 +171,30 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
       value.set_int(static_cast<int>(child_value.get_string().size()));
     } break;
     case Type::ROUND: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::FLOATS) {
         LOG_WARN("ROUND function only support float type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      // auto times = std::pow(10, precision_);
       value.set_float(child_value.get_float(), precision_);
     } break;
     case Type::DATE_FORMAT: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::DATES) {
         LOG_WARN("DATE_FORMAT function only support date type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
+      if (common::is_blank(format_.c_str())) {
+        value.set_string(format_.c_str());
+        return rc;
+      }
+      date_format(format_, child_value, value);
     } break;
     default: {
       LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
@@ -118,6 +215,10 @@ RC FunctionExpr::try_get_value(Value &value) const
   }
   switch (function_type_) {
     case Type::LENGTH: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::CHARS) {
         LOG_WARN("LENGTH function only support string type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -125,18 +226,30 @@ RC FunctionExpr::try_get_value(Value &value) const
       value.set_int(static_cast<int>(child_value.get_string().size()));
     } break;
     case Type::ROUND: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::FLOATS) {
         LOG_WARN("ROUND function only support float type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      // auto times = std::pow(10, precision_);
       value.set_float(child_value.get_float(), precision_);
     } break;
     case Type::DATE_FORMAT: {
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
       if (child_value.attr_type() != AttrType::DATES) {
         LOG_WARN("DATE_FORMAT function only support date type");
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
+      if (common::is_blank(format_.c_str())) {
+        value.set_string(format_.c_str());
+        return rc;
+      }
+      date_format(format_, child_value, value);
     } break;
     default: {
       LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));

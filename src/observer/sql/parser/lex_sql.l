@@ -151,7 +151,7 @@ AS                                      RETURN_TOKEN(AS);
 HAVING                                 RETURN_TOKEN(HAVING);
 ROUND                                  RETURN_TOKEN(ROUND);
 LENGTH                              RETURN_TOKEN(LENGTH);
-DARE_FORMAT                            RETURN_TOKEN(DATE_FORMAT);
+DATE_FORMAT                            RETURN_TOKEN(DATE_FORMAT);
 LIMIT                                 RETURN_TOKEN(LIMIT);
 
 "("                                     RETURN_TOKEN(LBRACE);

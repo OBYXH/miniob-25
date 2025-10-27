@@ -54,8 +54,8 @@ enum class ExprType
   AGGREGATION,  ///< 聚合运算
   DISTANCE,     ///< 向量距离计算
   FUNCTION,     ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
-  VECTOSTRING,   ///< 向量字符串表达式
-  SUBQUERY,      ///< 子查询表达式
+  VECTOSTRING,  ///< 向量字符串表达式
+  SUBQUERY,     ///< 子查询表达式
   VALUES,       ///< 值列表表达式
   SPECIAL,      ///< 特殊表达式，先留着
 };
@@ -190,10 +190,10 @@ public:
     ROUND,
     DATE_FORMAT
   };
-  FunctionExpr(Type type, unique_ptr<Expression> child, int round = 0)
-      : child_(std::move(child)), precision_(round), function_type_(type)
+  FunctionExpr(Type type, unique_ptr<Expression> child, int precision = 0, string format = "")
+      : child_(std::move(child)), precision_(precision), format_(format), function_type_(type)
   {}
-  FunctionExpr(Type type, Expression *child, int round = 0) : child_(child), precision_(round), function_type_(type) {}
+  FunctionExpr(Type type, Expression *child, int round = 0, string format = "") : child_(child), precision_(round), format_(format), function_type_(type) {}
   virtual ~FunctionExpr() = default;
 
   unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
@@ -228,6 +228,7 @@ public:
 private:
   unique_ptr<Expression> child_;
   int                    precision_ = 0;  // only for ROUND function
+  string                 format_;
   Type                   function_type_;
 };
 
@@ -656,7 +657,6 @@ private:
   unique_ptr<Expression> child_;
 };
 
-
 /**
  * @brief 子查询表达式
  * @ingroup Expression
@@ -671,32 +671,31 @@ public:
     return nullptr;
   }
 
-  SubqueryExpr(ParsedSqlNode* sub_query_sn);
+  SubqueryExpr(ParsedSqlNode *sub_query_sn);
   ExprType type() const override { return ExprType::SUBQUERY; }
   AttrType value_type() const override;
   int      value_length() const override;
   RC       get_value(const Tuple &tuple, Value &value) const override;
 
-  void set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
-  void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
-  void set_trx(Trx *trx);
-  RC   open_physical_operator() const;
-  RC   close_physical_operator() const;
-  void set_stmt(std::unique_ptr<SelectStmt> stmt);
-  ParsedSqlNode* sub_query_sn();
-  std::unique_ptr<SelectStmt> &stmt();
-  std::unique_ptr<LogicalOperator> &logical_operator();
+  void                               set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
+  void                               set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
+  void                               set_trx(Trx *trx);
+  RC                                 open_physical_operator() const;
+  RC                                 close_physical_operator() const;
+  void                               set_stmt(std::unique_ptr<SelectStmt> stmt);
+  ParsedSqlNode                     *sub_query_sn();
+  std::unique_ptr<SelectStmt>       &stmt();
+  std::unique_ptr<LogicalOperator>  &logical_operator();
   std::unique_ptr<PhysicalOperator> &physical_operator();
 
 private:
-  ParsedSqlNode* sub_query_sn_;
-  std::unique_ptr<SelectStmt>    stmt_;
-  std::unique_ptr<LogicalOperator> logical_operator_;
+  ParsedSqlNode                    *sub_query_sn_;
+  std::unique_ptr<SelectStmt>       stmt_;
+  std::unique_ptr<LogicalOperator>  logical_operator_;
   std::unique_ptr<PhysicalOperator> physical_operator_;
-  mutable bool is_open_ = false;
-  mutable Trx *trx_;
+  mutable bool                      is_open_ = false;
+  mutable Trx                      *trx_;
 };
-
 
 /**
  * @brief 常量值列表表达式，用于 IN/NOT IN 操作
@@ -706,17 +705,17 @@ class ValueListExpr : public Expression
 {
 public:
   ValueListExpr() = default;
-  explicit ValueListExpr(const std::vector<Value> &values) : values_(values)
-  {}
+  explicit ValueListExpr(const std::vector<Value> &values) : values_(values) {}
 
   virtual ~ValueListExpr() = default;
-  unique_ptr<Expression> copy() const override
-  {
-    return make_unique<ValueListExpr>(values_);
-  }
+  unique_ptr<Expression> copy() const override { return make_unique<ValueListExpr>(values_); }
 
   RC get_value(const Tuple &tuple, Value &value) const override;
-  RC try_get_value(Value &value) const override { value = values_[0]; return RC::SUCCESS; }
+  RC try_get_value(Value &value) const override
+  {
+    value = values_[0];
+    return RC::SUCCESS;
+  }
 
   ExprType type() const override { return ExprType::VALUES; }
 
@@ -728,5 +727,5 @@ public:
 
 private:
   std::vector<Value> values_;
-  mutable size_t index_ = 0;
+  mutable size_t     index_ = 0;
 };
