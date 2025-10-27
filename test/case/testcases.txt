@@ -7,6 +7,8 @@ primary-update-plus
 primary-update
 primary-like
 primary-vec
+primary-vector-search
+complex-vector-search
 primary-date
 primary-expression
 primary-aggregation-func
