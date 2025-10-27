@@ -104,12 +104,50 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       ASSERT(false, "shouldn't be here");
     } break;
 
+    case ExprType::SUBQUERY: {
+      return bind_subquery_expression(expr, bound_expressions);
+    } break;
+
+    case ExprType::VALUES: {
+      return bind_values_expression(expr, bound_expressions);
+    } break;
+
+    case ExprType::SPECIAL: {
+      if (expr == nullptr) {
+        return RC::SUCCESS;
+      }
+      bound_expressions.emplace_back(std::move(expr));
+      return RC::SUCCESS;
+    } break;
+
     default: {
       LOG_WARN("unknown expression type: %d", static_cast<int>(expr->type()));
       return RC::INTERNAL;
     }
   }
   return RC::INTERNAL;
+}
+
+RC ExpressionBinder::bind_subquery_expression(
+    unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  bound_expressions.emplace_back(std::move(expr));
+  return RC::SUCCESS;
+}
+
+RC ExpressionBinder::bind_values_expression(
+    unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  bound_expressions.emplace_back(std::move(expr));
+  return RC::SUCCESS;
 }
 
 RC ExpressionBinder::bind_star_expression(

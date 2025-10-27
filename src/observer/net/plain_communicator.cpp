@@ -244,7 +244,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   }
 
   // 暂时专门针对向量维度不匹配的情况做特殊处理，输出FAILURE给客户端
-  if (rc == RC::VECTOR_DIMENSION_MISMATCH) {
+  if (rc == RC::VECTOR_DIMENSION_MISMATCH || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
     const int   buf_size = 2048;
     char       *buf      = new char[buf_size];
     const char *result   = "FAILURE";
