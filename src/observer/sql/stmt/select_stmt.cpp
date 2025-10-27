@@ -190,6 +190,12 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     order_by_.push_back({std::move(order_by_expressions[i]), select_sql.order_by[i].is_asc});
   }
 
+  int limit = -1;
+  if (select_sql.limit >= 0) {
+    // bind limit
+    limit = select_sql.limit;
+  }
+
   Table *default_table = nullptr;
   if (tables.size() == 1) {
     default_table = tables[0];
@@ -220,6 +226,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   select_stmt->having_filter_stmt_ = having_filter_stmt;
   select_stmt->group_by_.swap(group_by_expressions);
   select_stmt->order_by_.swap(order_by_);
-  stmt = select_stmt;
+  select_stmt->limit_ = limit;
+  stmt                = select_stmt;
   return RC::SUCCESS;
 }

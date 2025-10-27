@@ -53,6 +53,16 @@ struct RelationNode
 };
 
 /**
+ * @brief 描述limit语句
+ * @ingroup SQLParser
+ * @details 包含limit的数量
+ */
+struct LimitSqlNode
+{
+  int limit_count;  ///< limit count
+};
+
+/**
  * @brief 描述比较运算符
  * @ingroup SQLParser
  */
@@ -122,6 +132,7 @@ struct SelectSqlNode
   vector<ConditionSqlNode>       conditions;   ///< 查询条件，使用AND串联起来多个条件
   vector<unique_ptr<Expression>> group_by;     ///< group by clause
   std::vector<OrderBySqlNode>    order_by;
+  int                            limit = -1;         ///< limit count, -1 means no limit
   vector<ConditionSqlNode>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
 };
 

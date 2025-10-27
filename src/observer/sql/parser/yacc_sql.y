@@ -193,6 +193,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         ROUND
         LENGTH
         DATE_FORMAT
+        LIMIT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -212,12 +213,13 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<string> *                           key_list;
   OrderBySqlNode *                           orderby_unit;
   std::vector<OrderBySqlNode> *              orderby_list;
+  LimitSqlNode *                             limit_node;
   char *                                     cstring;
   int                                        number;
   float                                      floats;
   bool                                       nullable_info;
   bool                                       unique;
-  vector<UpdateField> *                             update_list;
+  vector<UpdateField> *                      update_list;
 }
 
 %destructor { delete $$; } <condition>
@@ -269,6 +271,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <orderby_unit>        sort_unit
 %type <orderby_list>        sort_list
 %type <orderby_list>        opt_order_by
+%type <limit_node>          opt_limit
 %type <cstring>             fields_terminated_by
 %type <cstring>             enclosed_by
 %type <cstring>             alias
@@ -724,7 +727,7 @@ update_list:
       delete $5;
     }
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list where group_by having_condition opt_order_by
+    SELECT expression_list FROM rel_list where group_by having_condition opt_order_by opt_limit
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -755,6 +758,11 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($8 != nullptr) {
         $$->selection.order_by.swap(*$8);
         delete $8;
+      }
+
+      if ($9 != nullptr) {
+        $$->selection.limit = $9->limit_count;
+        delete $9;
       }
     }
     | SELECT expression_list
@@ -1045,6 +1053,16 @@ opt_order_by:
     {
       $$ = $3;
       std::reverse($$->begin(),$$->end());
+    }
+    ;
+
+opt_limit:
+    {
+      $$ = nullptr;
+    }
+    | LIMIT NUMBER
+    {
+      $$ = new LimitSqlNode($2);
     }
     ;
 

@@ -29,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_logical_operator.h"
 #include "sql/operator/insert_physical_operator.h"
 #include "sql/operator/join_logical_operator.h"
+#include "sql/operator/limit_logical_operator.h"
 #include "sql/operator/nested_loop_join_physical_operator.h"
 #include "sql/operator/order_by_logical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
@@ -47,6 +48,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/update_physical_operator.h"
+#include "sql/operator/limit_logical_operator.h"
+#include "sql/operator/limit_physical_operator.h"
 
 using namespace std;
 
@@ -98,6 +101,10 @@ RC PhysicalPlanGenerator::create(
 
     case LogicalOperatorType::ORDER_BY: {
       return create_plan(static_cast<OrderByLogicalOperator &>(logical_operator), oper, session);
+    } break;
+
+    case LogicalOperatorType::LIMIT: {
+      return create_plan(static_cast<LimitLogicalOperator &>(logical_operator), oper, session);
     } break;
 
     default: {
@@ -469,6 +476,35 @@ RC PhysicalPlanGenerator::create_plan(
   }
 
   oper = unique_ptr<PhysicalOperator>(orderby_operator);
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(
+    LimitLogicalOperator &limit_oper, unique_ptr<PhysicalOperator> &oper, Session *session)
+{
+  vector<unique_ptr<LogicalOperator>> &child_opers = limit_oper.children();
+
+  unique_ptr<PhysicalOperator> child_phy_oper;
+
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc                          = create(*child_oper, child_phy_oper, session);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create project logical operator's child physical operator. rc=%s", strrc(rc));
+      return rc;
+    }
+  }
+
+  auto limit_operator = make_unique<LimitPhysicalOperator>(limit_oper.limit());
+
+  if (child_phy_oper != nullptr) {
+    limit_operator->add_child(std::move(child_phy_oper));
+  }
+
+  oper = std::move(limit_operator);
+
+  LOG_TRACE("create a project physical operator");
   return rc;
 }
 
