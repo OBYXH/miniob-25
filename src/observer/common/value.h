@@ -132,7 +132,7 @@ public:
 
 public:
   void          set_int(int val);
-  void          set_float(float val);
+  void          set_float(float val, int precision = 2);
   void          set_string(const char *s, int len = 0);
   void          set_empty_string(int len);
   void          set_text(const char *s, int len = 65535);
@@ -143,8 +143,9 @@ public:
   void          set_string_from_other(const Value &other);
 
 private:
-  AttrType attr_type_ = AttrType::UNDEFINED;
-  int      length_    = 0;
+  AttrType attr_type_       = AttrType::UNDEFINED;
+  int      length_          = 0;
+  int      float_precision_ = 2;  // float类型保留小数位数
 
   union Val
   {

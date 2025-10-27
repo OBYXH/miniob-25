@@ -84,7 +84,6 @@ QUOTE            [\'\"]
 \[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
 \'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 'YYYY-M[M]-D[D]'格式的日期
 \"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 "YYYY-M[M]-D[D]"格式的日期
-{QUOTE}{WHITE_SPACE}*\%D,\%M,\%Y{WHITE_SPACE}*{QUOTE}    yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE_FORMAT);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -137,22 +136,22 @@ ANALYZE                                 RETURN_TOKEN(ANALYZE);
 FIELDS                                  RETURN_TOKEN(FIELDS);
 TERMINATED                              RETURN_TOKEN(TERMINATED);
 ENCLOSED                                RETURN_TOKEN(ENCLOSED);
-DISTANCE                             RETURN_TOKEN(DISTANCE);
-VECTOR_TO_STRING                    RETURN_TOKEN(VECTOR_TO_STRING);
-FROM_VECTOR_STRING                  RETURN_TOKEN(VECTOR_TO_STRING);
-STRING_TO_VECTOR                    RETURN_TOKEN(STRING_TO_VECTOR);
+DISTANCE                                RETURN_TOKEN(DISTANCE);
+VECTOR_TO_STRING                        RETURN_TOKEN(VECTOR_TO_STRING);
+FROM_VECTOR_STRING                      RETURN_TOKEN(VECTOR_TO_STRING);
+STRING_TO_VECTOR                        RETURN_TOKEN(STRING_TO_VECTOR);
 NULL                                    RETURN_TOKEN(NULL_T);
 NULLABLE                                RETURN_TOKEN(NULLABLE);
-IS                                     RETURN_TOKEN(IS);
-L2_DISTANCE                          RETURN_TOKEN(L2_DISTANCE);
-COSINE_DISTANCE                     RETURN_TOKEN(COSINE_DISTANCE);
-INNER_PRODUCT              RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
+  IS                                    RETURN_TOKEN(IS);
+  L2_DISTANCE                           RETURN_TOKEN(L2_DISTANCE);
+COSINE_DISTANCE                         RETURN_TOKEN(COSINE_DISTANCE);
+INNER_PRODUCT                           RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 AS                                      RETURN_TOKEN(AS);
-HAVING                                 RETURN_TOKEN(HAVING);
-ROUND                                  RETURN_TOKEN(ROUND);
-LENGTH                              RETURN_TOKEN(LENGTH);
-DARE_FORMAT                            RETURN_TOKEN(DATE_FORMAT);
-LIMIT                                 RETURN_TOKEN(LIMIT);
+HAVING                                  RETURN_TOKEN(HAVING);
+ROUND                                   RETURN_TOKEN(ROUND);
+LENGTH                                  RETURN_TOKEN(LENGTH);
+DATE_FORMAT                             RETURN_TOKEN(DATE_FORMAT);
+LIMIT                                   RETURN_TOKEN(LIMIT);
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

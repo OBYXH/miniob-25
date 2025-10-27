@@ -60,6 +60,7 @@ FunctionExpr *create_function_expression(const char *function_type,
                                              Expression *child,
                                              const char *sql_string,
                                              int round,
+                                             string format,
                                              YYLTYPE *llocp)
 {
   std::string type_str(function_type);
@@ -78,7 +79,7 @@ FunctionExpr *create_function_expression(const char *function_type,
     LOG_ERROR("Unsupported function type: %s", function_type);
     return nullptr;
   }
-  FunctionExpr *expr = new FunctionExpr(type, child, round);
+  FunctionExpr *expr = new FunctionExpr(type, child, round, format);
   expr->set_name(token_name(sql_string, llocp));
   return expr;
 }
@@ -873,11 +874,13 @@ expression:
     }
     | aggregate_expression {
       $$ = $1;
-    }
-    | vector_expression {
+    }    | vector_expression {
       $$ = $1;
     }
     | function_expression {
+      $$ = $1;
+    }
+    | vector_expression {
       $$ = $1;
     }
     ;
@@ -924,17 +927,21 @@ vector_expression:
 function_expression:
     // to be added later
     | LENGTH LBRACE expression RBRACE {
-      $$ = create_function_expression("LENGTH", $3, sql_string, 0, &@$);
+      string format="";
+      $$ = create_function_expression("LENGTH", $3, sql_string, 0, format, &@$);
     }
     | ROUND LBRACE expression RBRACE {
-      $$ = create_function_expression("ROUND", $3, sql_string, 0, &@$);
+      string format="";
+      $$ = create_function_expression("ROUND", $3, sql_string, 0, format, &@$);
     }
     | ROUND LBRACE expression COMMA NUMBER RBRACE {
+      string format="";
       int round = $5;
-      $$ = create_function_expression("ROUND", $3, sql_string, round, &@$);
+      $$ = create_function_expression("ROUND", $3, sql_string, round, format, &@$);
     }
     | DATE_FORMAT LBRACE expression COMMA SSS RBRACE {
-
+      string format = common::substr($5,1,strlen($5)-2);
+      $$ = create_function_expression("DATE_FORMAT", $3, sql_string, 0, format, &@$);
     }
     ;
 

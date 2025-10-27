@@ -1,0 +1,29 @@
+-- echo 1. initialization
+CREATE TABLE function_table (id INT, name CHAR(20), score FLOAT, u_date DATE);
+
+INSERT INTO function_table VALUES (1, 'abc', 10.1, '2024-12-05');
+INSERT INTO function_table VALUES (2, 'hello world', 12.8, '2025-01-09');
+INSERT INTO function_table VALUES (3, 'test', 15.5, '2024-03-31');
+INSERT INTO function_table VALUES (4, ' ', -3.7, '2024-02-02');
+INSERT INTO function_table VALUES (5, NULL, NULL, NULL);
+
+-- echo 2. test LENGTH function
+-- sort SELECT id, LENGTH(name) FROM function_table;
+-- sort SELECT id, name FROM function_table WHERE LENGTH(name) > 4;
+
+-- echo 3. test ROUND function
+-- sort SELECT id, score, ROUND(score) FROM function_table;
+-- sort SELECT id, score FROM function_table WHERE ROUND(score) < 10;
+
+-- echo 4. test DATE_FORMAT function
+-- sort SELECT id, DATE_FORMAT(u_date, '%Y-%m-%d') FROM function_table;
+-- sort SELECT id, DATE_FORMAT(u_date, '%D %M %y') FROM function_table;
+
+-- echo 5. test DATE_FORMAT illegal/unsupported formats
+-- sort SELECT id, DATE_FORMAT(u_date, 'Date: %Y%n %z %M') FROM function_table WHERE id=1;
+
+-- echo 6. test DATE_FORMAT in WHERE
+-- sort SELECT id, name FROM function_table WHERE DATE_FORMAT(u_date, '%Y') = '2024';
+
+-- echo 7. combined function select (as in example)
+-- sort SELECT id, LENGTH(name), ROUND(score), DATE_FORMAT(u_date, '%D,%M,%Y') FROM function_table;

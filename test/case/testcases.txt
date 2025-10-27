@@ -21,3 +21,4 @@ primary-text
 primary-order-by
 primary-alias
 primary-simple-sub-query
+primary-function
