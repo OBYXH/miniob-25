@@ -29,13 +29,17 @@ SelectStmt::~SelectStmt()
     delete filter_stmt_;
     filter_stmt_ = nullptr;
   }
+  if (nullptr != having_filter_stmt_) {
+    delete having_filter_stmt_;
+    having_filter_stmt_ = nullptr;
+  }
 }
 
 static RC check_sub_select_legal(Db *db, ParsedSqlNode *sub_select, std::vector<RelationNode> main_query_relations)
 {
   // 这个方法主要是检查子查询的合法性：子查询的查询的属性只能有一个。
   FieldExpr *field_expr = nullptr;
-  StarExpr  *star_expr   = nullptr;
+  StarExpr  *star_expr  = nullptr;
   for (auto &expr : sub_select->selection.expressions) {
     if (field_expr != nullptr) {
       // 当左子查询的属性不止一个时，报错

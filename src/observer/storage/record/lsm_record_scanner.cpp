@@ -42,7 +42,7 @@ RC LsmRecordScanner::close_scan()
     delete lsm_iter_;
     lsm_iter_ = nullptr;
   }
-  
+
   return RC::SUCCESS;
 }
 

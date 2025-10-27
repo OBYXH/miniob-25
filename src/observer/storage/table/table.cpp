@@ -219,7 +219,10 @@ RC Table::insert_record(Record &record) { return engine_->insert_record(record);
 
 RC Table::insert_chunk(const Chunk &chunk) { return engine_->insert_chunk(chunk); }
 
-RC Table::visit_record(const RID &rid, function<bool(Record &)> visitor) { return engine_->visit_record(rid, visitor); }
+RC Table::visit_record(const RID &rid, const function<bool(Record &)> &visitor)
+{
+  return engine_->visit_record(rid, visitor);
+}
 
 RC Table::insert_record_with_trx(Record &record, Trx *trx) { return engine_->insert_record_with_trx(record, trx); }
 RC Table::delete_record_with_trx(const Record &record, Trx *trx)
