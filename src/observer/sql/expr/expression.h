@@ -734,3 +734,15 @@ private:
   std::vector<Value> values_;
   mutable size_t     index_ = 0;
 };
+
+class SpecialPlaceholderExpr : public Expression
+{
+public:
+  SpecialPlaceholderExpr() = default;
+  virtual ~SpecialPlaceholderExpr() = default;
+
+  ExprType type() const override { return ExprType::SPECIAL; }
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  unique_ptr<Expression> copy() const override { return make_unique<SpecialPlaceholderExpr>(); }
+};

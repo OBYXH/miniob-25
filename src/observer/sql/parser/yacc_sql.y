@@ -11,6 +11,7 @@
 #include "sql/parser/yacc_sql.hpp"
 #include "sql/parser/lex_sql.h"
 #include "sql/expr/expression.h"
+#include <memory>
 
 using namespace std;
 
@@ -188,6 +189,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NULLABLE
         IS
         IN
+        EXISTS
         AS
         HAVING
         TEXT_T
@@ -1014,6 +1016,20 @@ condition:
       $$->right = std::unique_ptr<Expression>($3);
       $$->comp = $2;
     }
+    | EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp = CompOp::EXISTS_OP;
+      $$->left = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right = std::unique_ptr<Expression>($2);
+    }
+    | NOT EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp = CompOp::NOT_EXISTS_OP;
+      $$->left = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right = std::unique_ptr<Expression>($3);
+    }
     ;
 
 having_condition:
@@ -1039,6 +1055,8 @@ comp_op:
     | IS NOT { $$ = IS_NOT_OP; }
     | IN { $$ = IN_OP; }
     | NOT IN { $$ = NOT_IN_OP; }
+    | EXISTS { $$ = EXISTS_OP; }
+    | NOT EXISTS { $$ = NOT_EXISTS_OP; }
     ;
 
 // your code here

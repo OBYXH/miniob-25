@@ -638,8 +638,16 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     bool has_sub_queried_ = false;
     while ((rc = subquery_expr->get_value(tuple, *sub_query_value, trx)) == RC::SUCCESS) {
 
-      // 当 comp_ 不是 IN、NOT_IN，子查询的结果只能是一个值
-      if (comp_ != IN_OP && comp_ != NOT_IN_OP) {
+      if (comp_ == EXISTS_OP) {
+        bool_value = true;
+        value.set_boolean(true);
+        break;
+      } else if (comp_ == NOT_EXISTS_OP) {
+        bool_value = false;
+        value.set_boolean(false);
+        break;
+        // 当 comp_ 不是 IN、NOT_IN、EXISTS、NOT_EXISTS 时，子查询的结果只能是一个值
+      } else if (comp_ != IN_OP && comp_ != NOT_IN_OP && comp_ != EXISTS_OP && comp_ != NOT_EXISTS_OP) {
         if (has_sub_queried_) {
           has_sub_queried_ = false;
           rc               = RC::SUB_QUERY_VALUES_DISMATCH;
@@ -675,12 +683,12 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 
     // 执行到了算子末尾，还没有找到满足条件的值
     if (rc == RC::RECORD_EOF) {
-      if (comp_ == NOT_IN_OP) {
+      if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
         bool_value = true;
         value.set_boolean(true);
         rc = RC::SUCCESS;
         return rc;
-      } else if (comp_ == IN_OP) {
+      } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
         bool_value = false;
         rc         = RC::SUCCESS;
         return rc;
@@ -729,7 +737,16 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
         break;
       }
 
-      if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
+      if (comp_ == EXISTS_OP) {
+        // 当comp_为EXISTS时，直接返回true
+        bool_value = true;
+        value.set_boolean(true);
+        break;
+      } else if (comp_ == NOT_EXISTS_OP) {
+        bool_value = false;
+        value.set_boolean(false);
+        break;
+      } else if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
         if (has_sub_queried_) {
           has_sub_queried_ = false;
           rc               = RC::INVALID_ARGUMENT;
@@ -755,11 +772,11 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 
     // EOF判断
     if (rc == RC::RECORD_EOF) {
-      if (comp_ == NOT_IN_OP) {
+      if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
         value.set_boolean(true);
         rc = RC::SUCCESS;
         return rc;
-      } else if (comp_ == IN_OP) {
+      } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
         value.set_boolean(false);
         rc = RC::SUCCESS;
         return rc;
@@ -773,6 +790,11 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 
     value_list_expr->set_index(0);  // 重置index
   } else {                          // 普通表达式
+    // exists 和 not exists 不应该走到这里，TA们是用于子查询的。
+    if (comp_ == EXISTS_OP || comp_ == NOT_EXISTS_OP) {
+      LOG_WARN("exists and not exists should be used in subquery");
+      return RC::INVALID_ARGUMENT;
+    }
 
     rc = left_->get_value(tuple, left_value, trx);
     if (rc != RC::SUCCESS) {
@@ -791,10 +813,6 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     if (rc == RC::SUCCESS) {
       value.set_boolean(bool_value);
     }
-  }
-
-  if (rc == RC::RECORD_EOF) {
-    rc = RC::SUCCESS;
   }
 
   if (rc == RC::RECORD_EOF)
