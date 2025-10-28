@@ -36,11 +36,11 @@ class PhysicalOperator;
 
 using namespace std;
 
-RC VectorToStringExpr::get_value(const Tuple &tuple, Value &value) const
+RC VectorToStringExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC    rc = RC::SUCCESS;
   Value child_value;
-  rc = child_->get_value(tuple, child_value);
+  rc = child_->get_value(tuple, child_value, trx);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
     return rc;
@@ -149,11 +149,11 @@ void date_format(string format, const Value &child_value, Value &value)
   value.set_string(result_format.c_str());
 }
 
-RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const
+RC FunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC    rc = RC::SUCCESS;
   Value child_value;
-  rc = child_->get_value(tuple, child_value);
+  rc = child_->get_value(tuple, child_value, trx);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
     return rc;
@@ -259,17 +259,17 @@ RC FunctionExpr::try_get_value(Value &value) const
   return rc;
 }
 
-RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value) const
+RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC    rc = RC::SUCCESS;
   Value left_value;
   Value right_value;
-  rc = left_->get_value(tuple, left_value);
+  rc = left_->get_value(tuple, left_value, trx);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
     return rc;
   }
-  rc = right_->get_value(tuple, right_value);
+  rc = right_->get_value(tuple, right_value, trx);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
     return rc;
@@ -387,7 +387,7 @@ RC VecDistanceExpr::try_get_value(Value &value) const
   return RC::SUCCESS;
 }
 
-RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
+RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
@@ -428,7 +428,7 @@ bool ValueExpr::equal(const Expression &other) const
   return value_.compare(other_value_expr.get_value()) == 0;
 }
 
-RC ValueExpr::get_value(const Tuple &tuple, Value &value) const
+RC ValueExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   value = value_;
   return RC::SUCCESS;
@@ -457,10 +457,10 @@ RC CastExpr::cast(const Value &value, Value &cast_value) const
   return rc;
 }
 
-RC CastExpr::get_value(const Tuple &tuple, Value &result) const
+RC CastExpr::get_value(const Tuple &tuple, Value &result, Trx *trx) const
 {
   Value value;
-  RC    rc = child_->get_value(tuple, value);
+  RC    rc = child_->get_value(tuple, value, trx);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -579,7 +579,7 @@ RC ComparisonExpr::try_get_value(Value &cell) const
   return RC::INVALID_ARGUMENT;
 }
 
-RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
+RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   Value left_value;
   Value right_value;
@@ -587,23 +587,23 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
 
   // 子查询处理（排列组合共三类）
   if (left_->type() == ExprType::SUBQUERY && right_->type() == ExprType::SUBQUERY) {
-    rc = left_->get_value(tuple, left_value);
+    rc = left_->get_value(tuple, left_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
     // 对于这种情况子查询只支持一行
     Value _test;
-    if (left_->get_value(tuple, _test) != RC::RECORD_EOF) {
+    if (left_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
       LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
       return RC::INTERNAL;
     }
-    rc = right_->get_value(tuple, right_value);
+    rc = right_->get_value(tuple, right_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
     }
-    if (right_->get_value(tuple, _test) != RC::RECORD_EOF) {
+    if (right_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
       LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
       return RC::INTERNAL;
     }
@@ -618,13 +618,13 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     if (left_->type() == ExprType::SUBQUERY) {
       subquery_expr = static_cast<SubqueryExpr *>(left_.get());
       if (right_->type() != ExprType::SPECIAL) {
-        rc = right_->get_value(tuple, right_value);
+        rc = right_->get_value(tuple, right_value, trx);
       }
       sub_query_value = &left_value;
     } else {
       subquery_expr = static_cast<SubqueryExpr *>(right_.get());
       if (left_->type() != ExprType::SPECIAL) {
-        rc = left_->get_value(tuple, left_value);
+        rc = left_->get_value(tuple, left_value, trx);
       }
       sub_query_value = &right_value;
     }
@@ -636,7 +636,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     bool bool_value = false;
     // 循环执行子查询的算子，直到找到一个满足条件的值
     bool has_sub_queried_ = false;
-    while ((rc = subquery_expr->get_value(tuple, *sub_query_value)) == RC::SUCCESS) {
+    while ((rc = subquery_expr->get_value(tuple, *sub_query_value, trx)) == RC::SUCCESS) {
 
       // 当 comp_ 不是 IN、NOT_IN，子查询的结果只能是一个值
       if (comp_ != IN_OP && comp_ != NOT_IN_OP) {
@@ -705,12 +705,12 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     Value         *value_list_value;
     if (left_->type() == ExprType::VALUES) {
       value_list_expr  = static_cast<ValueListExpr *>(left_.get());
-      rc               = right_->get_value(tuple, right_value);  // 假设右边不是value list
+      rc               = right_->get_value(tuple, right_value, trx);  // 假设右边不是value list
       value_list_value = &left_value;
     } else {
       value_list_expr = static_cast<ValueListExpr *>(right_.get());
       if (left_->type() != ExprType::SPECIAL) {
-        rc = left_->get_value(tuple, left_value);  // 假设左边不是value list
+        rc = left_->get_value(tuple, left_value, trx);  // 假设左边不是value list
       }
       value_list_value = &right_value;
     }
@@ -723,7 +723,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     bool has_sub_queried_ = false;
 
     // 循环执行子查询的算子，直到找到一个满足条件的值
-    while ((rc = value_list_expr->get_value(tuple, *value_list_value)) == RC::SUCCESS) {
+    while ((rc = value_list_expr->get_value(tuple, *value_list_value, trx)) == RC::SUCCESS) {
       if (value_list_value->attr_type() == AttrType::UNDEFINED) {
         rc = RC::RECORD_EOF;  // maybe wrong
         break;
@@ -774,12 +774,12 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const
     value_list_expr->set_index(0);  // 重置index
   } else {                          // 普通表达式
 
-    rc = left_->get_value(tuple, left_value);
+    rc = left_->get_value(tuple, left_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
-    rc = right_->get_value(tuple, right_value);
+    rc = right_->get_value(tuple, right_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
@@ -877,7 +877,7 @@ ConjunctionExpr::ConjunctionExpr(Type type, vector<unique_ptr<Expression>> &chil
     : conjunction_type_(type), children_(std::move(children))
 {}
 
-RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const
+RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
@@ -887,7 +887,7 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const
 
   Value tmp_value;
   for (const unique_ptr<Expression> &expr : children_) {
-    rc = expr->get_value(tuple, tmp_value);
+    rc = expr->get_value(tuple, tmp_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value by child expression. rc=%s", strrc(rc));
       return rc;
@@ -1054,7 +1054,7 @@ RC ArithmeticExpr::execute_calc(
   return rc;
 }
 
-RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const
+RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC rc = RC::SUCCESS;
 
@@ -1062,14 +1062,14 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const
   Value right_value;
 
   if (left_) {
-    rc = left_->get_value(tuple, left_value);
+    rc = left_->get_value(tuple, left_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
   }
   if (right_) {
-    rc = right_->get_value(tuple, right_value);
+    rc = right_->get_value(tuple, right_value, trx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
@@ -1224,7 +1224,7 @@ unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
   return aggregator;
 }
 
-RC AggregateExpr::get_value(const Tuple &tuple, Value &value) const
+RC AggregateExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   return tuple.find_cell(TupleCellSpec(name()), value);
 }
@@ -1283,7 +1283,7 @@ RC SubqueryExpr::close_physical_operator() const
 
 AttrType SubqueryExpr::value_type() const { return AttrType::INTS; }
 int      SubqueryExpr::value_length() const { return sizeof(int); }
-RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value) const
+RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   RC rc = RC::SUCCESS;
   if (logical_operator_ == nullptr && physical_operator_ == nullptr) {
@@ -1294,6 +1294,8 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value) const
     LOG_WARN("physical operator is null");
     return RC::INVALID_ARGUMENT;
   }
+
+  trx_ = trx;
 
   if (!is_open_) {
     rc = open_physical_operator();
@@ -1349,7 +1351,7 @@ std::unique_ptr<SelectStmt>       &SubqueryExpr::stmt() { return stmt_; }
 std::unique_ptr<LogicalOperator>  &SubqueryExpr::logical_operator() { return logical_operator_; }
 std::unique_ptr<PhysicalOperator> &SubqueryExpr::physical_operator() { return physical_operator_; }
 
-RC ValueListExpr::get_value(const Tuple &tuple, Value &value) const
+RC ValueListExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
   if (index_ >= values_.size()) {
     index_ = 0;

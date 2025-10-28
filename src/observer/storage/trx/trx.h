@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/mutex.h"
 #include "sql/parser/parse.h"
 #include "storage/field/field_meta.h"
+#include "storage/record/record.h"
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
 
@@ -57,23 +58,29 @@ public:
   };
 
 public:
-  Operation(Type type, Table *table, const RID &rid)
-      : type_(type), table_(table), page_num_(rid.page_num), slot_num_(rid.slot_num)
+  Operation(Type type, Table *table, const RID &rid) : type_(type), table_(table), rid_(rid) {}
+  Operation(Type type, Table *table, const RID &rid, const Record &old_record, const Record &updated_record)
+      : type_(type), table_(table), rid_(rid), old_record_(old_record), updated_record_(updated_record)
   {}
 
-  Type    type() const { return type_; }
-  int32_t table_id() const { return table_->table_id(); }
-  Table  *table() const { return table_; }
-  PageNum page_num() const { return page_num_; }
-  SlotNum slot_num() const { return slot_num_; }
+  Type          type() const { return type_; }
+  int32_t       table_id() const { return table_->table_id(); }
+  Table        *table() const { return table_; }
+  RID           rid() const { return rid_; }
+  int32_t       page_num() const { return rid_.page_num; }
+  int32_t       slot_num() const { return rid_.slot_num; }
+  const Record &old_record() const { return old_record_; }
+  const Record &updated_record() const { return updated_record_; }
 
 private:
   ///< 操作的哪张表。这里直接使用表其实并不准确，因为表中的索引也可能有日志
   Type type_;
 
-  Table  *table_ = nullptr;
-  PageNum page_num_;  // TODO use RID instead of page num and slot num
-  SlotNum slot_num_;
+  Table *table_ = nullptr;
+  RID    rid_;
+  // update
+  Record old_record_;
+  Record updated_record_;
 };
 
 class OperationHasher

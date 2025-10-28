@@ -220,8 +220,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
         auto cmp_expr_ = static_cast<ComparisonExpr *>(condition.get());
         // exists / not exists 可能会使得 left_expr 为空
         if (cmp_expr_->left() != nullptr && cmp_expr_->left()->type() == ExprType::SUBQUERY) {
-          auto sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->left().get());
-          auto sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
+          auto                        sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->left().get());
+          auto                        sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
           unique_ptr<LogicalOperator> sub_query_oper;
           rc = create_plan(sub_query_stmt, sub_query_oper);
           if (rc != RC::SUCCESS) {
@@ -230,8 +230,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
           }
           sub_query_expr->set_logical_operator(std::move(sub_query_oper));
         } else if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUBQUERY) {
-          auto sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->right().get());
-          auto sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
+          auto                        sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->right().get());
+          auto                        sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
           unique_ptr<LogicalOperator> sub_query_oper;
           rc = create_plan(sub_query_stmt, sub_query_oper);
           if (rc != RC::SUCCESS) {

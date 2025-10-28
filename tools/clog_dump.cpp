@@ -62,6 +62,7 @@ public:
 
         MvccTrxLogOperation operation_type(header->operation_type);
         if (operation_type.type() == MvccTrxLogOperation::Type::INSERT_RECORD ||
+            operation_type.type() == MvccTrxLogOperation::Type::UPDATE_RECORD ||
             operation_type.type() == MvccTrxLogOperation::Type::DELETE_RECORD) {
           auto *record_log_header = reinterpret_cast<const MvccTrxRecordLogEntry *>(entry.data());
           ss << record_log_header->to_string();
