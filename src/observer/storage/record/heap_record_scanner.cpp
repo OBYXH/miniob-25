@@ -103,7 +103,7 @@ RC HeapRecordScanner::fetch_next_record_in_page()
 
     // 让当前事务探测一下是否访问冲突，或者需要加锁、等锁等操作，由事务自己决定
     // TODO 把判断事务有效性的逻辑从Scanner中移除
-    // rc = trx_->visit_record(table_, next_record_, rw_mode_);
+    rc = trx_->visit_record(table_, next_record_, rw_mode_);
     if (rc == RC::RECORD_INVISIBLE) {
       // 可以参考MvccTrx，表示当前记录不可见
       // 这种模式仅在 readonly 事务下是有效的
@@ -131,7 +131,11 @@ RC HeapRecordScanner::close_scan()
     record_page_handler_ = nullptr;
   }
 
-  // 不知道有啥用，先加这
+  if (trx_ != nullptr) {
+    trx_ = nullptr;
+  }
+
+  //不知道有啥用，先加这
   record_page_iterator_ = RecordPageIterator();
 
   return RC::SUCCESS;

@@ -92,7 +92,7 @@ public:
   /**
    * @brief 根据具体的tuple，来计算当前表达式的值。tuple有可能是一个具体某个表的行数据
    */
-  virtual RC get_value(const Tuple &tuple, Value &value) const = 0;
+  virtual RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const = 0;
 
   /**
    * @brief 在没有实际运行的情况下，也就是无法获取tuple的情况下，尝试获取表达式的值
@@ -168,7 +168,7 @@ public:
   unique_ptr<Expression> copy() const override { return make_unique<VectorToStringExpr>(child_->copy()); }
 
   ExprType type() const override { return ExprType::VECTOSTRING; }
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   AttrType value_type() const override { return AttrType::CHARS; }
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
@@ -199,7 +199,7 @@ public:
   unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
 
   ExprType type() const override { return ExprType::FUNCTION; }
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   AttrType value_type() const override
   {
     switch (function_type_) {
@@ -253,7 +253,7 @@ public:
   }
 
   ExprType type() const override { return ExprType::DISTANCE; }
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   AttrType value_type() const override { return AttrType::VECTORS; }
 
   RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
@@ -281,7 +281,7 @@ public:
   ExprType type() const override { return ExprType::STAR; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value) const override { return RC::UNIMPLEMENTED; }  // 不需要实现
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::UNIMPLEMENTED; }  // 不需要实现
 
   const char *table_name() const { return table_name_.c_str(); }
 
@@ -303,7 +303,7 @@ public:
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value) const override { return RC::INTERNAL; }
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
@@ -343,7 +343,7 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override;
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
 private:
   Field field_;
@@ -365,7 +365,7 @@ public:
 
   unique_ptr<Expression> copy() const override { return make_unique<ValueExpr>(value_); }
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   RC get_column(Chunk &chunk, Column &column) override;
   RC try_get_value(Value &value) const override
   {
@@ -398,7 +398,7 @@ public:
 
   ExprType type() const override { return ExprType::CAST; }
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   RC get_column(Chunk &chunk, Column &column) override;
 
   RC try_get_value(Value &value) const override;
@@ -426,7 +426,7 @@ public:
   virtual ~ComparisonExpr();
 
   ExprType type() const override { return ExprType::COMPARISON; }
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   AttrType value_type() const override { return AttrType::BOOLEANS; }
   CompOp   comp() const { return comp_; }
 
@@ -495,7 +495,7 @@ public:
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
   AttrType value_type() const override { return AttrType::BOOLEANS; }
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
   Type conjunction_type() const { return conjunction_type_; }
 
@@ -542,7 +542,7 @@ public:
   AttrType value_type() const override;
   int value_length() const override { return std::max(left_->value_length(), right_ ? right_->value_length() : 0); };
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
   RC get_column(Chunk &chunk, Column &column) override;
 
@@ -585,7 +585,7 @@ public:
 
   unique_ptr<Expression> &child() { return child_; }
 
-  RC       get_value(const Tuple &tuple, Value &value) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
   AttrType value_type() const override { return child_->value_type(); }
 
 private:
@@ -637,7 +637,7 @@ public:
     }
   }
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
   RC get_column(Chunk &chunk, Column &column) override;
 
@@ -675,7 +675,7 @@ public:
   ExprType type() const override { return ExprType::SUBQUERY; }
   AttrType value_type() const override;
   int      value_length() const override;
-  RC       get_value(const Tuple &tuple, Value &value) const override;
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
   void                               set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
   void                               set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
@@ -710,7 +710,7 @@ public:
   virtual ~ValueListExpr() = default;
   unique_ptr<Expression> copy() const override { return make_unique<ValueListExpr>(values_); }
 
-  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
   RC try_get_value(Value &value) const override
   {
     value = values_[0];
