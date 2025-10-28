@@ -685,7 +685,7 @@ public:
   void                               set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
   void                               set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
   void                               set_trx(Trx *trx);
-  RC                                 open_physical_operator() const;
+  RC                                 open_physical_operator(Tuple *outer_tuple) const;
   RC                                 close_physical_operator() const;
   void                               set_stmt(std::unique_ptr<SelectStmt> stmt);
   ParsedSqlNode                     *sub_query_sn();

@@ -91,6 +91,12 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
 
+  PhysicalOperator *child = children_[0].get();
+  if (outer_tuple != nullptr) {
+    LOG_DEBUG("msg from order_by_phy_oper: we are in subquery");
+    child->set_outer_tuple(outer_tuple);
+  }
+  
   rc = children_[0]->open(trx);
   if (rc != RC::SUCCESS) {
     return rc;

@@ -229,7 +229,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
             return rc;
           }
           sub_query_expr->set_logical_operator(std::move(sub_query_oper));
-        } else if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUBQUERY) {
+        } 
+        if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUBQUERY) {
           auto                        sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->right().get());
           auto                        sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
           unique_ptr<LogicalOperator> sub_query_oper;
