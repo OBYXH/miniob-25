@@ -105,6 +105,7 @@ struct ConditionSqlNode
   CompOp                 comp;   ///< comparison operator
   unique_ptr<Expression> left;   ///< left expression
   unique_ptr<Expression> right;  ///< right expression
+  char conjunction_type = 0; // 0: no conjunction, 1: and, 2: or
 };
 
 /**

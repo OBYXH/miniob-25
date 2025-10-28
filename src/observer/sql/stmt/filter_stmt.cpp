@@ -130,6 +130,7 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
 
   FilterStmt *final_stmt = new FilterStmt();
   for (size_t i = 0; i < conditions.size(); i++) {
+    final_stmt->conjunction_types_.push_back(conditions[i].conjunction_type);
     RC rc = expr_binder.bind_expression(cond_exprs[i], bound_expressions);
     if (rc != RC::SUCCESS) {
       delete final_stmt;
