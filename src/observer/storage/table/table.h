@@ -138,6 +138,9 @@ private:
 public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
+  
+  bool is_outer_table() const { return is_outer_table_; }
+  void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
 
 private:
   Db                     *db_ = nullptr;
@@ -145,4 +148,6 @@ private:
   TableMeta               table_meta_{};
   unique_ptr<TableEngine> engine_      = nullptr;
   LobFileHandler         *lob_handler_ = nullptr;
+
+  bool is_outer_table_ = false;
 };

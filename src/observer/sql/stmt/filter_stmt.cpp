@@ -82,6 +82,8 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
       case NOT_LIKE_OP:
       case IS_OP:
       case IS_NOT_OP:
+      case EXISTS_OP:
+      case NOT_EXISTS_OP:
       case IN_OP:
       case NOT_IN_OP: {
         // 暂时进行Chars到Date的神秘特判, 搞不懂为什么MYSQL会这样设计
@@ -128,6 +130,7 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
 
   FilterStmt *final_stmt = new FilterStmt();
   for (size_t i = 0; i < conditions.size(); i++) {
+    final_stmt->conjunction_types_.push_back(conditions[i].conjunction_type);
     RC rc = expr_binder.bind_expression(cond_exprs[i], bound_expressions);
     if (rc != RC::SUCCESS) {
       delete final_stmt;

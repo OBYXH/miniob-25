@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
@@ -35,18 +36,40 @@ SelectStmt::~SelectStmt()
   }
 }
 
-RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
+RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::shared_ptr<std::vector<string>> loaded_relation_names)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
   }
 
+  if (select_sql.expressions.empty()) {
+    LOG_WARN("invalid argument. select expr is empty");
+    return RC::INVALID_ARGUMENT;
+  }
+  if (loaded_relation_names == nullptr) loaded_relation_names =  std::make_shared<std::vector<string>>();
+
   BinderContext binder_context;
 
   // collect tables in `from` statement
   vector<Table *>                tables;
   unordered_map<string, Table *> table_map;
+
+  // 首先将 loaded_relation_names 中的表名添加到 table_map 中
+  // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select 
+  // 会额外拥有外层扫到的 table，而外层不会。
+  for (auto &rel_name : *loaded_relation_names) {
+    // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。
+    Table *table = db->find_table(rel_name.c_str());
+    if (nullptr == table) {
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+    table->set_is_outer_table(true);
+    table_map.insert({rel_name, table});
+  }
+
+  // 然后才是处理 select 语句中的 from 语句
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation_name.c_str();
     if (nullptr == table_name) {
@@ -72,6 +95,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
 
     binder_context.add_table(table);
     tables.emplace_back(table);
+    loaded_relation_names->push_back(table_name);
   }
 
   // 下面做的是绑定表达式操作，各种新算子都需要走下面流程
@@ -106,29 +130,34 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     if (condition.left != nullptr && condition.left->type() == ExprType::SUBQUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.left.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names);
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;
       }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个
-      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-      if (rc_ != RC::SUCCESS) {
-        return rc_;
+      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
+      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
+        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
+        if (rc_ != RC::SUCCESS) {
+          return rc_;
+        }
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    } else if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
+    } 
+    if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names);
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;
       }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个
-      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-      if (rc_ != RC::SUCCESS) {
-        return rc_;
+      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
+      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
+        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
+        if (rc_ != RC::SUCCESS) {
+          return rc_;
+        }
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     }

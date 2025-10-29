@@ -685,7 +685,7 @@ public:
   void                               set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
   void                               set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
   void                               set_trx(Trx *trx);
-  RC                                 open_physical_operator() const;
+  RC                                 open_physical_operator(Tuple *outer_tuple) const;
   RC                                 close_physical_operator() const;
   void                               set_stmt(std::unique_ptr<SelectStmt> stmt);
   ParsedSqlNode                     *sub_query_sn();
@@ -733,4 +733,16 @@ public:
 private:
   std::vector<Value> values_;
   mutable size_t     index_ = 0;
+};
+
+class SpecialPlaceholderExpr : public Expression
+{
+public:
+  SpecialPlaceholderExpr() = default;
+  virtual ~SpecialPlaceholderExpr() = default;
+
+  ExprType type() const override { return ExprType::SPECIAL; }
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  unique_ptr<Expression> copy() const override { return make_unique<SpecialPlaceholderExpr>(); }
 };

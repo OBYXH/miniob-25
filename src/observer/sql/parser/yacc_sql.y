@@ -11,6 +11,7 @@
 #include "sql/parser/yacc_sql.hpp"
 #include "sql/parser/lex_sql.h"
 #include "sql/expr/expression.h"
+#include <memory>
 
 using namespace std;
 
@@ -155,6 +156,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         FROM
         WHERE
         AND
+        OR
         SET
         ON
         LOAD
@@ -188,6 +190,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NULLABLE
         IS
         IN
+        EXISTS
         AS
         HAVING
         TEXT_T
@@ -734,6 +737,8 @@ select_stmt:        /*  select 语句的语法解析树*/
 
       if ($5 != nullptr) {
         $$->selection.conditions.swap(*$5);
+        // 调整顺序，因为where条件是从后往前加入的
+        std::reverse($$->selection.conditions.begin(), $$->selection.conditions.end());
         delete $5;
       }
 
@@ -999,11 +1004,19 @@ condition_list:
     | condition {
       $$ = new vector<ConditionSqlNode>;
       $$->emplace_back(std::move(*$1)); // 由于Condition中有不可Copy的unique_ptr成员，所以这里必须用move语义
+      $1->conjunction_type = 0;
       delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
-      $$->emplace_back(std::move(*$1));
+      $1->conjunction_type = 1;
+      $$->push_back(std::move(*$1));
+      delete $1;
+    }
+    | condition OR condition_list {
+      $$ = $3;
+      $1->conjunction_type = 2;
+      $$->push_back(std::move(*$1));
       delete $1;
     }
     ;
@@ -1013,6 +1026,20 @@ condition:
       $$->left = std::unique_ptr<Expression>($1);
       $$->right = std::unique_ptr<Expression>($3);
       $$->comp = $2;
+    }
+    | EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp = CompOp::EXISTS_OP;
+      $$->left = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right = std::unique_ptr<Expression>($2);
+    }
+    | NOT EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp = CompOp::NOT_EXISTS_OP;
+      $$->left = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right = std::unique_ptr<Expression>($3);
     }
     ;
 
@@ -1039,6 +1066,8 @@ comp_op:
     | IS NOT { $$ = IS_NOT_OP; }
     | IN { $$ = IN_OP; }
     | NOT IN { $$ = NOT_IN_OP; }
+    | EXISTS { $$ = EXISTS_OP; }
+    | NOT EXISTS { $$ = NOT_EXISTS_OP; }
     ;
 
 // your code here

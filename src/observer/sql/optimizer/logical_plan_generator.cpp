@@ -229,7 +229,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
             return rc;
           }
           sub_query_expr->set_logical_operator(std::move(sub_query_oper));
-        } else if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUBQUERY) {
+        } 
+        if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUBQUERY) {
           auto                        sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->right().get());
           auto                        sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
           unique_ptr<LogicalOperator> sub_query_oper;
@@ -253,9 +254,17 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
     cmp_exprs.push_back(std::move(cmp_expr));
   }
 
+  // conjunction type 确定
+  // 暂时支持纯 and 或者纯 or
+  ConjunctionExpr::Type conjunction_type = ConjunctionExpr::Type::AND;
+  if (filter_stmt->conjunction_types_.size() > 0 && filter_stmt->conjunction_types_[0] == 2) {
+    // or
+    conjunction_type = ConjunctionExpr::Type::OR;
+  }
+
   unique_ptr<PredicateLogicalOperator> predicate_oper;
   if (!cmp_exprs.empty()) {
-    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
+    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(conjunction_type, cmp_exprs));
     predicate_oper = unique_ptr<PredicateLogicalOperator>(new PredicateLogicalOperator(std::move(conjunction_expr)));
   }
 

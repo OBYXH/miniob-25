@@ -194,15 +194,29 @@ RC ExpressionBinder::bind_unbound_field_expression(
   const char *table_name  = unbound_field_expr->table_name();
   const char *field_name  = unbound_field_expr->field_name();
   const char *field_alias = unbound_field_expr->field_alias();
+  
+  // 在顶层，table_name 已经被解析为真实的表名
+  // 在顶层，field_name 已经被解析为真实的字段名
+  // 或者为空
 
   Table *table = nullptr;
   if (is_blank(table_name)) {
-    if (context_.query_tables().size() != 1) {
-      LOG_INFO("cannot determine table for field: %s", field_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
-    }
-
-    table = context_.query_tables()[0];
+    // if (context_.query_tables().size() != 1) {
+    //   LOG_INFO("cannot determine table for field: %s", field_name);
+    //   return RC::SCHEMA_TABLE_NOT_EXIST;
+    // }
+    // table = context_.query_tables()[0];
+    bool found = false;
+    for (Table *table_ : context_.query_tables()) {
+      if (table_->table_meta().field(field_name) != nullptr) {
+        if (found) {
+          LOG_INFO("ambiguous field name: %s, cannot determine table for this field.", field_name);
+          return RC::INVALID_ARGUMENT;
+        }
+        found = true;
+        table = table_;
+      }
+    }    
   } else {
     table = context_.find_table(table_name);
     if (nullptr == table) {
@@ -214,6 +228,10 @@ RC ExpressionBinder::bind_unbound_field_expression(
   if (0 == strcmp(field_name, "*")) {
     wildcard_fields(table, bound_expressions);
   } else {
+    if (table == nullptr) {
+      LOG_INFO("cannot determine table for field: %s.%s", table_name, field_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
     const FieldMeta *field_meta = table->table_meta().field(field_name);
     if (nullptr == field_meta) {
       LOG_INFO("no such field in table: %s.%s", table_name, field_name);

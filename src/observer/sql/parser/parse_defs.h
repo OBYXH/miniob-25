@@ -81,6 +81,8 @@ enum CompOp
   NO_OP,
   IN_OP,
   NOT_IN_OP,
+  EXISTS_OP,
+  NOT_EXISTS_OP,
 };
 
 /**
@@ -103,6 +105,7 @@ struct ConditionSqlNode
   CompOp                 comp;   ///< comparison operator
   unique_ptr<Expression> left;   ///< left expression
   unique_ptr<Expression> right;  ///< right expression
+  char conjunction_type = 0; // 0: no conjunction, 1: and, 2: or
 };
 
 /**
