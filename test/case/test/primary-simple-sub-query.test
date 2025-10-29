@@ -31,11 +31,11 @@ INSERT INTO ssq_2 VALUES (5, 3, 12.6);
 
 -- sort select * from ssq_1 where feat1 <> (select avg(ssq_2.feat2) from ssq_2);
 
--- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where id > 100);
+-- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where ssq_2.id > 100);
 -- sort select * from ssq_1 where NOT EXISTS (select ssq_2.id from ssq_2);
 -- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2);
--- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where id > 100) OR EXISTS (select ssq_2.id from ssq_2 where col2 <> 10);
--- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where id > 100) OR NOT EXISTS (select ssq_2.id from ssq_2 where col2 <> 10);
+-- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where ssq_2.id > 100) OR EXISTS (select ssq_2.id from ssq_2 where col2 <> 10);
+-- sort select * from ssq_1 where EXISTS (select ssq_2.id from ssq_2 where ssq_2.id > 100) OR NOT EXISTS (select ssq_2.id from ssq_2 where col2 <> 10);
 
 -- echo 2. Select with empty table
 -- sort select * from ssq_1 where col1 not in (2,null);

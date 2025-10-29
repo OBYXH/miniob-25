@@ -64,6 +64,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
+    table->set_is_outer_table(true);
     table_map.insert({rel_name, table});
   }
 
@@ -139,7 +140,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
         return rc_;
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    } else if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
+    } 
+    if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right.get());
       Stmt         *stmt          = nullptr;
       RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names);

@@ -104,6 +104,7 @@ ID | COL3 | FEAT3
 
 3. ERROR
 select * from csq_1 where col1 = (select csq_2.col2 from csq_2);
+ID | COL1 | FEAT1
 FAILURE
 select * from csq_1 where col1 = (select * from csq_2);
 FAILURE
