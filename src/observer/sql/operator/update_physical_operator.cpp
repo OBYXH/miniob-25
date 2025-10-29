@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "common/value.h"
 #include "sql/expr/expression.h"
+#include "sql/expr/tuple.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
 #include <cstdint>
@@ -84,6 +85,9 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         }
       } else {
         rc = exprs_[i]->get_value(tuple, value);
+      }
+      if (value.attr_type() == AttrType::UNDEFINED) {
+        value.set_null(true);
       }
       if (value.is_null()) {
         if (!field.nullable()) {
