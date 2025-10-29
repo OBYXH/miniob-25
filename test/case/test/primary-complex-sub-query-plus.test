@@ -29,3 +29,4 @@ INSERT INTO csq_3 VALUES (7, 8, 15.0);
 
 -- echo 1. select
 -- sort select * from csq_1 where feat1 <> (select min(csq_2.feat2) from csq_2 where csq_2.feat2 > csq_1.feat1);
+-- sort select * from csq_1 where feat1 > (select min(csq_2.feat2) from csq_2) or col1 <= (select min(csq_3.col3) from csq_3);
