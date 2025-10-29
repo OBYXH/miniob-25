@@ -309,10 +309,10 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
 
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table                      *table       = update_stmt->table();
-  FilterStmt                 *filter_stmt = update_stmt->filter_stmt();
-  auto                        values      = update_stmt->values();
-  auto                        field_metas = update_stmt->field_metas();
+  Table                      *table        = update_stmt->table();
+  FilterStmt                 *filter_stmt  = update_stmt->filter_stmt();
+  auto                        update_exprs = std::move(update_stmt->exprs());
+  auto                        field_metas  = update_stmt->field_metas();
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
 
   unique_ptr<LogicalOperator> predicate_oper;
@@ -320,8 +320,22 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   if (rc != RC::SUCCESS) {
     return rc;
   }
+  for (auto &expr : update_exprs) {
+    if (expr->type() == ExprType::SUBQUERY) {
+      auto                        sub_query_expr = static_cast<SubqueryExpr *>(expr.get());
+      auto                        sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
+      unique_ptr<LogicalOperator> sub_query_oper;
+      rc = create_plan(sub_query_stmt, sub_query_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_PANIC("failed to create subquery logical operator. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_logical_operator(std::move(sub_query_oper));
+    }
+  }
 
-  unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, std::move(values), std::move(field_metas)));
+  unique_ptr<LogicalOperator> update_oper(
+      new UpdateLogicalOperator(table, std::move(update_exprs), std::move(field_metas)));
 
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));

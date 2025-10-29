@@ -27,8 +27,8 @@ class DeleteStmt;
 class UpdatePhysicalOperator : public PhysicalOperator
 {
 public:
-  UpdatePhysicalOperator(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas)
-      : table_(table), values_(std::move(values)), field_metas_(std::move(field_metas))
+  UpdatePhysicalOperator(Table *table, vector<unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas)
+      : table_(table), exprs_(std::move(exprs)), field_metas_(std::move(field_metas))
   {}
 
   virtual ~UpdatePhysicalOperator() = default;
@@ -44,9 +44,9 @@ public:
   Tuple *current_tuple() override { return nullptr; }
 
 private:
-  Table                *table_ = nullptr;
-  Trx                  *trx_   = nullptr;
-  vector<const Value *> values_;
-  vector<FieldMeta>     field_metas_;
-  vector<Record>        records_;
+  Table                         *table_ = nullptr;
+  Trx                           *trx_   = nullptr;
+  vector<unique_ptr<Expression>> exprs_;
+  vector<FieldMeta>              field_metas_;
+  vector<Record>                 records_;
 };

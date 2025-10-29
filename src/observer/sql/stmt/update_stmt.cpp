@@ -14,17 +14,22 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/update_stmt.h"
 #include "common/lang/unordered_map.h"
+#include "common/sys/rc.h"
 #include "common/value.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/expression_binder.h"
+#include "sql/stmt/select_stmt.h"
 #include "storage/db/db.h"
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/field/field_meta.h"
+#include <memory>
 #include <utility>
 #include <vector>
 
 UpdateStmt::UpdateStmt(
-    Table *table, vector<const Value *> values, vector<FieldMeta> field_metas, FilterStmt *filter_stmt)
-    : table_(table), values_(std::move(values)), field_metas_(std::move(field_metas)), filter_stmt_(filter_stmt)
+    Table *table, vector<unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas, FilterStmt *filter_stmt)
+    : table_(table), exprs_(std::move(exprs)), field_metas_(std::move(field_metas)), filter_stmt_(filter_stmt)
 {}
 
 UpdateStmt::~UpdateStmt()
@@ -60,22 +65,44 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  std::vector<const Value *> values;
-  std::vector<FieldMeta>     field_metas;
-  for (auto &update_field : update.update_list) {
-    auto field_meta = table->table_meta().field(update_field.attribute_name.c_str());
-    auto value      = &update_field.value;
+
+  TableMeta     meta = table->table_meta();
+  BinderContext context;
+  context.add_table(table);
+  context.set_table_map(&table_map);
+  ExpressionBinder                    binder(context);
+  std::vector<unique_ptr<Expression>> bound_expressions;
+  std::vector<FieldMeta>              field_metas;
+  for (const auto &[attr, expr] : update.update_list) {
+    auto field_meta = meta.field(attr.c_str());
     if (field_meta == nullptr) {
-      LOG_WARN("no such field. table=%s, field=%s", table_name, update_field.attribute_name.c_str());
+      LOG_WARN("no such field. table=%s, field=%s", table_name, attr.c_str());
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
 
-    if (field_meta->type() == AttrType::VECTORS) {
-      ASSERT(field_meta->len()==value->length(), " field len doesn't match cell len , field_meta->len=%d, cell.length=%d", field_meta->len(), value->length());
+    if (expr->type() == ExprType::SUBQUERY) {
+      auto  subquery_expr = static_cast<SubqueryExpr *>(expr);
+      Stmt *stmt          = nullptr;
+      RC    rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create sub select statement");
+        return rc;
+      }
+      // 检查子查询是否合法，属性只能有一个
+      RC rc_ = Stmt::check_sub_select_legal(db, subquery_expr->sub_query_sn());
+      if (rc_ != RC::SUCCESS) {
+        return rc_;
+      }
+      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
+    }
+    unique_ptr<Expression> exprp(expr);
+    RC                     rc = binder.bind_expression(exprp, bound_expressions);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to bind expression");
+      return rc;
     }
     field_metas.push_back(*field_meta);
-    values.push_back(value);
   }
-  stmt = new UpdateStmt(table, std::move(values), std::move(field_metas), filter_stmt);
+  stmt = new UpdateStmt(table, std::move(bound_expressions), std::move(field_metas), filter_stmt);
   return rc;
 }

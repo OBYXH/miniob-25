@@ -193,7 +193,9 @@ public:
   FunctionExpr(Type type, unique_ptr<Expression> child, int precision = 0, string format = "")
       : child_(std::move(child)), precision_(precision), format_(format), function_type_(type)
   {}
-  FunctionExpr(Type type, Expression *child, int round = 0, string format = "") : child_(child), precision_(round), format_(format), function_type_(type) {}
+  FunctionExpr(Type type, Expression *child, int round = 0, string format = "")
+      : child_(child), precision_(round), format_(format), function_type_(type)
+  {}
   virtual ~FunctionExpr() = default;
 
   unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
@@ -281,7 +283,10 @@ public:
   ExprType type() const override { return ExprType::STAR; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::UNIMPLEMENTED; }  // 不需要实现
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override
+  {
+    return RC::UNIMPLEMENTED;
+  }  // 不需要实现
 
   const char *table_name() const { return table_name_.c_str(); }
 

@@ -15,8 +15,10 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/value.h"
+#include "sql/expr/expression.h"
 #include "sql/operator/logical_operator.h"
 #include "storage/field/field_meta.h"
+#include <memory>
 #include <vector>
 
 /**
@@ -26,18 +28,18 @@ See the Mulan PSL v2 for more details. */
 class UpdateLogicalOperator : public LogicalOperator
 {
 public:
-  UpdateLogicalOperator(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas);
+  UpdateLogicalOperator(Table *table, vector<unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas);
   virtual ~UpdateLogicalOperator() = default;
 
-  LogicalOperatorType   type() const override { return LogicalOperatorType::UPDATE; }
-  OpType                get_op_type() const override { return OpType::LOGICALDELETE; }
-  Table                *table() const { return table_; }
-  vector<const Value *> values() const { return values_; }
-  vector<FieldMeta>     field_metas() const { return field_metas_; }
+  LogicalOperatorType             type() const override { return LogicalOperatorType::UPDATE; }
+  OpType                          get_op_type() const override { return OpType::LOGICALDELETE; }
+  Table                          *table() const { return table_; }
+  vector<unique_ptr<Expression>> &exprs() { return exprs_; }
+  vector<FieldMeta>               field_metas() const { return field_metas_; }
 
 private:
-  Table                *table_ = nullptr;
-  vector<const Value *> values_;
-  vector<FieldMeta>     field_metas_;
-  Value                 value_;
+  Table                         *table_ = nullptr;
+  vector<unique_ptr<Expression>> exprs_;
+  vector<FieldMeta>              field_metas_;
+  Value                          value_;
 };

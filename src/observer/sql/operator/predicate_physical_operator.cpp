@@ -29,7 +29,7 @@ RC PredicatePhysicalOperator::open(Trx *trx)
     LOG_WARN("predicate operator must has one child");
     return RC::INTERNAL;
   }
-  
+
   trx_ = trx;
 
   return children_[0]->open(trx);
