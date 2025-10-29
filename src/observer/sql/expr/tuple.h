@@ -244,6 +244,8 @@ public:
     return RC::SUCCESS;
   }
 
+  bool is_valid() const { return record_ != nullptr && table_ != nullptr; }
+
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
     const char *table_name = spec.table_name();
