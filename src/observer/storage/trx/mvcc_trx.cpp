@@ -158,8 +158,8 @@ RC MvccTrx::update_record(Table *table, Record &old_record, Record &new_record)
   Field end_field;
   trx_fields(table, begin_field, end_field);
 
-  RC rc            = RC::SUCCESS;
-  rc               = visit_record(table, old_record, ReadWriteMode::READ_WRITE);
+  RC rc = RC::SUCCESS;
+  rc    = visit_record(table, old_record, ReadWriteMode::READ_WRITE);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to visit record. rc=%s", strrc(rc));
     return rc;
@@ -251,7 +251,8 @@ RC MvccTrx::visit_record(Table *table, Record &record, ReadWriteMode mode)
       // 这是事务并发处理的一种方式，非常简单粗暴。其它的并发处理方法，可以等待，或者让客户端重试
       // 或者等事务结束后，再检测修改的数据是否有冲突
       // if (-end_xid != trx_id_) {
-      //   LOG_TRACE("concurrency conflit. someone is deleting this record right now. trx id=%d, begin xid=%d, end xid=%d",
+      //   LOG_TRACE("concurrency conflit. someone is deleting this record right now. trx id=%d, begin xid=%d, end
+      //   xid=%d",
       //             trx_id_, begin_xid, end_xid);
       //   rc = RC::LOCKED_CONCURRENCY_CONFLICT;
       // } else {
@@ -261,7 +262,7 @@ RC MvccTrx::visit_record(Table *table, Record &record, ReadWriteMode mode)
       // }
       rc = RC::LOCKED_CONCURRENCY_CONFLICT;
     }
-    
+
   } else if (begin_xid < 0) {
     // begin xid 小于0说明是刚插入而且没有提交的数据
     if (-begin_xid == trx_id_) {

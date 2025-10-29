@@ -43,5 +43,5 @@ public:
 
 private:
   unique_ptr<Expression> expression_;
-  Trx *trx_ = nullptr;
+  Trx                   *trx_ = nullptr;
 };

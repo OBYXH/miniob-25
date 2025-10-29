@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/sys/rc.h"
 #include "common/type/attr_type.h"
 #include "common/value.h"
+#include "sql/expr/expression.h"
+#include "sql/expr/tuple.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
 #include <cstdint>
@@ -66,8 +68,27 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     new_record.set_rid(old_record.rid());
     new_record.copy_data(old_record.data(), old_record.len());
     for (uint32_t i = 0; i < field_metas_.size(); i++) {
-      auto field = field_metas_[i];
-      auto value = *values_[i];
+      auto     field = field_metas_[i];
+      Value    value;
+      RowTuple tuple;
+      bool     has_sub_queried_ = false;
+      if (exprs_[i]->type() == ExprType ::SUBQUERY) {
+        while (exprs_[i]->get_value(tuple, value) == RC::SUCCESS) {
+          // do nothing
+          if (has_sub_queried_) {
+            has_sub_queried_ = false;
+            rc               = RC::SUB_QUERY_VALUES_DISMATCH;
+            break;
+          } else {
+            has_sub_queried_ = true;
+          }
+        }
+      } else {
+        rc = exprs_[i]->get_value(tuple, value);
+      }
+      if (value.attr_type() == AttrType::UNDEFINED) {
+        value.set_null(true);
+      }
       if (value.is_null()) {
         if (!field.nullable()) {
           LOG_WARN("field is not nullable. table name:%s,field name:%s", table_->name(), field.name());

@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/field/field_meta.h"
+#include <memory>
 #include <vector>
 
 class Table;
@@ -33,7 +34,8 @@ class UpdateStmt : public Stmt
 public:
   UpdateStmt() = default;
   ~UpdateStmt() override;
-  UpdateStmt(Table *table, vector<const Value *> values, vector<FieldMeta> field_metas, FilterStmt *filter_stmt);
+  UpdateStmt(
+      Table *table, vector<std::unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas, FilterStmt *filter_stmt);
   StmtType    type() const override { return StmtType::UPDATE; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
 
@@ -41,13 +43,13 @@ public:
   static RC create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table                *table() const { return table_; }
-  vector<const Value *> values() const { return values_; }
-  vector<FieldMeta>     field_metas() const { return field_metas_; }
+  Table                               *table() const { return table_; }
+  vector<std::unique_ptr<Expression>> &exprs() { return exprs_; }
+  vector<FieldMeta>                    field_metas() const { return field_metas_; }
 
 private:
-  Table                *table_ = nullptr;
-  vector<const Value *> values_;
-  vector<FieldMeta>     field_metas_;
-  FilterStmt           *filter_stmt_ = nullptr;
+  Table                              *table_ = nullptr;
+  vector<std::unique_ptr<Expression>> exprs_;
+  vector<FieldMeta>                   field_metas_;
+  FilterStmt                         *filter_stmt_ = nullptr;
 };

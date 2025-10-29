@@ -168,8 +168,8 @@ struct DeleteSqlNode
 
 struct UpdateField
 {
-  string attribute_name;  ///< 更新的字段，仅支持一个字段
-  Value  value;           ///< 更新的值，仅支持一个字段
+  string      attribute_name;  ///< 更新的字段，仅支持一个字段
+  Expression *expr;            ///< 更新的值，仅支持一个字段
 };
 
 /**

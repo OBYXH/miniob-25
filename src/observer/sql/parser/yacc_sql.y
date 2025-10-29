@@ -616,7 +616,6 @@ value:
       $$ = new Value(-(float)$2);
       @$ = @1;
     }
-
     |SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
@@ -711,21 +710,13 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 update_list:
-    ID EQ value{
-      $$ = new vector<UpdateField>;
-      UpdateField update;
-      update.attribute_name = $1;
-      update.value = *$3;
-      $$->push_back(update);
-      delete $3;
+    ID EQ expression{
+      $$ = new vector<UpdateField>();
+      $$->emplace_back(string($1),$3);
     }
-    | update_list COMMA ID EQ value{
-      $$ = $1;
-      UpdateField update;
-      update.attribute_name = $3;
-      update.value = *$5;
-      $$->push_back(update);
-      delete $5;
+    | ID EQ expression COMMA update_list{
+      $$ = $5;
+      $$->emplace_back(string($1),$3);
     }
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT expression_list FROM rel_list where group_by having_condition opt_order_by opt_limit

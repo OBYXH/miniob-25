@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/limit_logical_operator.h"
 #include "sql/operator/nested_loop_join_physical_operator.h"
 #include "sql/operator/order_by_logical_operator.h"
+#include "sql/operator/physical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
@@ -50,6 +51,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/update_physical_operator.h"
 #include "sql/operator/limit_logical_operator.h"
 #include "sql/operator/limit_physical_operator.h"
+#include <memory>
 
 using namespace std;
 
@@ -343,10 +345,24 @@ RC PhysicalPlanGenerator::create_plan(
     }
   }
 
-  auto values      = update_oper.values();
+  auto exprs       = std::move(update_oper.exprs());
   auto field_metas = update_oper.field_metas();
-  oper             = unique_ptr<PhysicalOperator>(
-      new UpdatePhysicalOperator(update_oper.table(), std::move(values), std::move(field_metas)));
+  // 取出可能的sub query创建物理计划
+  for (auto &expr : exprs) {
+    if (expr->type() == ExprType::SUBQUERY) {
+      auto                         sub_query_expr    = static_cast<SubqueryExpr *>(expr.get());
+      unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
+      rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper, session);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create subquery physical operator. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
+    }
+  }
+
+  oper = unique_ptr<PhysicalOperator>(
+      new UpdatePhysicalOperator(update_oper.table(), std::move(exprs), std::move(field_metas)));
 
   if (child_physical_oper) {
     oper->add_child(std::move(child_physical_oper));

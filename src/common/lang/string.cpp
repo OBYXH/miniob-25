@@ -71,13 +71,13 @@ string size_to_pad_str(int size, int pad)
 
 string &str_to_upper(string &s)
 {
-  transform(s.begin(), s.end(), s.begin(), (int (*)(int))&toupper);
+  transform(s.begin(), s.end(), s.begin(), (int (*)(int)) & toupper);
   return s;
 }
 
 string &str_to_lower(string &s)
 {
-  transform(s.begin(), s.end(), s.begin(), (int (*)(int))&tolower);
+  transform(s.begin(), s.end(), s.begin(), (int (*)(int)) & tolower);
   return s;
 }
 
