@@ -113,9 +113,6 @@ public:
       if (field.nullable()) {
         bool v1_is_null = v1[offset + field.len() - 1] == '1';
         bool v2_is_null = v2[offset + field.len() - 1] == '1';
-        if (v1_is_null && v2_is_null) {
-          continue;
-        }
         if (v1_is_null) {
           return -1;
         }
