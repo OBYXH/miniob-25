@@ -9,12 +9,17 @@
             "request": "launch",
             "name": "Debug",
             "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
-            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
+            "args": [
+                "-f",
+                "${workspaceFolder}/etc/observer.ini",
+                "-P",
+                "cli"
+            ],
             "cwd": "${workspaceFolder}/${defaultBuildTask}/",
             "internalConsoleOptions": "openOnSessionStart",
             "osx": {
                 "MIMode": "lldb",
-                "externalConsole":true
+                "externalConsole": true
             }
         },
         {
@@ -22,8 +27,35 @@
             "request": "launch",
             "name": "LLDB",
             "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
-            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
-            "cwd": "${workspaceFolder}/${defaultBuildTask}/"
+            "args": [
+                "-f",
+                "${workspaceFolder}/etc/observer.ini",
+                "-P",
+                "cli"
+            ],
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "LLDB BIG ORDER",
+            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
+            "args": [
+                "-f",
+                "${workspaceFolder}/etc/observer.ini",
+                "-P",
+                "cli"
+            ],
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+            "env": {
+                // 1. 内存限制和打印间隔
+                "MT_MEMORY_LIMIT": "350000000",
+                "MT_PRINT_INTERVAL_MS": "3000",
+                // 2. 动态链接库预加载 (LD_PRELOAD)
+                // 注意：你需要确保 './lib/libmemtracer.so' 路径在 cwd 目录下是正确的
+                "LD_PRELOAD": "${workspaceFolder}/${defaultBuildTask}/lib/libmemtracer.so"
+                // 假设 libmemtracer.so 位于你的构建目录下的 lib 文件夹中。
+            },
         }
     ]
 }
