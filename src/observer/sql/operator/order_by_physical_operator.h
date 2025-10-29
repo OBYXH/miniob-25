@@ -35,5 +35,5 @@ private:
 
   std::unique_ptr<ExternalSorter> sorter_;
 
-  static constexpr size_t MAX_MEMORY_BYTES = 100 * 1024 * 1024; // 100MB
+  static constexpr size_t MAX_MEMORY_BYTES = 200 * 1024 * 1024; // 100MB
 };
