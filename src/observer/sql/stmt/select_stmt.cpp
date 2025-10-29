@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
@@ -134,10 +135,12 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
         LOG_WARN("cannot construct subquery stmt");
         return rc;
       }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个
-      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-      if (rc_ != RC::SUCCESS) {
-        return rc_;
+      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
+      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
+        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
+        if (rc_ != RC::SUCCESS) {
+          return rc_;
+        }
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     } 
@@ -149,10 +152,12 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
         LOG_WARN("cannot construct subquery stmt");
         return rc;
       }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个
-      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-      if (rc_ != RC::SUCCESS) {
-        return rc_;
+      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
+      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
+        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
+        if (rc_ != RC::SUCCESS) {
+          return rc_;
+        }
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     }

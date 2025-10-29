@@ -685,13 +685,10 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     if (rc == RC::RECORD_EOF) {
       if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
         bool_value = true;
-        value.set_boolean(true);
         rc = RC::SUCCESS;
-        return rc;
       } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
         bool_value = false;
         rc         = RC::SUCCESS;
-        return rc;
       }
     }
     if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
@@ -1346,11 +1343,11 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
     return rc;
   }
   auto tuple_ = physical_operator_->current_tuple();
-  if (tuple_->cell_num() > 1) {
-    LOG_WARN("tuple cell count is not 1");
-    close_physical_operator();  // 关闭子查询算子
-    return RC::INVALID_ARGUMENT;
-  }
+  // if (tuple_->cell_num() > 1) {
+  //   LOG_WARN("tuple cell count is not 1");
+  //   close_physical_operator();  // 关闭子查询算子
+  //   return RC::INVALID_ARGUMENT;
+  // }
 
   if (tuple_->cell_num() == 0) {
     LOG_WARN("A warn from SubqueryExpr: tuple cell count is 0");
