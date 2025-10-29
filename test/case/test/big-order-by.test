@@ -1,0 +1,97 @@
+-- echo 1. Create 4 tables, 20 cols each
+建议手动执行下列指令，直接测试，设置好launch.json之后能通过就没问题
+-- Description: Create the 4 tables for the Cartesian product.
+CREATE TABLE t_ext_sort_1 (id1 INT, v1_1 INT, v1_2 FLOAT, c1_1 CHAR, c1_2 CHAR, c1_3 CHAR, c1_4 CHAR, c1_5 CHAR, c1_6 CHAR, c1_7 CHAR, c1_8 CHAR, c1_9 CHAR, c1_10 CHAR, c1_11 CHAR, c1_12 CHAR, c1_13 CHAR, c1_14 CHAR, c1_15 CHAR, c1_16 CHAR, v1_3 INT);
+CREATE TABLE t_ext_sort_2 (id2 INT, v2_1 INT, v2_2 FLOAT, c2_1 CHAR, c2_2 CHAR, c2_3 CHAR, c2_4 CHAR, c2_5 CHAR, c2_6 CHAR, c2_7 CHAR, c2_8 CHAR, c2_9 CHAR, c2_10 CHAR, c2_11 CHAR, c2_12 CHAR, c2_13 CHAR, c2_14 CHAR, c2_15 CHAR, c2_16 CHAR, v2_3 INT);
+CREATE TABLE t_ext_sort_3 (id3 INT, v3_1 INT, v3_2 FLOAT, c3_1 CHAR, c3_2 CHAR, c3_3 CHAR, c3_4 CHAR, c3_5 CHAR, c3_6 CHAR, c3_7 CHAR, c3_8 CHAR, c3_9 CHAR, c3_10 CHAR, c3_11 CHAR, c3_12 CHAR, c3_13 CHAR, c3_14 CHAR, c3_15 CHAR, c3_16 CHAR, v3_3 INT);
+CREATE TABLE t_ext_sort_4 (id4 INT, v4_1 INT, v4_2 FLOAT, c4_1 CHAR, c4_2 CHAR, c4_3 CHAR, c4_4 CHAR, c4_5 CHAR, c4_6 CHAR, c4_7 CHAR, c4_8 CHAR, c4_9 CHAR, c4_10 CHAR, c4_11 CHAR, c4_12 CHAR, c4_13 CHAR, c4_14 CHAR, c4_15 CHAR, c4_16 CHAR, v4_3 INT);
+
+-- echo 2. Insert 20 rows into t_ext_sort_1
+INSERT INTO t_ext_sort_1 VALUES(20, 500, 99.9, 'z1', 'z2', 'z3', 'z4', 'z5', 'z6', 'z7', 'z8', 'z9', 'z10', 'z11', 'z12', 'z13', 'z14', 'z15', 'z16', 1);
+INSERT INTO t_ext_sort_1 VALUES(1, 10, 1.1, 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14', 'a15', 'a16', 500);
+INSERT INTO t_ext_sort_1 VALUES(10, NULL, 50.5, 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14', 'm15', 'm16', 250);
+INSERT INTO t_ext_sort_1 VALUES(5, 40, 4.4, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 400);
+INSERT INTO t_ext_sort_1 VALUES(15, 200, 70.7, 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 120);
+INSERT INTO t_ext_sort_1 VALUES(3, 80, 8.8, 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9', 'h10', 'h11', 'h12', 'h13', 'h14', 'h15', 'h16', 300);
+INSERT INTO t_ext_sort_1 VALUES(18, 300, 90.1, 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15', 's16', 50);
+INSERT INTO t_ext_sort_1 VALUES(7, 60, 6.6, 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 350);
+INSERT INTO t_ext_sort_1 VALUES(12, 110, 60.2, 'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'l9', 'l10', 'l11', 'l12', 'l13', 'l14', 'l15', 'l16', 180);
+INSERT INTO t_ext_sort_1 VALUES(9, 90, 9.9, 'i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7', 'i8', 'i9', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 280);
+INSERT INTO t_ext_sort_1 VALUES(2, 20, 2.2, 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11', 'b12', 'b13', 'b14', 'b15', 'b16', 450);
+INSERT INTO t_ext_sort_1 VALUES(17, 250, 80.3, 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 80);
+INSERT INTO t_ext_sort_1 VALUES(4, 30, 3.3, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 420);
+INSERT INTO t_ext_sort_1 VALUES(11, 100, 55.5, 'k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8', 'k9', 'k10', 'k11', 'k12', 'k13', 'k14', 'k15', 'k16', 200);
+INSERT INTO t_ext_sort_1 VALUES(19, 400, 95.2, 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't10', 't11', 't12', 't13', 't14', 't15', 't16', 30);
+INSERT INTO t_ext_sort_1 VALUES(6, 50, 5.5, 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'e12', 'e13', 'e14', 'e15', 'e16', 380);
+INSERT INTO t_ext_sort_1 VALUES(13, 150, 65.1, 'n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 150);
+INSERT INTO t_ext_sort_1 VALUES(8, 70, 7.7, 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15', 'g16', 320);
+INSERT INTO t_ext_sort_1 VALUES(16, 220, 75.4, 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'q14', 'q15', 'q16', 100);
+INSERT INTO t_ext_sort_1 VALUES(14, NULL, 68.9, 'o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'o10', 'o11', 'o12', 'o13', 'o14', 'o15', 'o16', 130);
+
+-- echo 3. Insert 20 rows into t_ext_sort_2
+INSERT INTO t_ext_sort_2 VALUES(15, 800, 88.8, 'y1', 'y2', 'y3', 'y4', 'y5', 'y6', 'y7', 'y8', 'y9', 'y10', 'y11', 'y12', 'y13', 'y14', 'y15', 'y16', 2);
+INSERT INTO t_ext_sort_2 VALUES(5, 20, 2.2, 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11', 'b12', 'b13', 'b14', 'b15', 'b16', 400);
+INSERT INTO t_ext_sort_2 VALUES(12, 100, 60.6, 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 150);
+INSERT INTO t_ext_sort_2 VALUES(1, 10, 1.1, 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14', 'a15', 'a16', 480);
+INSERT INTO t_ext_sort_2 VALUES(19, 900, 92.3, 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't10', 't11', 't12', 't13', 't14', 't15', 't16', 20);
+INSERT INTO t_ext_sort_2 VALUES(8, 70, 7.7, 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9', 'h10', 'h11', 'h12', 'h13', 'h14', 'h15', 'h16', 320);
+INSERT INTO t_ext_sort_2 VALUES(3, 30, 3.3, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 450);
+INSERT INTO t_ext_sort_2 VALUES(17, 850, 85.1, 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 60);
+INSERT INTO t_ext_sort_2 VALUES(6, 50, 5.5, 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 380);
+INSERT INTO t_ext_sort_2 VALUES(11, 110, 55.2, 'k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8', 'k9', 'k10', 'k11', 'k12', 'k13', 'k14', 'k15', 'k16', 220);
+INSERT INTO t_ext_sort_2 VALUES(2, NULL, 2.2, 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11', 'b12', 'b13', 'b14', 'b15', 'b16', 470);
+INSERT INTO t_ext_sort_2 VALUES(20, 1000, 99.9, 'z1', 'z2', 'z3', 'z4', 'z5', 'z6', 'z7', 'z8', 'z9', 'z10', 'z11', 'z12', 'z13', 'z14', 'z15', 'z16', 10);
+INSERT INTO t_ext_sort_2 VALUES(9, 80, 8.8, 'i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7', 'i8', 'i9', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 300);
+INSERT INTO t_ext_sort_2 VALUES(4, 40, 4.4, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 420);
+INSERT INTO t_ext_sort_2 VALUES(16, 820, 82.4, 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'q14', 'q15', 'q16', 80);
+INSERT INTO t_ext_sort_2 VALUES(10, 90, 9.9, 'j1', 'j2', 'j3', 'j4', 'j5', 'j6', 'j7', 'j8', 'j9', 'j10', 'j11', 'j12', 'j13', 'j14', 'j15', 'j16', 250);
+INSERT INTO t_ext_sort_2 VALUES(13, 150, 65.3, 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14', 'm15', 'm16', 180);
+INSERT INTO t_ext_sort_2 VALUES(7, 60, 6.6, 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15', 'g16', 350);
+INSERT INTO t_ext_sort_2 VALUES(18, 880, 89.1, 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15', 's16', 40);
+INSERT INTO t_ext_sort_2 VALUES(14, NULL, 68.7, 'n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 120);
+
+-- echo 4. Insert 20 rows into t_ext_sort_3
+INSERT INTO t_ext_sort_3 VALUES(8, 700, 77.7, 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 3);
+INSERT INTO t_ext_sort_3 VALUES(18, 30, 3.3, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 300);
+INSERT INTO t_ext_sort_3 VALUES(3, 300, 70.7, 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'q14', 'q15', 'q16', 333);
+INSERT INTO t_ext_sort_3 VALUES(1, 10, 1.1, 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14', 'a15', 'a16', 490);
+INSERT INTO t_ext_sort_3 VALUES(14, 200, 60.1, 'o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'o10', 'o11', 'o12', 'o13', 'o14', 'o15', 'o16', 140);
+INSERT INTO t_ext_sort_3 VALUES(6, 60, 6.6, 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 360);
+INSERT INTO t_ext_sort_3 VALUES(11, 110, 55.3, 'k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8', 'k9', 'k10', 'k11', 'k12', 'k13', 'k14', 'k15', 'k16', 230);
+INSERT INTO t_ext_sort_3 VALUES(19, 900, 93.4, 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't10', 't11', 't12', 't13', 't14', 't15', 't16', 25);
+INSERT INTO t_ext_sort_3 VALUES(2, 20, 2.2, 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11', 'b12', 'b13', 'b14', 'b15', 'b16', 460);
+INSERT INTO t_ext_sort_3 VALUES(17, 850, 86.2, 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 70);
+INSERT INTO t_ext_sort_3 VALUES(7, 70, 7.7, 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15', 'g16', 340);
+INSERT INTO t_ext_sort_3 VALUES(13, 150, 65.4, 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14', 'm15', 'm16', 170);
+INSERT INTO t_ext_sort_3 VALUES(5, 50, 5.5, 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'e12', 'e13', 'e14', 'e15', 'e16', 390);
+INSERT INTO t_ext_sort_3 VALUES(20, 1000, 98.1, 'z1', 'z2', 'z3', 'z4', 'z5', 'z6', 'z7', 'z8', 'z9', 'z10', 'z11', 'z12', 'z13', 'z14', 'z15', 'z16', 15);
+INSERT INTO t_ext_sort_3 VALUES(10, 90, 9.9, 'j1', 'j2', 'j3', 'j4', 'j5', 'j6', 'j7', 'j8', 'j9', 'j10', 'j11', 'j12', 'j13', 'j14', 'j15', 'j16', 260);
+INSERT INTO t_ext_sort_3 VALUES(4, 40, 4.4, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 410);
+INSERT INTO t_ext_sort_3 VALUES(16, 820, 83.5, 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'q14', 'q15', 'q16', 90);
+INSERT INTO t_ext_sort_3 VALUES(9, NULL, 8.8, 'i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7', 'i8', 'i9', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 310);
+INSERT INTO t_ext_sort_3 VALUES(12, 130, 62.1, 'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'l9', 'l10', 'l11', 'l12', 'l13', 'l14', 'l15', 'l16', 190);
+INSERT INTO t_ext_sort_3 VALUES(15, 750, 78.2, 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 110);
+
+-- echo 5. Insert 20 rows into t_ext_sort_4
+INSERT INTO t_ext_sort_4 VALUES(11, 600, 66.6, 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7', 'w8', 'w9', 'w10', 'w11', 'w12', 'w13', 'w14', 'w15', 'w16', 4);
+INSERT INTO t_ext_sort_4 VALUES(2, 40, 4.4, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 200);
+INSERT INTO t_ext_sort_4 VALUES(14, NULL, 80.8, 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 444);
+INSERT INTO t_ext_sort_4 VALUES(4, 40, 4.4, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 430);
+INSERT INTO t_ext_sort_4 VALUES(20, 1000, 97.2, 'z1', 'z2', 'z3', 'z4', 'z5', 'z6', 'z7', 'z8', 'z9', 'z10', 'z11', 'z12', 'z13', 'z14', 'z15', 'z16', 22);
+INSERT INTO t_ext_sort_4 VALUES(7, 70, 7.7, 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15', 'g16', 370);
+INSERT INTO t_ext_sort_4 VALUES(1, 10, 1.1, 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14', 'a15', 'a16', 495);
+INSERT INTO t_ext_sort_4 VALUES(16, 820, 84.6, 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11', 'q12', 'q13', 'q14', 'q15', 'q16', 95);
+INSERT INTO t_ext_sort_4 VALUES(9, 90, 9.9, 'i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7', 'i8', 'i9', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 290);
+INSERT INTO t_ext_sort_4 VALUES(13, 150, 65.1, 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14', 'm15', 'm16', 160);
+INSERT INTO t_ext_sort_4 VALUES(3, 30, 3.3, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 440);
+INSERT INTO t_ext_sort_4 VALUES(19, 900, 94.3, 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't10', 't11', 't12', 't13', 't14', 't15', 't16', 35);
+INSERT INTO t_ext_sort_4 VALUES(5, 50, 5.5, 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'e12', 'e13', 'e14', 'e15', 'e16', 395);
+INSERT INTO t_ext_sort_4 VALUES(18, 880, 87.7, 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15', 's16', 55);
+INSERT INTO t_ext_sort_4 VALUES(8, 80, 8.8, 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9', 'h10', 'h11', 'h12', 'h13', 'h14', 'h15', 'h16', 330);
+INSERT INTO t_ext_sort_4 VALUES(6, 60, 6.6, 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'f13', 'f14', 'f15', 'f16', 385);
+INSERT INTO t_ext_sort_4 VALUES(12, 130, 63.4, 'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'l9', 'l10', 'l11', 'l12', 'l13', 'l14', 'l15', 'l16', 210);
+INSERT INTO t_ext_sort_4 VALUES(10, 100, 10.1, 'j1', 'j2', 'j3', 'j4', 'j5', 'j6', 'j7', 'j8', 'j9', 'j10', 'j11', 'j12', 'j13', 'j14', 'j15', 'j16', 270);
+INSERT INTO t_ext_sort_4 VALUES(17, 850, 86.8, 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 65);
+INSERT INTO t_ext_sort_4 VALUES(15, 750, 79.9, 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16', 105);
+
+SELECT * FROM t_ext_sort_1 AS t1, t_ext_sort_2 AS t2, t_ext_sort_3 AS t3, t_ext_sort_4 AS t4 ORDER BY t1.id1, t1.v1_1, t1.v1_2, t1.c1_1, t1.c1_2, t1.c1_3, t1.c1_4, t1.c1_5, t1.c1_6, t1.c1_7, t1.c1_8, t1.c1_9, t1.c1_10, t1.c1_11, t1.c1_12, t1.c1_13, t1.c1_14, t1.c1_15, t1.c1_16, t1.v1_3,t2.id2, t2.v2_1, t2.v2_2, t2.c2_1, t2.c2_2, t2.c2_3, t2.c2_4, t2.c2_5, t2.c2_6, t2.c2_7, t2.c2_8, t2.c2_9, t2.c2_10, t2.c2_11, t2.c2_12, t2.c2_13, t2.c2_14, t2.c2_15, t2.c2_16, t2.v2_3, t3.id3, t3.v3_1, t3.v3_2, t3.c3_1, t3.c3_2, t3.c3_3, t3.c3_4, t3.c3_5, t3.c3_6, t3.c3_7, t3.c3_8, t3.c3_9, t3.c3_10, t3.c3_11, t3.c3_12, t3.c3_13, t3.c3_14, t3.c3_15, t3.c3_16, t3.v3_3, t4.id4, t4.v4_1, t4.v4_2, t4.c4_1, t4.c4_2, t4.c4_3, t4.c4_4, t4.c4_5, t4.c4_6, t4.c4_7, t4.c4_8, t4.c4_9, t4.c4_10, t4.c4_11, t4.c4_12, t4.c4_13, t4.c4_14, t4.c4_15, t4.c4_16, t4.v4_3 limit 10;
