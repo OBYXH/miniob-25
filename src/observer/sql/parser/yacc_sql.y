@@ -737,6 +737,8 @@ select_stmt:        /*  select 语句的语法解析树*/
 
       if ($5 != nullptr) {
         $$->selection.conditions.swap(*$5);
+        // 调整顺序，因为where条件是从后往前加入的
+        std::reverse($$->selection.conditions.begin(), $$->selection.conditions.end());
         delete $5;
       }
 
