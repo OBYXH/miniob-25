@@ -85,27 +85,90 @@ RC OrderByPhysicalOperator::fetch_and_sort_tables()
 RC OrderByPhysicalOperator::open(Trx *trx)
 {
   RC rc = RC::SUCCESS;
+  
   if (children_.size() != 1) {
+    LOG_WARN("OrderByPhysicalOperator should have exactly one child");
     return RC::INTERNAL;
   }
+
   rc = children_[0]->open(trx);
-  if (OB_FAIL(rc)) {
+  if (rc != RC::SUCCESS) {
     return rc;
   }
-  rc = fetch_and_sort_tables();
-  return rc;
+
+  vector<bool> ascs;
+  for (auto &[expr, is_asc] : order_by_) {
+    ascs.emplace_back(is_asc);
+  }
+  // 创建外排序器
+  sorter_ = make_unique<ExternalSorter>(ascs, MAX_MEMORY_BYTES);
+
+  // 从子算子读取所有数据并添加到sorter
+  while (RC::SUCCESS == (rc = children_[0]->next())) {
+    // 获取 order by 字段的 values
+    vector<Value> order_by_values;
+    order_by_values.reserve(order_by_.size());
+    
+    for (auto &[expr, is_asc] : order_by_) {
+      Value cell;
+      rc = expr->get_value(*children_[0]->current_tuple(), cell);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to get order by value");
+        return rc;
+      }
+      order_by_values.push_back(std::move(cell));
+    }
+
+    // 获取 select 字段的 values
+    vector<Value> result_values;
+    result_values.reserve(tuple_.exprs().size());
+    
+    for (auto &expr : tuple_.exprs()) {
+      Value cell;
+      rc = expr->get_value(*children_[0]->current_tuple(), cell);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to get result value");
+        return rc;
+      }
+      result_values.push_back(std::move(cell));
+    }
+
+    // 添加到sorter
+    rc = sorter_->add_row(order_by_values, result_values);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("Failed to add row to sorter");
+      return rc;
+    }
+  }
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("Error reading from child operator");
+    return rc;
+  }
+
+  // 完成数据添加，开始排序
+  rc = sorter_->finish_add();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to finish sorting");
+    return rc;
+  }
+
+  return RC::SUCCESS;
 }
 
 RC OrderByPhysicalOperator::next()
 {
-  RC rc = RC::SUCCESS;
-  if (it_ == values_.end()) {
-    return RC::RECORD_EOF;
+  if (!sorter_) {
+    return RC::INTERNAL;
   }
 
-  const vector<Value> &value = *it_;
-  tuple_.set_cells(value);
-  it_++;
+  vector<Value> result_values;
+  RC rc = sorter_->next(result_values);
+  
+  if (rc == RC::SUCCESS) {
+    tuple_.set_cells(result_values);
+  }
+  
   return rc;
 }
 
