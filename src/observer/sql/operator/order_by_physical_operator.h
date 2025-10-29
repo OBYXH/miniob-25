@@ -1,5 +1,6 @@
 #include "sql/operator/physical_operator.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/external_sorter.h"
 
 class OrderByPhysicalOperator : public PhysicalOperator
 {
@@ -31,4 +32,8 @@ private:
 
   std::vector<std::vector<Value>>::iterator it_;
   SplicedTuple                              tuple_;
+
+  std::unique_ptr<ExternalSorter> sorter_;
+
+  static constexpr size_t MAX_MEMORY_BYTES = 200 * 1024 * 1024; // 100MB
 };
