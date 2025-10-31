@@ -17,9 +17,11 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
+#include "sql/stmt/stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include "sql/parser/expression_binder.h"
+#include <memory>
 
 using namespace std;
 using namespace common;
@@ -36,7 +38,8 @@ SelectStmt::~SelectStmt()
   }
 }
 
-RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::shared_ptr<std::vector<string>> loaded_relation_names)
+RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
+    std::shared_ptr<std::vector<string>> loaded_relation_names, unordered_map<string, Table *> outer_table_map)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
@@ -47,16 +50,24 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
     LOG_WARN("invalid argument. select expr is empty");
     return RC::INVALID_ARGUMENT;
   }
-  if (loaded_relation_names == nullptr) loaded_relation_names =  std::make_shared<std::vector<string>>();
+  if (loaded_relation_names == nullptr)
+    loaded_relation_names = std::make_shared<std::vector<string>>();
 
   BinderContext binder_context;
 
   // collect tables in `from` statement
   vector<Table *>                tables;
   unordered_map<string, Table *> table_map;
+  // 继承外面的 table_map
+  if (!outer_table_map.empty()) {
+    for (auto &table_pair : outer_table_map) {
+      LOG_DEBUG("filter stmt: table map: (%s, %s)", table_pair.first.c_str(), table_pair.second->name());
+    }
+    table_map = outer_table_map;
+  }
 
   // 首先将 loaded_relation_names 中的表名添加到 table_map 中
-  // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select 
+  // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select
   // 会额外拥有外层扫到的 table，而外层不会。
   for (auto &rel_name : *loaded_relation_names) {
     // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。
@@ -82,20 +93,31 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
-    auto table_alias = select_sql.relations[i].ralation_alias;
-    if (!table_alias.empty()) {
-      const auto &success = table_map.emplace(table_alias, table);
-      if (!success.second) {
-        LOG_WARN("duplicate table alias %s", table_alias.c_str());
-        return RC::INVALID_ALIAS;
-      }
-    } else {
-      table_map.emplace(table_name, table);
-    }
 
     binder_context.add_table(table);
     tables.emplace_back(table);
     loaded_relation_names->push_back(table_name);
+
+    // 检查 alias 重复
+    for (size_t j = i + 1; j < select_sql.relations.size(); j++) {
+      if (select_sql.relations[i].ralation_alias.empty() || select_sql.relations[j].ralation_alias.empty())
+        continue;
+      if (select_sql.relations[i].ralation_alias == select_sql.relations[j].ralation_alias) {
+        LOG_WARN("duplicate alias: %s", select_sql.relations[i].ralation_alias.c_str());
+        return RC::INVALID_ARGUMENT;
+      }
+    }
+
+    auto table_alias = select_sql.relations[i].ralation_alias;
+    if (!table_alias.empty()) {
+      table_map[table_alias] = table;
+      // if (!success.second) {
+      //   LOG_WARN("duplicate table alias %s", table_alias.c_str());
+      //   return RC::INVALID_ALIAS;
+      // }
+    } else {
+      table_map[table_name] = table;
+    }
   }
 
   // 下面做的是绑定表达式操作，各种新算子都需要走下面流程
@@ -130,7 +152,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
     if (condition.left != nullptr && condition.left->type() == ExprType::SUBQUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.left.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names);
+      RC rc = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names, table_map);
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;
@@ -143,11 +165,11 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, std::share
         }
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    } 
+    }
     if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names);
+      RC rc = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names, table_map);
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;

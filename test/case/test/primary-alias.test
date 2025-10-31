@@ -32,7 +32,8 @@ INSERT INTO t_alias_2 VALUES (2, 'city_y');
 SELECT * FROM t_alias_1 AS t, t_alias_2 AS t;
 
 -- echo 10. success - duplicate table alias in subquery
--- echo SELECT t.id FROM t_alias_1 t WHERE t.id IN (SELECT t.id FROM t_alias_2 t WHERE t.city = 'city_x');
+-- sort SELECT t.id FROM t_alias_1 t WHERE t.id IN (SELECT t.id FROM t_alias_2 t WHERE t.city = 'city_x');
+-- sort SELECT * FROM t_alias_1 t1 WHERE id in (SELECT t2.id FROM t_alias_2 t2 WHERE t2.city >= t1.name);
 
 -- echo 11. error - column alias in where
 SELECT id AS user_id FROM t_alias_1 WHERE user_id = 1;
