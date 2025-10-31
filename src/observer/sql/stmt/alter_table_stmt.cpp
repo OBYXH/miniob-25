@@ -22,6 +22,14 @@ RC AlterTableStmt::create(Db *db, AlterSqlNode &alter_sql, Stmt *&stmt)
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
+  if (alter_sql.alter_type == AlterType::ALTER_RENAME) {
+    Table *new_table = db->find_table(alter_sql.new_relation_name.c_str());
+    if (nullptr != new_table) {
+      LOG_WARN("table already exists. db=%s, table_name=%s", db->name(), alter_sql.new_relation_name.c_str());
+      return RC::SCHEMA_TABLE_EXIST;
+    }
+  }
+
   // 获取字段的元信息
   TableMeta   meta               = table->table_meta();
   const char *old_attribute_name = alter_sql.old_attr_info->name.c_str();
