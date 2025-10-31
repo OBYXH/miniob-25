@@ -48,6 +48,5 @@ public:
       std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type);
 
   std::vector<std::unique_ptr<Expression>> conditions_;
-  std::vector<char> conjunction_types_; // conditon 连接类型
+  std::vector<char>                        conjunction_types_;  // conditon 连接类型
 };
-

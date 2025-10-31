@@ -198,6 +198,12 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         LENGTH
         DATE_FORMAT
         LIMIT
+        ALTER
+        ADD
+        COLUMN
+        CHANGE
+        TO
+        RENAME
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -280,6 +286,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <cstring>             enclosed_by
 %type <cstring>             alias
 %type <unique>              opt_unique
+%type <sql_node>            alter_stmt
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -342,6 +349,7 @@ command_wrapper:
   | set_variable_stmt
   | help_stmt
   | exit_stmt
+  | alter_stmt
     ;
 
 exit_stmt:      
@@ -576,6 +584,42 @@ attr_list:
       }
 
       $$->emplace($$->begin(), $1);
+    }
+    ;
+
+alter_stmt:
+    ALTER TABLE ID ADD COLUMN attr_def{
+      $$ = new ParsedSqlNode(SCF_ALTER);
+      AlterSqlNode &alter_table = $$->alter_table;
+      alter_table.relation_name = $3;
+      alter_table.alter_type = AlterType::ALTER_ADD;
+      alter_table.old_attr_info = $6;
+    }
+    |ALTER TABLE ID DROP COLUMN ID{
+      $$ = new ParsedSqlNode(SCF_ALTER);
+      AlterSqlNode &alter_table = $$->alter_table;
+      alter_table.relation_name = $3;
+      alter_table.alter_type = AlterType::ALTER_DROP;
+      alter_table.old_attr_info = new AttrInfoSqlNode;
+      alter_table.old_attr_info->name = $6;
+    }
+    | ALTER TABLE ID CHANGE COLUMN ID ID type {
+      $$ = new ParsedSqlNode(SCF_ALTER);
+      AlterSqlNode &alter_table = $$->alter_table;
+      alter_table.relation_name = $3;
+      alter_table.alter_type = AlterType::ALTER_CHANGE;
+      alter_table.old_attr_info = new AttrInfoSqlNode;
+      alter_table.old_attr_info->name = $6;
+      alter_table.old_attr_info->type = static_cast<AttrType>($8);
+      alter_table.new_attribute_name = $7;
+    }
+    | ALTER TABLE ID RENAME TO ID {
+      $$ = new ParsedSqlNode(SCF_ALTER);
+      AlterSqlNode &alter_table = $$->alter_table;
+      alter_table.relation_name = $3;
+      alter_table.alter_type = AlterType::ALTER_RENAME;
+      alter_table.old_attr_info = new AttrInfoSqlNode;
+      alter_table.new_relation_name = $6;
     }
     ;
 

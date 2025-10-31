@@ -51,9 +51,9 @@ RC PredicatePhysicalOperator::next()
 
     // 如果 outer_tuple 不为空，说明在子查询，我们用 JoinedTuple 来存储
     if (outer_tuple != nullptr) {
-      auto row_tuple = static_cast<RowTuple*>(outer_tuple);
+      auto row_tuple = static_cast<RowTuple *>(outer_tuple);
       // 外层tuple存在，但可能含空值，此时不需要使用JoinedTuple
-      if  (row_tuple->is_valid()) {
+      if (row_tuple->is_valid()) {
         LOG_DEBUG("msg from predicate_phy_oper: we are in subquery");
         JoinedTuple *joined_tuple = new JoinedTuple();
         joined_tuple->set_left(outer_tuple);
@@ -61,7 +61,7 @@ RC PredicatePhysicalOperator::next()
         tuple = joined_tuple;
       }
     }
-    
+
     Value value;
     rc = expression_->get_value(*tuple, value, trx_);
     if (rc != RC::SUCCESS) {

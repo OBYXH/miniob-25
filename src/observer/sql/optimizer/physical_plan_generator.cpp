@@ -247,7 +247,7 @@ RC PhysicalPlanGenerator::create_plan(
           unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
           rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper, session);
           sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        } 
+        }
         if (comparison_expr->right()->type() == ExprType::SUBQUERY) {
           auto                         sub_query_expr    = static_cast<SubqueryExpr *>(comparison_expr->right().get());
           unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;

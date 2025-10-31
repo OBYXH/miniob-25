@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/sys/rc.h"
 #include "common/types.h"
 #include "common/lang/span.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/field/field_meta.h"
 #include "storage/index/index_meta.h"
 #include <vector>
@@ -28,6 +29,9 @@ See the Mulan PSL v2 for more details. */
  */
 class TableMeta : public common::Serializable
 {
+  friend class TableEngine;
+  friend class HeapTableEngine;
+
 public:
   TableMeta()          = default;
   virtual ~TableMeta() = default;
@@ -74,6 +78,10 @@ public:
   int  get_serial_size() const override;
   void to_string(string &output) const override;
   void desc(ostream &os) const;
+  void add_field(const AttrInfoSqlNode &attr_info);
+  void drop_field(const AttrInfoSqlNode &attr_info);
+  void change_field(const AttrInfoSqlNode &attr_info, string new_attribute_name);
+  void rename_table(string new_attribute_name);
 
 protected:
   int32_t           table_id_ = -1;

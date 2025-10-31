@@ -111,6 +111,16 @@ public:
 
   RC get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode);
 
+  RC add_column(const AttrInfoSqlNode &attr_info, Trx *trx);
+
+  RC drop_column(const AttrInfoSqlNode &attr_info, Trx *trx);
+
+  RC change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx);
+
+  RC rename_table(const char *new_table_name, Trx *trx);
+
+  RC set_table_name(const char *new_table_name);
+
   /**
    * @brief 可以在页面锁保护的情况下访问记录
    * @details 当前是在事务中访问记录，为了提供一个“原子性”的访问模式
@@ -138,7 +148,7 @@ private:
 public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
-  
+
   bool is_outer_table() const { return is_outer_table_; }
   void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
 

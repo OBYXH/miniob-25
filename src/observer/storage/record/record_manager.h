@@ -171,6 +171,14 @@ public:
       int col_num, const char *col_idx_data, LobFileHandler *lob_handler = nullptr);
 
   /**
+   * @brief Alter一个表时，更新关于该表页面记录信息的页头PageHeader
+   *
+   * @param record_size    每个记录的大小
+   * @param table_meta     表的元数据
+   */
+  RC modify_page_header(TableMeta *table_meta);
+
+  /**
    * @brief 操作结束后做的清理工作，比如释放页面、解锁
    */
   RC cleanup();
@@ -417,6 +425,16 @@ public:
   RC get_record(const RID &rid, Record &record);
 
   RC visit_record(const RID &rid, const function<bool(Record &)> &updater);
+
+  /**
+   * @brief Alter一个表时，更新关于该表页面记录信息的页头PageHeader
+   *
+   * @param modified_pages 需要修改的页面列表
+   * @param record_size    每个记录的大小
+   * @param table_meta     表的元数据
+   * @param lob_handler    LOB文件处理器
+   */
+  RC modify_pages_header(vector<PageNum> modified_pages, TableMeta *table_meta, LobFileHandler *lob_handler = nullptr);
 
 private:
   /**

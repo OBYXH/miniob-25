@@ -204,6 +204,22 @@ RC Db::drop_table(const char *table_name)
   return rc;
 }
 
+RC Db::rename_table(const char *old_table_name, const char *new_table_name)
+{
+  auto iter = opened_tables_.find(old_table_name);
+  if (iter != opened_tables_.end()) {
+    Table *table = iter->second;
+    if (table == nullptr) {
+      LOG_WARN("No such table: %s", old_table_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+    table->set_table_name(new_table_name);
+    opened_tables_.erase(iter);
+    opened_tables_[new_table_name] = table;
+  }
+  return RC::SUCCESS;
+}
+
 Table *Db::find_table(const char *table_name) const
 {
   unordered_map<string, Table *>::const_iterator iter = opened_tables_.find(table_name);

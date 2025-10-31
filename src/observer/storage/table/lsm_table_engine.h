@@ -47,6 +47,13 @@ public:
     return RC::UNIMPLEMENTED;
   }
   RC drop_index(const char *index_name) override { return RC::UNIMPLEMENTED; }
+  RC add_column(const AttrInfoSqlNode &attr_info, Trx *trx) override { return RC::UNIMPLEMENTED; }
+  RC drop_column(const AttrInfoSqlNode &attr_info, Trx *trx) override { return RC::UNIMPLEMENTED; }
+  RC change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx) override
+  {
+    return RC::UNIMPLEMENTED;
+  }
+  RC rename_table(const char *new_table_name, Trx *trx) override { return RC::UNIMPLEMENTED; }
   RC get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode) override;
   RC get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode) override { return RC::UNIMPLEMENTED; }
   RC visit_record(const RID &rid, function<bool(Record &)> visitor) override { return RC::UNIMPLEMENTED; }

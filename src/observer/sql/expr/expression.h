@@ -738,7 +738,7 @@ private:
 class SpecialPlaceholderExpr : public Expression
 {
 public:
-  SpecialPlaceholderExpr() = default;
+  SpecialPlaceholderExpr()          = default;
   virtual ~SpecialPlaceholderExpr() = default;
 
   ExprType type() const override { return ExprType::SPECIAL; }

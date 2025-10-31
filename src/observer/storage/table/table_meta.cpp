@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/global_context.h"
 #include "storage/table/table_meta.h"
 #include "storage/field/field.h"
+#include "storage/field/field_meta.h"
 #include "storage/trx/trx.h"
 #include "json/json.h"
 
@@ -397,3 +398,51 @@ void TableMeta::desc(ostream &os) const
   }
   os << ')' << endl;
 }
+
+void TableMeta::add_field(const AttrInfoSqlNode &attr_info)
+{
+  int field_offset = record_size_;
+
+  FieldMeta field_meta;
+  RC        rc = field_meta.init(attr_info.name.c_str(),
+      attr_info.type,
+      field_offset,
+      attr_info.length,
+      true /*visible*/,
+      fields_.size(),
+      attr_info.nullable);
+  if (OB_FAIL(rc)) {
+    LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name_.c_str(), attr_info.name.c_str());
+    return;
+  }
+  fields_.emplace_back(std::move(field_meta));
+  record_size_ += attr_info.length;
+}
+
+void TableMeta::drop_field(const AttrInfoSqlNode &attr_info)
+{
+  const FieldMeta *field_meta = field(attr_info.name.c_str());
+  auto             field_id   = field_meta->field_id();
+  auto             length     = field_meta->len();
+  for (size_t i = field_id + 1; i < fields_.size(); i++) {
+    fields_[i].set_attr_offset((fields_[i].offset() - length));
+    fields_[i].set_field_id(fields_[i].field_id() - 1);
+  }
+  fields_.erase(fields_.begin() + field_id);
+  record_size_ -= length;
+}
+
+void TableMeta::change_field(const AttrInfoSqlNode &attr_info, string new_attribute_name)
+{
+  const FieldMeta *field_meta = field(attr_info.name.c_str());
+  auto             field_id   = field_meta->field_id();
+  fields_[field_id]           = FieldMeta(new_attribute_name.c_str(),
+      field_meta->type(),
+      field_meta->offset(),
+      field_meta->len(),
+      field_meta->visible() /*visible*/,
+      field_meta->field_id(),
+      field_meta->nullable());
+}
+
+void TableMeta::rename_table(string new_table_name) { name_ = new_table_name; }

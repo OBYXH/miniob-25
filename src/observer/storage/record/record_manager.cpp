@@ -257,6 +257,45 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, LogHandler &l
   return RC::SUCCESS;
 }
 
+RC RecordPageHandler::modify_page_header(TableMeta *table_meta)
+{
+  int  column_num  = 0;
+  auto record_size = table_meta->record_size();
+  // only pax format need column index
+  if (table_meta != nullptr && storage_format_ == StorageFormat::PAX_FORMAT) {
+    column_num = table_meta->field_num();
+  }
+  page_header_->record_num       = 0;
+  page_header_->column_num       = column_num;
+  page_header_->record_real_size = record_size;
+  page_header_->record_size      = align8(record_size);
+  page_header_->record_capacity  = page_record_capacity(
+      BP_PAGE_DATA_SIZE, page_header_->record_size, column_num * sizeof(int) /* other fixed size*/);
+  page_header_->col_idx_offset = align8(PAGE_HEADER_SIZE + page_bitmap_size(page_header_->record_capacity));
+  page_header_->data_offset    = align8(PAGE_HEADER_SIZE + page_bitmap_size(page_header_->record_capacity)) +
+                              column_num * sizeof(int) /* column index*/;
+  this->fix_record_capacity();
+  ASSERT(page_header_->data_offset + page_header_->record_capacity * page_header_->record_size 
+              <= BP_PAGE_DATA_SIZE, 
+         "Record overflow the page size");
+
+  bitmap_ = frame_->data() + PAGE_HEADER_SIZE;
+  memset(bitmap_, 0, page_bitmap_size(page_header_->record_capacity));
+  // column_index[i] store the end offset of column `i` or the start offset of column `i+1`
+
+  // 计算列偏移
+  int *column_index = reinterpret_cast<int *>(frame_->data() + page_header_->col_idx_offset);
+  for (int i = 0; i < column_num; ++i) {
+    ASSERT(i == table_meta->field(i)->field_id(), "i should be the col_id of fields[i]");
+    if (i == 0) {
+      column_index[i] = table_meta->field(i)->len() * page_header_->record_capacity;
+    } else {
+      column_index[i] = table_meta->field(i)->len() * page_header_->record_capacity + column_index[i - 1];
+    }
+  }
+  return RC::SUCCESS;
+}
+
 RC RecordPageHandler::cleanup()
 {
   if (disk_buffer_pool_ != nullptr) {
@@ -758,6 +797,27 @@ RC RecordFileHandler::visit_record(const RID &rid, const function<bool(Record &)
     rc = page_handler->update_record(rid, record.data());
   }
   return rc;
+}
+
+RC RecordFileHandler::modify_pages_header(
+    vector<PageNum> modified_pages, TableMeta *table_meta, LobFileHandler *lob_handler)
+{
+  unique_ptr<RecordPageHandler> record_page_handler(RecordPageHandler::create(storage_format_));
+  for (auto page_num : modified_pages) {
+    RC rc = record_page_handler->init(*disk_buffer_pool_, *log_handler_, page_num, ReadWriteMode::READ_WRITE);
+    if (OB_FAIL(rc)) {
+      lock_.unlock();
+      LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", page_num, rc, strrc(rc));
+      return rc;
+    }
+    rc = record_page_handler->modify_page_header(table_meta);
+    if (OB_FAIL(rc)) {
+      lock_.unlock();
+      LOG_WARN("failed to modify record page header. page num=%d, rc=%d:%s", page_num, rc, strrc(rc));
+      return rc;
+    }
+  }
+  return RC::SUCCESS;
 }
 
 ChunkFileScanner::~ChunkFileScanner() { close_scan(); }
