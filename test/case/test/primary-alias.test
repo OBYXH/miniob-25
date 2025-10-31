@@ -51,3 +51,6 @@ SELECT id AS user_id FROM t_alias_1 WHERE user_id = 1;
 -- echo 14. ambiguous column errors (COMPREHENSIVE)
 SELECT id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
 SELECT t1.id, id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+
+-- echo 15. star alias error
+select * as alias from t_alias_1 t1;

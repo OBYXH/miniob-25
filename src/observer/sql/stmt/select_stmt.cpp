@@ -129,6 +129,16 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   ExpressionBinder               expression_binder(binder_context);
 
   for (unique_ptr<Expression> &expression : select_sql.expressions) {
+
+    // 如果是 StarExpr，检查是否有别名，如果有报错
+    if (expression->type() == ExprType::STAR) {
+      StarExpr *star_expr = static_cast<StarExpr *>(expression.get());
+      if (!is_blank(star_expr->field_alias())) {
+        LOG_WARN("alias found in star expression");
+        return RC::INVALID_ARGUMENT;
+      }
+    }
+
     RC rc = expression_binder.bind_expression(expression, bound_expressions);
     if (OB_FAIL(rc)) {
       LOG_INFO("bind expression failed. rc=%s", strrc(rc));

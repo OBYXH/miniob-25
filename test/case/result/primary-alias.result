@@ -107,3 +107,7 @@ SELECT id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
 FAILURE
 SELECT t1.id, id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
 FAILURE
+
+15. star alias error
+select * as alias from t_alias_1 t1;
+FAILURE
