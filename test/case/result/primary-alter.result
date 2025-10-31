@@ -144,3 +144,55 @@ SELECT * FROM t_renamed_with_index WHERE val > 50;
 ID | VAL
 SELECT * FROM t_idx_rename;
 FAILURE
+
+11.
+CREATE TABLE alter_table_1(id int);
+SUCCESS
+CREATE index i_id on alter_table_1(id);
+SUCCESS
+INSERT INTO alter_table_1 VALUES (3);
+SUCCESS
+INSERT INTO alter_table_1 VALUES (3);
+SUCCESS
+INSERT INTO alter_table_1 VALUES (8);
+SUCCESS
+
+alter table alter_table_1 add column col int;
+SUCCESS
+select * from alter_table_1;
+id | col
+3 | NULL
+3 | NULL
+8 | NULL
+alter table alter_table_1 add column col int;
+FAILURE
+insert into alter_table_1 values(9);
+FAILURE
+
+alter table alter_table_1 drop column id;
+SUCCESS
+select * from alter_table_1;
+col
+NULL
+NULL
+NULL
+update alter_table_1 set id = 4 where col = 2;
+FAILURE
+update alter_table_1 set col = 5 where id = 5;
+FAILURE
+
+delete from alter_table_1;
+SUCCESS
+CREATE index i_col on alter_table_1(col);
+SUCCESS
+alter table alter_table_1 change column col id int;
+SUCCESS
+select * from alter_table_1;
+id
+
+CREATE TABLE alter_table_2(id int);
+SUCCESS
+ALTER TABLE alter_table_2 rename to alter_table_1;
+FAILURE
+ALTER TABLE alter_table_1 rename to alter_table_1;
+SUCCESS

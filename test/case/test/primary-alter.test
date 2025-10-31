@@ -67,3 +67,29 @@ ALTER TABLE t_idx_rename RENAME TO t_renamed_with_index;
 -- sort SELECT * FROM t_renamed_with_index;
 -- sort SELECT * FROM t_renamed_with_index WHERE val > 50;
 SELECT * FROM t_idx_rename;
+
+-- echo 11.
+CREATE TABLE alter_table_1(id int);
+CREATE index i_id on alter_table_1(id);
+INSERT INTO alter_table_1 VALUES (3);
+INSERT INTO alter_table_1 VALUES (3);
+INSERT INTO alter_table_1 VALUES (8);
+
+alter table alter_table_1 add column col int;
+select * from alter_table_1;
+alter table alter_table_1 add column col int;
+insert into alter_table_1 values(9);
+
+alter table alter_table_1 drop column id;
+select * from alter_table_1;
+update alter_table_1 set id = 4 where col = 2;
+update alter_table_1 set col = 5 where id = 5;
+
+delete from alter_table_1;
+CREATE index i_col on alter_table_1(col);
+alter table alter_table_1 change column col id int;
+select * from alter_table_1;
+
+CREATE TABLE alter_table_2(id int);
+ALTER TABLE alter_table_2 rename to alter_table_1;
+ALTER TABLE alter_table_1 rename to alter_table_1;
