@@ -10,12 +10,19 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/table/heap_table_engine.h"
 #include "common/sys/rc.h"
+#include "sql/parser/parse_defs.h"
+#include "storage/field/field_meta.h"
 #include "storage/record/heap_record_scanner.h"
 #include "common/log/log.h"
 #include "storage/index/bplus_tree_index.h"
 #include "storage/common/meta_util.h"
 #include "storage/db/db.h"
 #include "storage/record/record.h"
+#include "storage/record/record_scanner.h"
+#include "storage/table/table.h"
+#include "storage/table/table_meta.h"
+#include "storage/trx/trx.h"
+#include <cstring>
 
 HeapTableEngine::~HeapTableEngine()
 {
@@ -315,6 +322,223 @@ RC HeapTableEngine::drop_index(const char *index_name)
     return RC::IOERR_WRITE;
   }
   return rc;
+}
+
+RC HeapTableEngine::flush_table_meta()
+{
+  // 1. 创建新的TableMeta副本并添加字段
+  TableMeta new_table_meta(*table_meta_);
+
+  // 2. 将新元数据序列化到临时文件
+  string  tmp_file = table_meta_file(db_->path().c_str(), table_meta_->name()) + ".tmp";
+  fstream fs;
+  fs.open(tmp_file, ios_base::out | ios_base::binary | ios_base::trunc);
+  if (!fs.is_open()) {
+    LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  if (new_table_meta.serialize(fs) < 0) {
+    LOG_ERROR("Failed to serialize table meta. file name=%s", tmp_file.c_str());
+    fs.close();
+    return RC::IOERR_WRITE;
+  }
+  fs.close();
+
+  // 3. 原子性替换元数据文件
+  string meta_file = table_meta_file(db_->path().c_str(), table_meta_->name());
+  if (filesystem::exists(meta_file)) {
+    filesystem::remove(meta_file);
+  }
+  filesystem::rename(tmp_file, meta_file);
+
+  // 4. 更新内存中的table_meta_
+  *table_meta_ = new_table_meta;
+  return RC::SUCCESS;
+}
+
+RC HeapTableEngine::add_column(const AttrInfoSqlNode &attr_info, Trx *trx)
+{
+  RecordScanner *record_scanner;
+  RC             rc = get_record_scanner(record_scanner, trx, ReadWriteMode::READ_WRITE);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to create scanner while adding column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  vector<Record>  new_records;
+  Record          record;
+  vector<PageNum> modified_pages;
+  while (record_scanner->next(record) == RC::SUCCESS) {
+    if (std::find(modified_pages.begin(), modified_pages.end(), record.rid().page_num) == modified_pages.end()) {
+      modified_pages.emplace_back(record.rid().page_num);
+    }
+    Record new_record;
+    // 构造新记录数据
+    char *buf = (char *)malloc(table_meta_->record_size() + attr_info.length);
+    memcpy((char *)buf, record.data(), table_meta_->record_size());
+    buf[table_meta_->record_size() + attr_info.length - 1] = '1';  // for string type
+    new_record.copy_data(buf, table_meta_->record_size() + attr_info.length);
+    new_record.set_rid(record.rid());
+    new_records.push_back(new_record);
+    // 删除旧记录
+    RC rc = delete_record(record);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to delete record while adding column. table=%s, column=%s, rc=%s", 
+               table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+      return rc;
+    }
+    free(buf);
+  }
+  // 更新表元数据
+  table_meta_->add_field(attr_info);
+  rc = record_handler_->modify_pages_header(modified_pages, table_meta_, table_->lob_handler_);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to modify page header while adding column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  // 插入新记录
+  for (auto new_record : new_records) {
+    rc = insert_record(const_cast<Record &>(new_record));
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to insert record while adding column. table=%s, column=%s, rc=%s", 
+               table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+      return rc;
+    }
+  }
+  // 刷新表元数据到磁盘
+  rc = flush_table_meta();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to flush table meta while adding column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  LOG_INFO("Successfully added column. table=%s, column=%s", table_meta_->name(), attr_info.name.c_str());
+  return RC::SUCCESS;
+}
+
+RC HeapTableEngine::drop_column(const AttrInfoSqlNode &attr_info, Trx *trx)
+{
+  RecordScanner *record_scanner;
+  RC             rc = get_record_scanner(record_scanner, trx, ReadWriteMode::READ_WRITE);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to create scanner while adding column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  vector<Record>  new_records;
+  Record          record;
+  vector<PageNum> modified_pages;
+  // 要先删除索引，不然无法delete record
+  auto index = find_index_by_field(attr_info.name.c_str());
+  if (index != nullptr) {
+    string name = index->index_meta().name();
+    RC     rc   = drop_index(name.c_str());
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to drop index while dropping column. table=%s, column=%s, rc=%s", 
+               table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+      return rc;
+    }
+  }
+  auto field_meta = table_meta_->field(attr_info.name.c_str());
+  if (field_meta == nullptr) {
+    LOG_ERROR("field not found. table=%s, column=%s", table_meta_->name(), attr_info.name.c_str());
+    return RC::SCHEMA_FIELD_NOT_EXIST;
+  }
+  while (record_scanner->next(record) == RC::SUCCESS) {
+    if (std::find(modified_pages.begin(), modified_pages.end(), record.rid().page_num) == modified_pages.end()) {
+      modified_pages.emplace_back(record.rid().page_num);
+    }
+    // 构造新记录数据
+    Record new_record;
+    char  *buf = (char *)malloc(table_meta_->record_size() - field_meta->len());
+    memcpy(buf, record.data(), field_meta->offset());
+    int offset = field_meta->offset() + field_meta->len();
+    memcpy(buf + field_meta->offset(), record.data() + offset, table_meta_->record_size() - offset);
+    new_record.copy_data(buf, table_meta_->record_size() - field_meta->len());
+    new_record.set_rid(record.rid());
+    new_records.emplace_back(new_record);
+    // 删除旧记录
+    RC rc = delete_record(record);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to delete record while adding column. table=%s, column=%s, rc=%s", 
+               table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+      return rc;
+    }
+    free(buf);
+  }
+  // 更新表元数据
+  table_meta_->drop_field(attr_info);
+  rc = record_handler_->modify_pages_header(modified_pages, table_meta_, table_->lob_handler_);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to modify page header while dropping column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  // 更新索引meta的偏移以及field
+  for (auto &index : table_->table_meta_.indexes_) {
+    for (auto &field_meta : index.fields_) {
+      auto new_field_meta = table_meta_->field(field_meta.name());
+      if (new_field_meta != nullptr) {
+        field_meta = FieldMeta(new_field_meta->name(),
+            new_field_meta->type(),
+            new_field_meta->offset(),
+            new_field_meta->len(),
+            new_field_meta->visible(),
+            new_field_meta->field_id(),
+            new_field_meta->nullable());
+      }
+    }
+  }
+  // 插入新记录
+  for (auto new_record : new_records) {
+    rc = insert_record(const_cast<Record &>(new_record));
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to insert record while dropping column. table=%s, column=%s, rc=%s", 
+               table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+      return rc;
+    }
+  }
+  // 刷新表元数据到磁盘
+  rc = flush_table_meta();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to flush table meta while dropping column. table=%s, column=%s, rc=%s", 
+             table_meta_->name(), attr_info.name.c_str(), strrc(rc));
+    return rc;
+  }
+  LOG_INFO("Successfully dropped column. table=%s, column=%s", table_meta_->name(), attr_info.name.c_str());
+  return RC::SUCCESS;
+}
+
+RC HeapTableEngine::change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx)
+{
+  table_meta_->change_field(attr_info, new_attribute_name);
+  // 更新索引meta的偏移以及field
+  for (auto &index : table_->table_meta_.indexes_) {
+    for (auto &field_meta : index.fields_) {
+      auto new_field_meta = table_meta_->field(field_meta.field_id());
+      if (new_field_meta != nullptr) {
+        field_meta = FieldMeta(new_field_meta->name(),
+            new_field_meta->type(),
+            new_field_meta->offset(),
+            new_field_meta->len(),
+            new_field_meta->visible(),
+            new_field_meta->field_id(),
+            new_field_meta->nullable());
+      }
+    }
+  }
+  flush_table_meta();
+  return RC::SUCCESS;
+}
+
+RC HeapTableEngine::rename_table(const char *new_table_name, Trx *trx)
+{
+  db_->rename_table(table_->name(), new_table_name);
+  // table_meta_->rename_table(new_table_name);
+  // flush_table_meta();
+  return RC::SUCCESS;
 }
 
 RC HeapTableEngine::insert_entry_of_indexes(const char *record, const RID &rid)

@@ -1,0 +1,146 @@
+1. INITIALIZATION
+CREATE TABLE t_alter (id INT, name CHAR, score INT);
+SUCCESS
+INSERT INTO t_alter VALUES (1, 'a', 100);
+SUCCESS
+INSERT INTO t_alter VALUES (2, 'b', 90);
+SUCCESS
+
+2. TEST ADD COLUMN
+ALTER TABLE t_alter ADD COLUMN new_col INT;
+SUCCESS
+SELECT * FROM t_alter;
+1 | A | 100 | NULL
+2 | B | 90 | NULL
+ID | NAME | SCORE | NEW_COL
+INSERT INTO t_alter VALUES (3, 'c', 80, 500);
+SUCCESS
+SELECT * FROM t_alter;
+1 | A | 100 | NULL
+2 | B | 90 | NULL
+3 | C | 80 | 500
+ID | NAME | SCORE | NEW_COL
+
+3. TEST DROP COLUMN
+ALTER TABLE t_alter DROP COLUMN new_col;
+SUCCESS
+SELECT * FROM t_alter;
+1 | A | 100
+2 | B | 90
+3 | C | 80
+ID | NAME | SCORE
+SELECT new_col FROM t_alter;
+FAILURE
+
+4. TEST CHANGE COLUMN (RENAME)
+ALTER TABLE t_alter CHANGE COLUMN name student_name CHAR;
+SUCCESS
+SELECT * FROM t_alter;
+1 | A | 100
+2 | B | 90
+3 | C | 80
+ID | STUDENT_NAME | SCORE
+SELECT id, student_name FROM t_alter WHERE student_name = 'a';
+1 | A
+ID | STUDENT_NAME
+SELECT name FROM t_alter;
+FAILURE
+
+5. TEST RENAME TO
+ALTER TABLE t_alter RENAME TO t_renamed;
+SUCCESS
+SELECT * FROM t_renamed;
+1 | A | 100
+2 | B | 90
+3 | C | 80
+ID | STUDENT_NAME | SCORE
+SELECT * FROM t_alter;
+FAILURE
+
+6. TEST INDEX INTEGRITY - SETUP
+CREATE TABLE t_idx_test (id INT, val_indexed CHAR, val_other INT);
+SUCCESS
+CREATE INDEX idx_val ON t_idx_test (val_indexed);
+SUCCESS
+INSERT INTO t_idx_test VALUES (1, 'a', 100);
+SUCCESS
+INSERT INTO t_idx_test VALUES (2, 'b', 200);
+SUCCESS
+
+7. TEST INDEX INTEGRITY - DROP INDEXED COLUMN
+ALTER TABLE t_idx_test DROP COLUMN val_indexed;
+SUCCESS
+SELECT * FROM t_idx_test;
+1 | 100
+2 | 200
+ID | VAL_OTHER
+INSERT INTO t_idx_test VALUES (3, 300);
+SUCCESS
+SELECT * FROM t_idx_test;
+1 | 100
+2 | 200
+3 | 300
+ID | VAL_OTHER
+
+8. TEST INDEX INTEGRITY - DROP NON-INDEXED COLUMN
+CREATE TABLE t_idx_test_2 (id INT, name CHAR, score INT);
+SUCCESS
+CREATE INDEX idx_name ON t_idx_test_2 (name);
+SUCCESS
+CREATE INDEX idx_score ON t_idx_test_2 (score);
+SUCCESS
+INSERT INTO t_idx_test_2 VALUES (1, 'a', 10);
+SUCCESS
+ALTER TABLE t_idx_test_2 DROP COLUMN id;
+SUCCESS
+SELECT * FROM t_idx_test_2;
+A | 10
+NAME | SCORE
+SELECT * FROM t_idx_test_2 WHERE name = 'a';
+A | 10
+NAME | SCORE
+SELECT * FROM t_idx_test_2 WHERE score > 5;
+A | 10
+NAME | SCORE
+
+9. TEST INDEX INTEGRITY - CHANGE INDEXED COLUMN
+CREATE TABLE t_idx_change (id INT, old_col_name INT);
+SUCCESS
+CREATE INDEX idx_change ON t_idx_change (old_col_name);
+SUCCESS
+INSERT INTO t_idx_change VALUES (1, 10);
+SUCCESS
+INSERT INTO t_idx_change VALUES (2, 20);
+SUCCESS
+ALTER TABLE t_idx_change CHANGE COLUMN old_col_name new_col_name INT;
+SUCCESS
+show index from t_idx_change
+Table | Index_name | Column_name | Seq_in_index | Non_unique
+t_idx_change | idx_change | new_col_name | 1 | 1
+SELECT * FROM t_idx_change;
+1 | 10
+2 | 20
+ID | NEW_COL_NAME
+SELECT * FROM t_idx_change WHERE new_col_name > 15;
+2 | 20
+ID | NEW_COL_NAME
+SELECT old_col_name FROM t_idx_change;
+FAILURE
+
+10. TEST INDEX INTEGRITY - RENAME TABLE
+CREATE TABLE t_idx_rename (id INT, val INT);
+SUCCESS
+CREATE INDEX idx_rename_val ON t_idx_rename (val);
+SUCCESS
+INSERT INTO t_idx_rename VALUES (1, 100);
+SUCCESS
+ALTER TABLE t_idx_rename RENAME TO t_renamed_with_index;
+SUCCESS
+SELECT * FROM t_renamed_with_index;
+1 | 100
+ID | VAL
+SELECT * FROM t_renamed_with_index WHERE val > 50;
+1 | 100
+ID | VAL
+SELECT * FROM t_idx_rename;
+FAILURE

@@ -41,6 +41,10 @@ public:
   RC create_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name,
       bool unique) override;
   RC drop_index(const char *index_name) override;
+  RC add_column(const AttrInfoSqlNode &attr_info, Trx *trx) override;
+  RC drop_column(const AttrInfoSqlNode &attr_info, Trx *trx) override;
+  RC change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx) override;
+  RC rename_table(const char *new_table_name, Trx *trx) override;
   RC get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode) override;
   RC get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode) override;
   RC visit_record(const RID &rid, function<bool(Record &)> visitor) override;
@@ -52,6 +56,7 @@ public:
   RC     drop() override;
   // init_record_handler
   RC init() override;
+  RC flush_table_meta();
 
 private:
   RC insert_entry_of_indexes(const char *record, const RID &rid);

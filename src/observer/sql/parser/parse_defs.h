@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/lang/vector.h"
 #include "common/lang/memory.h"
+#include "common/type/attr_type.h"
 #include "common/value.h"
 #include "common/lang/utility.h"
 #include <vector>
@@ -27,6 +28,14 @@ class Expression;
 /**
  * @defgroup SQLParser SQL Parser
  */
+
+enum AlterType
+{
+  ALTER_ADD,
+  ALTER_DROP,
+  ALTER_CHANGE,
+  ALTER_RENAME
+};
 
 /**
  * @brief 描述一个属性
@@ -102,10 +111,10 @@ enum class IndexType
  */
 struct ConditionSqlNode
 {
-  CompOp                 comp;   ///< comparison operator
-  unique_ptr<Expression> left;   ///< left expression
-  unique_ptr<Expression> right;  ///< right expression
-  char conjunction_type = 0; // 0: no conjunction, 1: and, 2: or
+  CompOp                 comp;                  ///< comparison operator
+  unique_ptr<Expression> left;                  ///< left expression
+  unique_ptr<Expression> right;                 ///< right expression
+  char                   conjunction_type = 0;  // 0: no conjunction, 1: and, 2: or
 };
 
 /**
@@ -197,6 +206,20 @@ struct AttrInfoSqlNode
   string   name;      ///< Attribute name
   size_t   length;    ///< Length of attribute
   bool     nullable;  ///< 是否可以为空
+};
+
+/**
+ * @brief Alter
+ * @ingroup SQLParser
+ * @details 包含一个表的名字和别名
+ */
+struct AlterSqlNode
+{
+  string           relation_name;  ///< relation name 表名
+  AlterType        alter_type;     ///< 操作类型 ADD, CHANGE， DROP， RENAME
+  AttrInfoSqlNode *old_attr_info;
+  string           new_attribute_name;  ///< 新字段名，仅在CHANGE时使用
+  string           new_relation_name;   ///< 新表名，仅在RENAME时使用
 };
 
 /**
@@ -355,6 +378,7 @@ enum SqlCommandFlag
   SCF_EXIT,
   SCF_EXPLAIN,
   SCF_SET_VARIABLE,  ///< 设置变量
+  SCF_ALTER,         ///< 修改表结构
 };
 /**
  * @brief 表示一个SQL语句
@@ -380,6 +404,7 @@ public:
   LoadDataSqlNode     load_data;
   ExplainSqlNode      explain;
   SetVariableSqlNode  set_variable;
+  AlterSqlNode        alter_table;
 
 public:
   ParsedSqlNode();

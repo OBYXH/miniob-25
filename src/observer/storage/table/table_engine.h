@@ -52,6 +52,10 @@ public:
   virtual RC create_index(
       Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique) = 0;
   virtual RC     drop_index(const char *index_name)                                                             = 0;
+  virtual RC     add_column(const AttrInfoSqlNode &attr_info, Trx *trx)                                         = 0;
+  virtual RC     drop_column(const AttrInfoSqlNode &attr_info, Trx *trx)                                        = 0;
+  virtual RC     change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx)           = 0;
+  virtual RC     rename_table(const char *new_table_name, Trx *trx)                                             = 0;
   virtual RC     get_record_scanner(RecordScanner *&scanner, Trx *trx, ReadWriteMode mode)                      = 0;
   virtual RC     get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode)                     = 0;
   virtual RC     visit_record(const RID &rid, function<bool(Record &)> visitor)                                 = 0;

@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/command_executor.h"
 #include "common/log/log.h"
 #include "event/sql_event.h"
+#include "sql/executor/alter_table_executor.h"
 #include "sql/executor/analyze_table_executor.h"
 #include "sql/executor/create_index_executor.h"
 #include "sql/executor/show_index_executor.h"
@@ -36,6 +37,10 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
 
   RC rc = RC::SUCCESS;
   switch (stmt->type()) {
+    case StmtType::ALTER_TABLE: {
+      AlterTableExecutor executor;
+      rc = executor.execute(sql_event);
+    } break;
     case StmtType::CREATE_INDEX: {
       CreateIndexExecutor executor;
       rc = executor.execute(sql_event);

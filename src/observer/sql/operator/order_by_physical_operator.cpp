@@ -85,7 +85,7 @@ RC OrderByPhysicalOperator::fetch_and_sort_tables()
 RC OrderByPhysicalOperator::open(Trx *trx)
 {
   RC rc = RC::SUCCESS;
-  
+
   if (children_.size() != 1) {
     LOG_WARN("OrderByPhysicalOperator should have exactly one child");
     return RC::INTERNAL;
@@ -96,7 +96,7 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     LOG_DEBUG("msg from order_by_phy_oper: we are in subquery");
     child->set_outer_tuple(outer_tuple);
   }
-  
+
   rc = children_[0]->open(trx);
   if (rc != RC::SUCCESS) {
     return rc;
@@ -114,7 +114,7 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     // 获取 order by 字段的 values
     vector<Value> order_by_values;
     order_by_values.reserve(order_by_.size());
-    
+
     for (auto &[expr, is_asc] : order_by_) {
       Value cell;
       rc = expr->get_value(*children_[0]->current_tuple(), cell);
@@ -128,7 +128,7 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     // 获取 select 字段的 values
     vector<Value> result_values;
     result_values.reserve(tuple_.exprs().size());
-    
+
     for (auto &expr : tuple_.exprs()) {
       Value cell;
       rc = expr->get_value(*children_[0]->current_tuple(), cell);
@@ -169,12 +169,12 @@ RC OrderByPhysicalOperator::next()
   }
 
   vector<Value> result_values;
-  RC rc = sorter_->next(result_values);
-  
+  RC            rc = sorter_->next(result_values);
+
   if (rc == RC::SUCCESS) {
     tuple_.set_cells(result_values);
   }
-  
+
   return rc;
 }
 

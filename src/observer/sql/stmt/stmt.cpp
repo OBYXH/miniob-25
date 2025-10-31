@@ -35,6 +35,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/trx_begin_stmt.h"
 #include "sql/stmt/trx_end_stmt.h"
 #include "sql/stmt/update_stmt.h"
+#include "sql/stmt/alter_table_stmt.h"
 
 bool stmt_type_ddl(StmtType type)
 {
@@ -42,6 +43,7 @@ bool stmt_type_ddl(StmtType type)
     case StmtType::CREATE_TABLE:
     case StmtType::DROP_TABLE:
     case StmtType::DROP_INDEX:
+    case StmtType::ALTER_TABLE:
     case StmtType::CREATE_INDEX: {
       return true;
     }
@@ -55,6 +57,9 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
   stmt = nullptr;
 
   switch (sql_node.flag) {
+    case SCF_ALTER: {
+      return AlterTableStmt::create(db, sql_node.alter_table, stmt);
+    }
     case SCF_INSERT: {
       return InsertStmt::create(db, sql_node.insertion, stmt);
     }

@@ -10,7 +10,7 @@
 
 /**
  * @brief 外排序工具类，用于大数据量排序
- * 
+ *
  * 采用多路归并排序算法：
  * 1. 分块读取数据到内存，排序后写入临时文件（run文件）
  * 2. 使用K路归并将所有run文件合并输出
@@ -58,17 +58,17 @@ private:
 
   struct RunFile
   {
-    std::string        filename;
-    std::ifstream      stream;
-    Row                current_row;
-    bool               has_data;
-    size_t             run_index;  // 用于堆排序时的稳定性
+    std::string   filename;
+    std::ifstream stream;
+    Row           current_row;
+    bool          has_data;
+    size_t        run_index;  // 用于堆排序时的稳定性
   };
 
   struct RunCompare
   {
     ExternalSorter *sorter;
-    
+
     bool operator()(const std::shared_ptr<RunFile> &a, const std::shared_ptr<RunFile> &b) const;
   };
 
@@ -110,18 +110,16 @@ private:
 
 private:
   std::vector<bool> ascs_;  // 每个排序字段的升降序标志
-  size_t                      max_memory_bytes_;
-  size_t                      current_memory_bytes_;
-  
-  std::vector<Row>            current_run_;      // 当前内存中的数据
-  std::vector<std::string>    run_filenames_;    // 所有run文件名
-  
+  size_t            max_memory_bytes_;
+  size_t            current_memory_bytes_;
+
+  std::vector<Row>         current_run_;    // 当前内存中的数据
+  std::vector<std::string> run_filenames_;  // 所有run文件名
+
   // K路归并使用的优先队列
-  std::priority_queue<std::shared_ptr<RunFile>, 
-                      std::vector<std::shared_ptr<RunFile>>, 
-                      RunCompare> merge_heap_;
-  
-  bool                        finished_add_;
-  size_t                      next_run_index_;
-  std::string                 temp_dir_;
+  std::priority_queue<std::shared_ptr<RunFile>, std::vector<std::shared_ptr<RunFile>>, RunCompare> merge_heap_;
+
+  bool        finished_add_;
+  size_t      next_run_index_;
+  std::string temp_dir_;
 };

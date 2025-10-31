@@ -685,7 +685,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     if (rc == RC::RECORD_EOF) {
       if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
         bool_value = true;
-        rc = RC::SUCCESS;
+        rc         = RC::SUCCESS;
       } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
         bool_value = false;
         rc         = RC::SUCCESS;
@@ -1316,7 +1316,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
 
   trx_ = trx;
 
-  auto *tuple__ = const_cast<Tuple*>(&tuple);
+  auto *tuple__ = const_cast<Tuple *>(&tuple);
   if (!is_open_) {
     rc = open_physical_operator(tuple__);
     if (rc != RC::SUCCESS) {

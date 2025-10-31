@@ -37,7 +37,7 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
     LOG_DEBUG("msg from scala_groupby_phy_oper: we are in subquery");
     child.set_outer_tuple(outer_tuple);
   }
-  RC                rc    = child.open(trx);
+  RC rc = child.open(trx);
   if (OB_FAIL(rc)) {
     LOG_INFO("failed to open child operator. rc=%s", strrc(rc));
     return rc;

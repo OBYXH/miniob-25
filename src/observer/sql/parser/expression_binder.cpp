@@ -194,7 +194,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
   const char *table_name  = unbound_field_expr->table_name();
   const char *field_name  = unbound_field_expr->field_name();
   const char *field_alias = unbound_field_expr->field_alias();
-  
+
   // 在顶层，table_name 已经被解析为真实的表名
   // 在顶层，field_name 已经被解析为真实的字段名
   // 或者为空
@@ -216,7 +216,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
         found = true;
         table = table_;
       }
-    }    
+    }
   } else {
     table = context_.find_table(table_name);
     if (nullptr == table) {

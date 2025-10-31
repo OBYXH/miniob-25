@@ -80,6 +80,11 @@ public:
   /**
    * @brief 根据表名查找表
    */
+  RC rename_table(const char *old_table_name, const char *new_table_name);
+
+  /**
+   * @brief 根据表名查找表
+   */
   Table *find_table(const char *table_name) const;
   /**
    * @brief 根据表ID查找表

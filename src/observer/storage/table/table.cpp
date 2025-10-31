@@ -359,6 +359,23 @@ RC Table::drop_index(Trx *trx, const char *index_name)
   return engine_->drop_index(index_name);
 }
 
+RC Table::add_column(const AttrInfoSqlNode &attr_info, Trx *trx) { return engine_->add_column(attr_info, trx); }
+
+RC Table::drop_column(const AttrInfoSqlNode &attr_info, Trx *trx) { return engine_->drop_column(attr_info, trx); }
+
+RC Table::change_column(const AttrInfoSqlNode &attr_info, string new_attribute_name, Trx *trx)
+{
+  return engine_->change_column(attr_info, new_attribute_name, trx);
+}
+
+RC Table::rename_table(const char *new_table_name, Trx *trx) { return engine_->rename_table(new_table_name, trx); }
+
+RC Table::set_table_name(const char *new_table_name)
+{
+  table_meta_.rename_table(new_table_name);
+  return RC::SUCCESS;
+}
+
 RC Table::delete_record(const Record &record) { return engine_->delete_record(record); }
 
 RC Table::update_record(const Record &old_record, const Record &new_record)

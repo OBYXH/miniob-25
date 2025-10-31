@@ -34,6 +34,9 @@ class Value;
  */
 class IndexMeta
 {
+  friend class TableEngine;
+  friend class HeapTableEngine;
+
 public:
   IndexMeta() = default;
 

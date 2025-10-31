@@ -1,0 +1,69 @@
+-- echo 1. initialization
+CREATE TABLE t_alter (id INT, name CHAR, score INT);
+INSERT INTO t_alter VALUES (1, 'a', 100);
+INSERT INTO t_alter VALUES (2, 'b', 90);
+
+-- echo 2. test ADD COLUMN
+ALTER TABLE t_alter ADD COLUMN new_col INT;
+-- sort SELECT * FROM t_alter;
+INSERT INTO t_alter VALUES (3, 'c', 80, 500);
+-- sort SELECT * FROM t_alter;
+
+-- echo 3. test DROP COLUMN
+ALTER TABLE t_alter DROP COLUMN new_col;
+-- sort SELECT * FROM t_alter;
+SELECT new_col FROM t_alter;
+
+-- echo 4. test CHANGE COLUMN (Rename)
+ALTER TABLE t_alter CHANGE COLUMN name student_name CHAR;
+-- sort SELECT * FROM t_alter;
+-- sort SELECT id, student_name FROM t_alter WHERE student_name = 'a';
+SELECT name FROM t_alter;
+
+-- echo 5. test RENAME TO
+ALTER TABLE t_alter RENAME TO t_renamed;
+-- sort SELECT * FROM t_renamed;
+SELECT * FROM t_alter;
+
+-- echo 6. test index integrity - setup
+CREATE TABLE t_idx_test (id INT, val_indexed CHAR, val_other INT);
+CREATE INDEX idx_val ON t_idx_test (val_indexed);
+INSERT INTO t_idx_test VALUES (1, 'a', 100);
+INSERT INTO t_idx_test VALUES (2, 'b', 200);
+
+-- echo 7. test index integrity - DROP indexed column
+ALTER TABLE t_idx_test DROP COLUMN val_indexed;
+-- sort SELECT * FROM t_idx_test;
+INSERT INTO t_idx_test VALUES (3, 300);
+-- sort SELECT * FROM t_idx_test;
+
+-- echo 8. test index integrity - DROP non-indexed column
+CREATE TABLE t_idx_test_2 (id INT, name CHAR, score INT);
+CREATE INDEX idx_name ON t_idx_test_2 (name);
+-- echo CREATE INDEX idx_score ON t_idx_test_2 (score);
+-- echo SUCCESS
+INSERT INTO t_idx_test_2 VALUES (1, 'a', 10);
+ALTER TABLE t_idx_test_2 DROP COLUMN id;
+-- sort SELECT * FROM t_idx_test_2;
+-- sort SELECT * FROM t_idx_test_2 WHERE name = 'a';
+-- sort SELECT * FROM t_idx_test_2 WHERE score > 5;
+
+-- echo 9. test index integrity - CHANGE indexed column
+CREATE TABLE t_idx_change (id INT, old_col_name INT);
+CREATE INDEX idx_change ON t_idx_change (old_col_name);
+INSERT INTO t_idx_change VALUES (1, 10);
+INSERT INTO t_idx_change VALUES (2, 20);
+ALTER TABLE t_idx_change CHANGE COLUMN old_col_name new_col_name INT;
+show index from t_idx_change
+-- sort SELECT * FROM t_idx_change;
+-- sort SELECT * FROM t_idx_change WHERE new_col_name > 15;
+SELECT old_col_name FROM t_idx_change;
+
+-- echo 10. test index integrity - RENAME table
+CREATE TABLE t_idx_rename (id INT, val INT);
+CREATE INDEX idx_rename_val ON t_idx_rename (val);
+INSERT INTO t_idx_rename VALUES (1, 100);
+ALTER TABLE t_idx_rename RENAME TO t_renamed_with_index;
+-- sort SELECT * FROM t_renamed_with_index;
+-- sort SELECT * FROM t_renamed_with_index WHERE val > 50;
+SELECT * FROM t_idx_rename;

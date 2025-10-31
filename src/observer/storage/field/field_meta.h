@@ -45,6 +45,7 @@ public:
   bool        visible() const;
   int         field_id() const;
   bool        nullable() const;
+  void        set_attr_offset(int offset);
 
 public:
   void desc(ostream &os) const;

@@ -20,10 +20,7 @@ ExternalSorter::ExternalSorter(vector<bool> ascs, size_t max_memory_bytes)
   filesystem::create_directories(temp_dir_);
 }
 
-ExternalSorter::~ExternalSorter()
-{
-  cleanup();
-}
+ExternalSorter::~ExternalSorter() { cleanup(); }
 
 void ExternalSorter::cleanup()
 {
@@ -47,7 +44,7 @@ void ExternalSorter::cleanup()
 size_t ExternalSorter::estimate_row_bytes(const Row &row) const
 {
   size_t bytes = 0;
-  
+
   auto estimate_value = [](const Value &v) -> size_t {
     size_t size = sizeof(Value);
     if (v.attr_type() == AttrType::CHARS) {
@@ -64,7 +61,7 @@ size_t ExternalSorter::estimate_row_bytes(const Row &row) const
   for (const auto &v : row.result_values) {
     bytes += estimate_value(v);
   }
-  
+
   return bytes;
 }
 
@@ -80,7 +77,7 @@ RC ExternalSorter::add_row(const vector<Value> &order_values, const vector<Value
   row.result_values = result_values;
 
   size_t row_bytes = estimate_row_bytes(row);
-  
+
   // 如果当前run加上这一行会超过内存限制，先flush
   if (!current_run_.empty() && current_memory_bytes_ + row_bytes > max_memory_bytes_) {
     RC rc = flush_current_run();
@@ -99,7 +96,7 @@ int ExternalSorter::compare_rows(const vector<Value> &a, const vector<Value> &b)
 {
   for (size_t i = 0; i < ascs_.size(); i++) {
     int cmp_result = a[i].compare(b[i]);
-    
+
     if (cmp_result != 0) {
       // 如果是降序，反转比较结果
       return ascs_[i] ? cmp_result : -cmp_result;
@@ -120,7 +117,7 @@ RC ExternalSorter::flush_current_run()
   });
 
   // 写入临时文件
-  string filename = generate_temp_filename();
+  string   filename = generate_temp_filename();
   ofstream out(filename, ios::binary);
   if (!out) {
     LOG_WARN("Failed to create temp file: %s", filename.c_str());
@@ -165,11 +162,11 @@ RC ExternalSorter::serialize_row(ofstream &out, const Row &row) const
     // 写入类型
     AttrType type = v.attr_type();
     out.write(reinterpret_cast<const char *>(&type), sizeof(type));
-    
+
     // 写入长度
     uint32_t len = v.length();
     out.write(reinterpret_cast<const char *>(&len), sizeof(len));
-    
+
     // 写入数据
     if (len > 0) {
       out.write(reinterpret_cast<const char *>(v.data()), len);
@@ -184,10 +181,10 @@ RC ExternalSorter::serialize_row(ofstream &out, const Row &row) const
   for (const auto &v : row.result_values) {
     AttrType type = v.attr_type();
     out.write(reinterpret_cast<const char *>(&type), sizeof(type));
-    
+
     uint32_t len = v.length();
     out.write(reinterpret_cast<const char *>(&len), sizeof(len));
-    
+
     if (len > 0) {
       out.write(reinterpret_cast<const char *>(v.data()), len);
     }
@@ -216,15 +213,15 @@ RC ExternalSorter::deserialize_row(ifstream &in, Row &row) const
   for (uint32_t i = 0; i < order_count; i++) {
     AttrType type;
     in.read(reinterpret_cast<char *>(&type), sizeof(type));
-    
+
     uint32_t len;
     in.read(reinterpret_cast<char *>(&len), sizeof(len));
-    
+
     vector<char> buffer(len);
     if (len > 0) {
       in.read(buffer.data(), len);
     }
-    
+
     if (!in) {
       return RC::IOERR_READ;
     }
@@ -251,15 +248,15 @@ RC ExternalSorter::deserialize_row(ifstream &in, Row &row) const
   for (uint32_t i = 0; i < result_count; i++) {
     AttrType type;
     in.read(reinterpret_cast<char *>(&type), sizeof(type));
-    
+
     uint32_t len;
     in.read(reinterpret_cast<char *>(&len), sizeof(len));
-    
+
     vector<char> buffer(len);
     if (len > 0) {
       in.read(buffer.data(), len);
     }
-    
+
     if (!in) {
       return RC::IOERR_READ;
     }
@@ -296,11 +293,11 @@ RC ExternalSorter::finish_add()
 
   // 初始化K路归并
   for (size_t i = 0; i < run_filenames_.size(); i++) {
-    auto run      = make_shared<RunFile>();
-    run->filename = run_filenames_[i];
+    auto run       = make_shared<RunFile>();
+    run->filename  = run_filenames_[i];
     run->run_index = i;
     run->stream.open(run->filename, ios::binary);
-    
+
     if (!run->stream) {
       LOG_WARN("Failed to open run file: %s", run->filename.c_str());
       return RC::IOERR_READ;
