@@ -426,6 +426,7 @@ void TableMeta::drop_field(const AttrInfoSqlNode &attr_info)
   auto             length     = field_meta->len();
   for (size_t i = field_id + 1; i < fields_.size(); i++) {
     fields_[i].set_attr_offset((fields_[i].offset() - length));
+    fields_[i].set_field_id(fields_[i].field_id() - 1);
   }
   fields_.erase(fields_.begin() + field_id);
   record_size_ -= length;

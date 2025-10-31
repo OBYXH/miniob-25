@@ -79,6 +79,8 @@ bool FieldMeta::nullable() const { return nullable_; }
 
 void FieldMeta::set_attr_offset(int offset) { attr_offset_ = offset; }
 
+void FieldMeta::set_field_id(int field_id) { field_id_ = field_id; }
+
 void FieldMeta::desc(ostream &os) const
 {
   os << "field name=" << name_ << ", type=" << attr_type_to_string(attr_type_) << ", len=" << attr_len_
