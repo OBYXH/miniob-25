@@ -64,6 +64,12 @@ FAILURE
 
 10. SUCCESS - DUPLICATE TABLE ALIAS IN SUBQUERY
 SELECT t.id FROM t_alias_1 t WHERE t.id IN (SELECT t.id FROM t_alias_2 t WHERE t.city = 'city_x');
+1
+T.ID
+SELECT * FROM t_alias_1 t1 WHERE id in (SELECT t2.id FROM t_alias_2 t2 WHERE t2.city >= t1.name);
+1 | A | 100
+2 | B | 90
+ID | NAME | SCORE
 
 11. ERROR - COLUMN ALIAS IN WHERE
 SELECT id AS user_id FROM t_alias_1 WHERE user_id = 1;
@@ -100,4 +106,8 @@ ID | NAME | SCORE
 SELECT id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
 FAILURE
 SELECT t1.id, id FROM t_alias_1 t1, t_alias_2 t2 WHERE t1.id = t2.id;
+FAILURE
+
+15. star alias error
+select * as alias from t_alias_1 t1;
 FAILURE

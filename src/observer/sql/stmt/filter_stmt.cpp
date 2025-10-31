@@ -60,6 +60,10 @@ RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table
 RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
     std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type)
 {
+  for(auto &table_pair : *tables) {
+    LOG_DEBUG("filter stmt: table map: (%s, %s)", table_pair.first.c_str(), table_pair.second->name());
+  }
+
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
 
