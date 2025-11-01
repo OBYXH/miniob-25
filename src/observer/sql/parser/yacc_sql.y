@@ -819,6 +819,7 @@ union_stmt:
       union_unit.selection = std::move($1->selection);
       union_unit.union_type = 0;
       $$->union_node.unions.emplace_back(std::move(union_unit));
+      std::reverse($2->begin(), $2->end());
       for (auto &unit : *$2) {
         $$->union_node.unions.emplace_back(std::move(unit));
       }

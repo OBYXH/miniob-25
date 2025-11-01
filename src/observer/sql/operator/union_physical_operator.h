@@ -4,6 +4,7 @@
 #include "storage/record/record.h"
 #include "common/value.h"
 #include "sql/expr/tuple_cell.h"
+#include "sql/expr/tuple.h"
 #include <vector>
 #include <unordered_set>
 
@@ -12,10 +13,11 @@
  * @ingroup PhysicalOperator
  * 
  * 实现逻辑：
- * 1. 依次执行所有子算子
- * 2. 将结果存入内存临时表
- * 3. 如果是 UNION（非 ALL），去重
- * 4. 迭代返回结果
+ * 1. 第一个 SELECT 的结果全部加入
+ * 2. 从第二个 SELECT 开始，根据 UNION 类型：
+ *    - UNION ALL：直接追加所有结果
+ *    - UNION：追加结果后对截止目前的所有数据进行去重
+ * 3. 迭代返回结果
  */
 class UnionPhysicalOperator : public PhysicalOperator
 {
@@ -35,13 +37,12 @@ public:
   RC close() override;
 
   Tuple *current_tuple() override;
-
   RC tuple_schema(TupleSchema &schema) const override;
 
 private:
   RC execute_child_operators(Trx *trx);
-  RC remove_duplicates();
-  RC validate_schema_compatibility();  // 验证 schema 兼容性
+  RC validate_schema_compatibility();
+  RC remove_duplicates();  // 对当前累积的结果去重
   
   /**
    * @brief 用于存储单行数据的结构
@@ -81,7 +82,6 @@ private:
 private:
   std::vector<char> union_types_;              // 每个 UNION 的类型（0=ALL, 1=DISTINCT）
   std::vector<TupleData> result_tuples_;       // 存储所有结果行
-  std::vector<TupleCellSpec> tuple_specs_;     // 存储 tuple 的 schema 信息
   size_t current_index_ = 0;                   // 当前迭代位置
   ValueListTuple current_tuple_;               // 当前返回的 tuple
 };

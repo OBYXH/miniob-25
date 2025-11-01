@@ -22,6 +22,7 @@ RC UnionPhysicalOperator::open(Trx *trx)
   current_index_ = 0;
   return RC::SUCCESS;
 }
+
 RC UnionPhysicalOperator::validate_schema_compatibility()
 {
   if (children_.empty()) {
@@ -58,7 +59,6 @@ RC UnionPhysicalOperator::validate_schema_compatibility()
                base_cell_num, i, child_schema.cell_num());
       return RC::SCHEMA_FIELD_MISSING;
     }
-
   }
 
   return RC::SUCCESS;
@@ -73,9 +73,6 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
 
   bool first_child = true;
   std::vector<AttrType> base_types;  // 存储第一个子算子的列类型
-  
-  // 用于去重的哈希集合，只在需要时使用
-  std::unordered_set<TupleData, TupleDataHash> seen_tuples;
 
   // 遍历所有子算子
   for (size_t child_idx = 0; child_idx < children_.size(); child_idx++) {
@@ -88,8 +85,10 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
 
     bool first_row = true;
     
-    // 判断当前 UNION 的类型
-    char union_type = union_types_[child_idx]; // 0 表示 UNION ALL，1 表示 UNION
+    char union_type = union_types_[child_idx];
+
+    // 临时存储当前子查询的结果
+    std::vector<TupleData> current_child_results;
 
     // 获取子算子的所有结果
     while ((rc = child->next()) == RC::SUCCESS) {
@@ -102,22 +101,11 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
       
       int cell_num = tuple->cell_num();
 
-      // 从第一个子算子的第一行获取 schema 和类型信息
+      // 从第一个子算子的第一行获取类型信息
       if (first_child && first_row) {
-        tuple_specs_.reserve(cell_num);
         base_types.reserve(cell_num);
         
         for (int i = 0; i < cell_num; i++) {
-          TupleCellSpec spec;
-          rc = tuple->spec_at(i, spec);
-          if (rc != RC::SUCCESS) {
-            LOG_WARN("failed to get spec at %d. rc=%s", i, strrc(rc));
-            child->close();
-            return rc;
-          }
-          tuple_specs_.push_back(spec);
-
-          // 获取实际的数据类型
           Value value;
           rc = tuple->cell_at(i, value);
           if (rc != RC::SUCCESS) {
@@ -175,20 +163,7 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
         tuple_data.values.push_back(value);
       }
       
-      // 根据 UNION 类型决定是否需要去重
-      if (child_idx == 0) {
-        // 第一个子查询的结果直接加入
-        result_tuples_.push_back(tuple_data);
-        seen_tuples.insert(tuple_data);
-      } else if (union_type == 0) {
-        // UNION ALL：直接添加，不去重
-        result_tuples_.push_back(tuple_data);
-      } else {
-        // UNION：只添加之前没见过的数据
-        if (seen_tuples.insert(tuple_data).second) {
-          result_tuples_.push_back(tuple_data);
-        }
-      }
+      current_child_results.push_back(tuple_data);
     }
 
     child->close();
@@ -198,6 +173,29 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
     if (rc != RC::RECORD_EOF) {
       LOG_WARN("child operator returned unexpected error. rc=%s", strrc(rc));
       return rc;
+    }
+
+    // 根据子查询索引和 UNION 类型决定处理方式
+    if (child_idx == 0) {
+      // 第一个子查询：直接添加所有结果
+      result_tuples_ = std::move(current_child_results);
+    } else if (union_type == 0) {
+      // UNION ALL：直接追加当前子查询的结果
+      result_tuples_.insert(result_tuples_.end(), 
+                           current_child_results.begin(), 
+                           current_child_results.end());
+    } else {
+      // UNION：先追加当前子查询的结果，然后对整体去重
+      result_tuples_.insert(result_tuples_.end(), 
+                           current_child_results.begin(), 
+                           current_child_results.end());
+      
+      // 对当前累积的所有结果去重
+      rc = remove_duplicates();
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to remove duplicates. rc=%s", strrc(rc));
+        return rc;
+      }
     }
   }
 
@@ -217,10 +215,12 @@ RC UnionPhysicalOperator::remove_duplicates()
     }
   }
 
+  size_t removed_count = result_tuples_.size() - dedup_result.size();
+  
   // 用去重后的结果替换原结果
   result_tuples_ = std::move(dedup_result);
   
-  LOG_TRACE("union removed %zu duplicate rows", unique_tuples.size() - dedup_result.size());
+  LOG_TRACE("union removed %zu duplicate rows", removed_count);
   return RC::SUCCESS;
 }
 
@@ -230,11 +230,8 @@ RC UnionPhysicalOperator::next()
     return RC::RECORD_EOF;
   }
 
-  // 设置当前 tuple 的数据和 schema
+  // 设置当前 tuple 的数据
   current_tuple_.set_cells(result_tuples_[current_index_].values);
-  if (!tuple_specs_.empty()) {
-    current_tuple_.set_names(tuple_specs_);
-  }
   current_index_++;
   
   return RC::SUCCESS;
@@ -248,7 +245,6 @@ RC UnionPhysicalOperator::close()
   }
   
   result_tuples_.clear();
-  tuple_specs_.clear();
   current_index_ = 0;
   return RC::SUCCESS;
 }

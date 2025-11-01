@@ -5,6 +5,7 @@ CREATE TABLE diff_union1 (id INT, num INT, score INT);
 CREATE TABLE diff_union2 (id INT, name CHAR(10));
 
 INSERT INTO union_1 values(1, 'ABC', 10);
+INSERT INTO union_1 values(1, 'ABC', 10);
 INSERT INTO union_1 values(2, 'DEF', 20);
 INSERT INTO union_1 values(3, 'GHI', 30);
 INSERT INTO union_2 values(1, 'ABC', 10);

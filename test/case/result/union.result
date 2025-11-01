@@ -10,6 +10,8 @@ SUCCESS
 
 INSERT INTO union_1 values(1, 'ABC', 10);
 SUCCESS
+INSERT INTO union_1 values(1, 'ABC', 10);
+SUCCESS
 INSERT INTO union_1 values(2, 'DEF', 20);
 SUCCESS
 INSERT INTO union_1 values(3, 'GHI', 30);
@@ -30,6 +32,8 @@ SUCCESS
 select * from union_1 union all select * from union_1;
 1 | ABC | 10
 1 | ABC | 10
+1 | ABC | 10
+1 | ABC | 10
 2 | DEF | 20
 2 | DEF | 20
 3 | GHI | 30
@@ -41,6 +45,7 @@ select * from union_1 union select * from union_1;
 3 | GHI | 30
 id | name1 | score
 select * from union_1 union all select * from union_2;
+1 | ABC | 10
 1 | ABC | 10
 1 | ABC | 10
 2 | DEF | 20
@@ -65,6 +70,7 @@ id | name1 | score
 select * from union_1 union select * from union_2 union all select * from union_1;
 1 | ABC | 10
 1 | ABC | 10
+1 | ABC | 10
 2 | DEF | 20
 2 | DEF | 20
 2 | UVW | 20
@@ -83,6 +89,7 @@ id | name1
 select id, name1 from union_1 union all select id, name2 from union_2;
 1 | ABC
 1 | ABC
+1 | ABC
 2 | DEF
 2 | UVW
 3 | GHI
@@ -96,6 +103,7 @@ id | score
 select id, score from union_1 union all select id, score from union_2;
 1 | 10
 1 | 10
+1 | 10
 2 | 20
 2 | 20
 3 | 30
@@ -103,6 +111,7 @@ select id, score from union_1 union all select id, score from union_2;
 id | score
 
 select id, name1 from union_1 union all select * from diff_union2;
+1 | ABC
 1 | ABC
 1 | ABC
 2 | DEF
