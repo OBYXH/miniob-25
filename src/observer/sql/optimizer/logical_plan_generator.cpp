@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/order_by_logical_operator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/limit_logical_operator.h"
+#include "sql/operator/union_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/delete_stmt.h"
@@ -62,6 +63,12 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
 
       rc = create_plan(select_stmt, logical_operator);
+    } break;
+
+    case StmtType::UNION: {
+      UnionStmt *union_stmt = static_cast<UnionStmt *>(stmt);
+
+      rc = create_plan(union_stmt, logical_operator);
     } break;
 
     case StmtType::INSERT: {
@@ -97,6 +104,29 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
 RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   logical_operator.reset(new CalcLogicalOperator(std::move(calc_stmt->expressions())));
+  return RC::SUCCESS;
+}
+
+RC LogicalPlanGenerator::create_plan(UnionStmt *union_stmt, unique_ptr<LogicalOperator> &logical_operator)
+{
+  RC rc = RC::SUCCESS;
+
+  // 1. 创建 Union 逻辑算子
+  auto union_oper = make_unique<UnionLogicalOperator>(union_stmt->union_types());
+
+  // 2. 为每个子 SELECT 创建逻辑算子
+  for (auto &select_stmt : union_stmt->select_stmts()) {
+    unique_ptr<LogicalOperator> select_oper;
+    rc = create_plan(select_stmt.get(), select_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create logical plan for union sub-select. rc=%s", strrc(rc));
+      return rc;
+    }
+
+    union_oper->add_child(std::move(select_oper));
+  }
+
+  logical_operator = std::move(union_oper);
   return RC::SUCCESS;
 }
 
