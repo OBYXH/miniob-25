@@ -847,6 +847,8 @@ select_stmt:        /*  select 语句的语法解析树*/
           for (auto &condition : join.conditions) {
             $$->selection.conditions.emplace_back(std::move(condition));
           }
+          // 避免指针悬空问题
+          join.conditions.clear();
         }
       }
 
