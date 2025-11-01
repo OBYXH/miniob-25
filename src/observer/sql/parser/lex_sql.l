@@ -162,6 +162,8 @@ TO                                      RETURN_TOKEN(TO);
 RENAME                                  RETURN_TOKEN(RENAME);
 INNER                                   RETURN_TOKEN(INNER);
 JOIN                                    RETURN_TOKEN(JOIN);
+UNION                                   RETURN_TOKEN(UNION);
+ALL                                     RETURN_TOKEN(ALL); 
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

@@ -159,6 +159,32 @@ struct SelectSqlNode
   vector<ConditionSqlNode>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
 };
 
+
+/**
+ * @brief Union的基本单元
+ * @ingroup SQLParser
+ * @details 
+ * 包含一个select语句和union的类型(UNION ALL/ UNION)
+ */
+struct UnionUnit
+{
+  SelectSqlNode selection;
+  char union_type = 0;  // 0: UNION ALL, 1: UNION
+};
+
+/**
+ * @brief 描述一个Union语句
+ * @ingroup SQLParser
+ * @details 
+ * 一个Union语句由至少两个select语句组成
+ */
+
+struct UnionSqlNode
+{
+  vector<UnionUnit> unions;  ///< union的select语句列表
+};
+
+
 /**
  * @brief 算术表达式计算的语法树
  * @ingroup SQLParser
@@ -390,6 +416,7 @@ enum SqlCommandFlag
   SCF_EXPLAIN,
   SCF_SET_VARIABLE,  ///< 设置变量
   SCF_ALTER,         ///< 修改表结构
+  SCF_UNION,         ///< union 语句
 };
 /**
  * @brief 表示一个SQL语句
@@ -416,6 +443,7 @@ public:
   ExplainSqlNode      explain;
   SetVariableSqlNode  set_variable;
   AlterSqlNode        alter_table;
+  UnionSqlNode        union_node;
 
 public:
   ParsedSqlNode();

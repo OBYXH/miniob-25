@@ -206,6 +206,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         RENAME
         INNER
         JOIN
+        UNION
+        ALL
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -228,6 +230,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   OrderBySqlNode *                           orderby_unit;
   std::vector<OrderBySqlNode> *              orderby_list;
   LimitSqlNode *                             limit_node;
+  vector<UnionUnit> *                        union_list;
   char *                                     cstring;
   int                                        number;
   float                                      floats;
@@ -295,6 +298,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            alter_stmt
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
+%type <sql_node>            union_stmt
 %type <sql_node>            insert_stmt
 %type <sql_node>            update_stmt
 %type <sql_node>            delete_stmt
@@ -318,7 +322,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
-%type <update_list>       update_list
+%type <update_list>         update_list
+%type <union_list>          union_list
 
 %left '+' '-'
 %left '*' '/'
@@ -335,6 +340,7 @@ commands: command_wrapper opt_semicolon  //commands or sqls. parser starts here.
 command_wrapper:
     calc_stmt
   | select_stmt
+  | union_stmt
   | insert_stmt
   | update_stmt
   | delete_stmt
@@ -771,6 +777,56 @@ update_list:
       $$ = $5;
       $$->emplace_back(string($1),$3);
     }
+    ;
+union_list:
+    UNION ALL select_stmt {
+      $$ = new vector<UnionUnit>;
+      UnionUnit union_unit;
+      union_unit.selection = std::move($3->selection);
+      union_unit.union_type = 0;
+      $$->emplace_back(std::move(union_unit));
+      delete $3;
+    }
+    | UNION select_stmt {
+      $$ = new vector<UnionUnit>;
+      UnionUnit union_unit;
+      union_unit.selection = std::move($2->selection);
+      union_unit.union_type = 1;
+      $$->emplace_back(std::move(union_unit));      
+      delete $2;
+    }
+    | UNION ALL select_stmt union_list {
+      $$ = $4;
+      UnionUnit union_unit;
+      union_unit.selection = std::move($3->selection);
+      union_unit.union_type = 0;
+      $$->emplace_back(std::move(union_unit));
+      delete $3;
+    }
+    | UNION select_stmt union_list {
+      $$ = $3;
+      UnionUnit union_unit;
+      union_unit.selection = std::move($2->selection);
+      union_unit.union_type = 1;
+      $$->emplace_back(std::move(union_unit)); 
+      delete $2;      
+    }
+    ;
+union_stmt:
+    select_stmt union_list{
+      $$ = new ParsedSqlNode(SCF_UNION);
+      UnionUnit union_unit;
+      union_unit.selection = std::move($1->selection);
+      union_unit.union_type = 0;
+      $$->union_node.unions.emplace_back(std::move(union_unit));
+      std::reverse($2->begin(), $2->end());
+      for (auto &unit : *$2) {
+        $$->union_node.unions.emplace_back(std::move(unit));
+      }
+      delete $1;
+      delete $2;
+    }
+    ;
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT expression_list FROM rel_list where group_by having_condition opt_order_by opt_limit
     {

@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/stmt.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/db/db.h"
 #include "sql/stmt/analyze_table_stmt.h"
 #include "sql/stmt/calc_stmt.h"
@@ -36,6 +37,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/trx_end_stmt.h"
 #include "sql/stmt/update_stmt.h"
 #include "sql/stmt/alter_table_stmt.h"
+#include "sql/stmt/union_stmt.h"
 
 bool stmt_type_ddl(StmtType type)
 {
@@ -71,6 +73,9 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
     }
     case SCF_SELECT: {
       return SelectStmt::create(db, sql_node.selection, stmt);
+    }
+    case SCF_UNION: {
+      return UnionStmt::create(db, sql_node.union_node, stmt);
     }
 
     case SCF_EXPLAIN: {

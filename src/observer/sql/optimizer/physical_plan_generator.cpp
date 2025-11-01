@@ -30,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_physical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/limit_logical_operator.h"
+#include "sql/operator/logical_operator.h"
 #include "sql/operator/nested_loop_join_physical_operator.h"
 #include "sql/operator/order_by_logical_operator.h"
 #include "sql/operator/physical_operator.h"
@@ -47,6 +48,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/scalar_group_by_physical_operator.h"
 #include "sql/operator/table_scan_vec_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
+#include "sql/operator/union_physical_operator.h"
+#include "sql/operator/union_logical_operator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/update_physical_operator.h"
 #include "sql/operator/limit_logical_operator.h"
@@ -75,6 +78,10 @@ RC PhysicalPlanGenerator::create(
 
     case LogicalOperatorType::PROJECTION: {
       return create_plan(static_cast<ProjectLogicalOperator &>(logical_operator), oper, session);
+    } break;
+
+    case LogicalOperatorType::UNION: {
+      return create_plan(static_cast<UnionLogicalOperator &>(logical_operator), oper, session);
     } break;
 
     case LogicalOperatorType::INSERT: {
@@ -289,6 +296,29 @@ RC PhysicalPlanGenerator::create_plan(
   oper = std::move(project_operator);
 
   LOG_TRACE("create a project physical operator");
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(
+    UnionLogicalOperator &union_oper, unique_ptr<PhysicalOperator> &oper, Session *session)
+{
+  vector<unique_ptr<LogicalOperator>> &child_opers = union_oper.children();
+
+  RC rc = RC::SUCCESS;
+
+  unique_ptr<PhysicalOperator> union_physical_oper = make_unique<UnionPhysicalOperator>(union_oper.union_types());
+  for (unique_ptr<LogicalOperator> &child_oper : child_opers) {
+    unique_ptr<PhysicalOperator> child_physical_oper;
+    rc = create(*child_oper, child_physical_oper, session);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create child physical operator. rc=%s", strrc(rc));
+      return rc;
+    }
+
+    union_physical_oper->add_child(std::move(child_physical_oper));
+  }
+
+  oper = std::move(union_physical_oper);
   return rc;
 }
 
