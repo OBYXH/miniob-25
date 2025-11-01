@@ -1,0 +1,111 @@
+INIT
+CREATE TABLE union_1 (id INT, name1 CHAR(10), score INT);
+SUCCESS
+CREATE TABLE union_2 (id INT, name2 CHAR(10), score INT);
+SUCCESS
+CREATE TABLE diff_union1 (id INT, num INT, score INT);
+SUCCESS
+CREATE TABLE diff_union2 (id INT, name CHAR(10));
+SUCCESS
+
+INSERT INTO union_1 values(1, 'ABC', 10);
+SUCCESS
+INSERT INTO union_1 values(2, 'DEF', 20);
+SUCCESS
+INSERT INTO union_1 values(3, 'GHI', 30);
+SUCCESS
+INSERT INTO union_2 values(1, 'ABC', 10);
+SUCCESS
+INSERT INTO union_2 values(2, 'UVW', 20);
+SUCCESS
+INSERT INTO union_2 values(3, 'XYZ', 30);
+SUCCESS
+
+1. normal
+select * from union_1 union all select * from union_1;
+1 | ABC | 10
+1 | ABC | 10
+2 | DEF | 20
+2 | DEF | 20
+3 | GHI | 30
+3 | GHI | 30
+id | name1 | score
+select * from union_1 union select * from union_1;
+1 | ABC | 10
+2 | DEF | 20
+3 | GHI | 30
+id | name1 | score
+select * from union_1 union all select * from union_2;
+1 | ABC | 10
+1 | ABC | 10
+2 | DEF | 20
+2 | UVW | 20
+3 | GHI | 30
+3 | XYZ | 30
+id | name1 | score
+select * from union_1 union select * from union_2;
+1 | ABC | 10
+2 | DEF | 20
+2 | UVW | 20
+3 | GHI | 30
+3 | XYZ | 30
+id | name1 | score
+select * from union_1 union select * from union_2 union select * from union_1;
+1 | ABC | 10
+2 | DEF | 20
+2 | UVW | 20
+3 | GHI | 30
+3 | XYZ | 30
+id | name1 | score
+select * from union_1 union select * from union_2 union all select * from union_1;
+1 | ABC | 10
+1 | ABC | 10
+2 | DEF | 20
+2 | DEF | 20
+2 | UVW | 20
+3 | GHI | 30
+3 | GHI | 30
+3 | XYZ | 30
+id | name1 | score
+
+select id, name1 from union_1 union select id, name2 from union_2;
+1 | ABC
+2 | DEF
+2 | UVW
+3 | GHI
+3 | XYZ
+id | name1
+select id, name1 from union_1 union all select id, name2 from union_2;
+1 | ABC
+1 | ABC
+2 | DEF
+2 | UVW
+3 | GHI
+3 | XYZ
+id | name1
+select id, score from union_1 union select id, score from union_2;
+1 | 10
+2 | 20
+3 | 30
+id | score
+select id, score from union_1 union all select id, score from union_2;
+1 | 10
+1 | 10
+2 | 20
+2 | 20
+3 | 30
+3 | 30
+id | score
+
+select id, name1 from union_1 union all select * from diff_union2;
+1 | ABC
+1 | ABC
+2 | DEF
+3 | GHI
+id | name1
+
+2. error
+select * from diff_union1 union select * from diff_union2;
+FAILURE
+select id, num from diff_union1 union select * from diff_union2;
+FAILURE
