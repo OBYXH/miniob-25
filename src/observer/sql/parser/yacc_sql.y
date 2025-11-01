@@ -204,6 +204,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         CHANGE
         TO
         RENAME
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -220,6 +222,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<ConditionSqlNode> *                 condition_list;
   vector<RelAttrSqlNode> *                   rel_attr_list;
   vector<RelationNode> *                     relation_list;
+  JoinSqlNode *                              join_clause;
+  vector<JoinSqlNode> *                      join_clauses;
   vector<string> *                           key_list;
   OrderBySqlNode *                           orderby_unit;
   std::vector<OrderBySqlNode> *              orderby_list;
@@ -272,6 +276,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <key_list>            primary_key
 %type <key_list>            attr_list
 %type <relation_list>       rel_list
+%type <join_clause>        join_clause
+%type <join_clauses>       join_clauses
 %type <expression>          expression
 %type <expression>          aggregate_expression
 %type <expression>          vector_expression
@@ -813,6 +819,68 @@ select_stmt:        /*  select 语句的语法解析树*/
         $$->selection.expressions.swap(*$2);
         delete $2;
       }
+    }
+    // 支持 COMMA混用的 INNER JOIN 语法  
+    | SELECT expression_list FROM rel_list join_clauses where
+    {
+      LOG_DEBUG("Enter SELECT with JOIN parsing.");
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($2 != nullptr) {
+        $$->selection.expressions.swap(*$2);
+        delete $2;
+      }
+
+      if ($4 != nullptr) {
+        $$->selection.relations.swap(*$4);
+        delete $4;
+      }
+
+      if ($6 != nullptr) {
+        $$->selection.conditions.swap(*$6);
+        delete $6;
+      }
+
+      if ($5 != nullptr) {
+        // 管你这儿那儿的，全塞到select里当relation和condition，后面走统一流程
+        for (auto &join : *$5) {
+          $$->selection.relations.emplace_back(join.relation);
+          for (auto &condition : join.conditions) {
+            $$->selection.conditions.emplace_back(std::move(condition));
+          }
+          // 避免指针悬空问题
+          join.conditions.clear();
+        }
+      }
+
+    }
+    ;
+
+join_clause:
+    INNER JOIN relation ON condition_list
+    {
+      auto rel_node = new RelationNode;
+      rel_node->relation_name = $3;
+      $$ = new JoinSqlNode;
+      $$->relation = *rel_node;
+      $$->conditions.swap(*$5);
+      delete $5;
+    }
+    | COMMA relation {
+      auto rel_node = new RelationNode;
+      rel_node->relation_name = $2;
+      $$ = new JoinSqlNode;
+      $$->relation = *rel_node;
+    }
+    ;
+join_clauses:
+    join_clause
+    {
+      $$ = new vector<JoinSqlNode>;
+      $$->emplace_back(std::move(*$1));
+    }
+    | join_clauses join_clause  {
+      $$ = $1;
+      $$->emplace_back(std::move(*$2));
     }
     ;
 calc_stmt:
