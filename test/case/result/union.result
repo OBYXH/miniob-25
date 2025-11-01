@@ -21,6 +21,11 @@ SUCCESS
 INSERT INTO union_2 values(3, 'XYZ', 30);
 SUCCESS
 
+INSERT INTO diff_union1 values(1, 1, 1);
+SUCCESS
+INSERT INTO diff_union2 values(1, 'ABC');
+SUCCESS
+
 1. normal
 select * from union_1 union all select * from union_1;
 1 | ABC | 10

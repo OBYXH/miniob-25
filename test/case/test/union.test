@@ -14,7 +14,6 @@ INSERT INTO union_2 values(3, 'XYZ', 30);
 INSERT INTO diff_union1 values(1, 1, 1);
 INSERT INTO diff_union2 values(1, 'ABC');
 
-
 -- echo 1. normal 
 -- sort select * from union_1 union all select * from union_1;
 -- sort select * from union_1 union select * from union_1;
