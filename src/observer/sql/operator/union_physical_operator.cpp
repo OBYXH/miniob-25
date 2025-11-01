@@ -5,6 +5,13 @@ RC UnionPhysicalOperator::open(Trx *trx)
 {
   RC rc = RC::SUCCESS;
 
+  // 0. 验证所有子算子的 schema 兼容性
+  rc = validate_schema_compatibility();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to validate schema compatibility. rc=%s", strrc(rc));
+    return rc;
+  }
+
   // 1. 执行所有子算子，收集结果
   rc = execute_child_operators(trx);
   if (rc != RC::SUCCESS) {
@@ -12,24 +19,48 @@ RC UnionPhysicalOperator::open(Trx *trx)
     return rc;
   }
 
-  // 2. 如果需要去重（有任何 UNION 而非 UNION ALL）
-  bool need_dedup = false;
-  for (char union_type : union_types_) {
-    if (union_type == 1) {  // 1 表示 UNION（去重）
-      need_dedup = true;
-      break;
-    }
+  current_index_ = 0;
+  return RC::SUCCESS;
+}
+RC UnionPhysicalOperator::validate_schema_compatibility()
+{
+  if (children_.empty()) {
+    LOG_WARN("union operator has no children");
+    return RC::INTERNAL;
   }
 
-  if (need_dedup) {
-    rc = remove_duplicates();
+  // 获取第一个子算子的 schema 作为基准
+  TupleSchema base_schema;
+  RC rc = children_[0]->tuple_schema(base_schema);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to get schema from first child. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  int base_cell_num = base_schema.cell_num();
+  if (base_cell_num == 0) {
+    LOG_WARN("first child has empty schema");
+    return RC::INTERNAL;
+  }
+
+  // 验证后续子算子的 schema 与第一个子算子兼容
+  for (size_t i = 1; i < children_.size(); i++) {
+    TupleSchema child_schema;
+    rc = children_[i]->tuple_schema(child_schema);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to remove duplicates. rc=%s", strrc(rc));
+      LOG_WARN("failed to get schema from child %zu. rc=%s", i, strrc(rc));
       return rc;
     }
+
+    // 检查列数是否一致
+    if (child_schema.cell_num() != base_cell_num) {
+      LOG_WARN("UNION queries have different column counts: first has %d, child %zu has %d",
+               base_cell_num, i, child_schema.cell_num());
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+
   }
 
-  current_index_ = 0;
   return RC::SUCCESS;
 }
 
@@ -40,13 +71,25 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
     return RC::INTERNAL;
   }
 
+  bool first_child = true;
+  std::vector<AttrType> base_types;  // 存储第一个子算子的列类型
+  
+  // 用于去重的哈希集合，只在需要时使用
+  std::unordered_set<TupleData, TupleDataHash> seen_tuples;
+
   // 遍历所有子算子
-  for (auto &child : children_) {
+  for (size_t child_idx = 0; child_idx < children_.size(); child_idx++) {
+    auto &child = children_[child_idx];
     RC rc = child->open(trx);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to open child operator. rc=%s", strrc(rc));
+      LOG_WARN("failed to open child operator %zu. rc=%s", child_idx, strrc(rc));
       return rc;
     }
+
+    bool first_row = true;
+    
+    // 判断当前 UNION 的类型
+    char union_type = union_types_[child_idx]; // 0 表示 UNION ALL，1 表示 UNION
 
     // 获取子算子的所有结果
     while ((rc = child->next()) == RC::SUCCESS) {
@@ -57,9 +100,71 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
         return RC::INTERNAL;
       }
       
+      int cell_num = tuple->cell_num();
+
+      // 从第一个子算子的第一行获取 schema 和类型信息
+      if (first_child && first_row) {
+        tuple_specs_.reserve(cell_num);
+        base_types.reserve(cell_num);
+        
+        for (int i = 0; i < cell_num; i++) {
+          TupleCellSpec spec;
+          rc = tuple->spec_at(i, spec);
+          if (rc != RC::SUCCESS) {
+            LOG_WARN("failed to get spec at %d. rc=%s", i, strrc(rc));
+            child->close();
+            return rc;
+          }
+          tuple_specs_.push_back(spec);
+
+          // 获取实际的数据类型
+          Value value;
+          rc = tuple->cell_at(i, value);
+          if (rc != RC::SUCCESS) {
+            LOG_WARN("failed to get cell at %d. rc=%s", i, strrc(rc));
+            child->close();
+            return rc;
+          }
+          base_types.push_back(value.attr_type());
+        }
+        first_row = false;
+      } 
+      // 验证后续子算子的数据类型
+      else if (first_row && !first_child) {
+        if (cell_num != static_cast<int>(base_types.size())) {
+          LOG_WARN("UNION child %zu has different column count: expected %zu, got %d",
+                   child_idx, base_types.size(), cell_num);
+          child->close();
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+
+        for (int i = 0; i < cell_num; i++) {
+          Value value;
+          rc = tuple->cell_at(i, value);
+          if (rc != RC::SUCCESS) {
+            LOG_WARN("failed to get cell at %d. rc=%s", i, strrc(rc));
+            child->close();
+            return rc;
+          }
+
+          // 检查数据类型是否兼容
+          if (value.attr_type() != base_types[i] && 
+              value.attr_type() != AttrType::NULLS && 
+              base_types[i] != AttrType::NULLS) {
+            LOG_WARN("UNION child %zu column %d has incompatible type: expected %s, got %s",
+                     child_idx, i, 
+                     attr_type_to_string(base_types[i]),
+                     attr_type_to_string(value.attr_type()));
+            child->close();
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }
+        }
+        first_row = false;
+      }
+      
       // 将 tuple 的所有 cell 提取出来
       TupleData tuple_data;
-      for (int i = 0; i < tuple->cell_num(); i++) {
+      for (int i = 0; i < cell_num; i++) {
         Value value;
         rc = tuple->cell_at(i, value);
         if (rc != RC::SUCCESS) {
@@ -70,10 +175,24 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
         tuple_data.values.push_back(value);
       }
       
-      result_tuples_.push_back(std::move(tuple_data));
+      // 根据 UNION 类型决定是否需要去重
+      if (child_idx == 0) {
+        // 第一个子查询的结果直接加入
+        result_tuples_.push_back(tuple_data);
+        seen_tuples.insert(tuple_data);
+      } else if (union_type == 0) {
+        // UNION ALL：直接添加，不去重
+        result_tuples_.push_back(tuple_data);
+      } else {
+        // UNION：只添加之前没见过的数据
+        if (seen_tuples.insert(tuple_data).second) {
+          result_tuples_.push_back(tuple_data);
+        }
+      }
     }
 
     child->close();
+    first_child = false;
     
     // 子算子正常结束应该返回 RECORD_EOF
     if (rc != RC::RECORD_EOF) {
@@ -111,8 +230,11 @@ RC UnionPhysicalOperator::next()
     return RC::RECORD_EOF;
   }
 
-  // 设置当前 tuple
+  // 设置当前 tuple 的数据和 schema
   current_tuple_.set_cells(result_tuples_[current_index_].values);
+  if (!tuple_specs_.empty()) {
+    current_tuple_.set_names(tuple_specs_);
+  }
   current_index_++;
   
   return RC::SUCCESS;
@@ -126,6 +248,7 @@ RC UnionPhysicalOperator::close()
   }
   
   result_tuples_.clear();
+  tuple_specs_.clear();
   current_index_ = 0;
   return RC::SUCCESS;
 }
@@ -133,4 +256,15 @@ RC UnionPhysicalOperator::close()
 Tuple *UnionPhysicalOperator::current_tuple()
 {
   return &current_tuple_;
+}
+
+RC UnionPhysicalOperator::tuple_schema(TupleSchema &schema) const
+{
+  if (children_.empty()) {
+    LOG_WARN("union operator has no children");
+    return RC::INTERNAL;
+  }
+  
+  // 直接使用第一个子算子的 schema
+  return children_[0]->tuple_schema(schema);
 }

@@ -25,3 +25,4 @@ primary-function
 primary-complex-sub-query
 primary-complex-sub-query-plus
 primary-alter
+union
