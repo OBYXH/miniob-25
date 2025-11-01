@@ -160,6 +160,8 @@ COLUMN                                  RETURN_TOKEN(COLUMN);
 CHANGE                                  RETURN_TOKEN(CHANGE);
 TO                                      RETURN_TOKEN(TO);
 RENAME                                  RETURN_TOKEN(RENAME);
+INNER                                   RETURN_TOKEN(INNER);
+JOIN                                    RETURN_TOKEN(JOIN);
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);
