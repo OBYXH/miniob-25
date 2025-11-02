@@ -23,18 +23,18 @@ public:
   IvfflatIndex(){};
   virtual ~IvfflatIndex() noexcept {};
 
-  RC create(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override
+  RC create(Table *table, const char *file_name, const IndexMeta &index_meta) override
   {
     return RC::UNIMPLEMENTED;
   };
-  RC open(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override
+  RC open(Table *table, const char *file_name, const IndexMeta &index_meta) override
   {
     return RC::UNIMPLEMENTED;
   };
 
   vector<RID> ann_search(const vector<float> &base_vector, size_t limit) { return vector<RID>(); }
 
-  RC close() { return RC::UNIMPLEMENTED; }
+  RC close() override { return RC::UNIMPLEMENTED; }
 
   RC insert_entry(const char *record, const RID *rid) override { return RC::UNIMPLEMENTED; };
   RC delete_entry(const char *record, const RID *rid) override { return RC::UNIMPLEMENTED; };

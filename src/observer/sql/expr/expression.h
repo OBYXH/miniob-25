@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <memory>
 #include "common/lang/string.h"
 #include "common/lang/memory.h"
 #include "common/lang/unordered_set.h"
@@ -21,8 +22,6 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field.h"
 #include "sql/expr/aggregator.h"
 #include "storage/common/chunk.h"
-#include <memory>
-
 class Tuple;
 class ParsedSqlNode;
 class SelectStmt;
@@ -188,7 +187,9 @@ public:
   {
     LENGTH,
     ROUND,
-    DATE_FORMAT
+    DATE_FORMAT,
+    TOKENIZE,
+    MATCH_AGAINST,
   };
   FunctionExpr(Type type, unique_ptr<Expression> child, int precision = 0, string format = "")
       : child_(std::move(child)), precision_(precision), format_(format), function_type_(type)
@@ -213,6 +214,12 @@ public:
       }
       case Type::DATE_FORMAT: {
         return AttrType::DATES;
+      }
+      case Type::TOKENIZE: {
+        return AttrType::CHARS;
+      }
+      case Type::MATCH_AGAINST: {
+        return AttrType::FLOATS;
       }
       default: {
         LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));

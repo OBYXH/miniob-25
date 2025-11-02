@@ -21,7 +21,7 @@ class MiniObClient:
     def __init__(self, *,
                  server_port: int = None,
                  server_socket: str = None,
-                 time_limit:float = 10.0,
+                 time_limit:float = 60.0,
                  charset='UTF-8',
                  logger:logging.Logger=None):
         if (server_port != None and (server_port < 0 or server_port > 65535)) and server_socket is None:

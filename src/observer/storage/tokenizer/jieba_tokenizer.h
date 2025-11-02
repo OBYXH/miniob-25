@@ -18,7 +18,7 @@ class JiebaTokenizer : public Tokenizer
 public:
   JiebaTokenizer()           = default;
   ~JiebaTokenizer() override = default;
-  RC cut(std::string &text, std::vector<std::string> &tokens) override;
+  RC cut(const std::string &text, std::vector<std::string> &tokens) override;
 
 private:
   cppjieba::Jieba jieba;

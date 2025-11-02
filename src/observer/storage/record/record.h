@@ -46,6 +46,13 @@ struct RID
     return ss.str();
   }
 
+  static RID from_string(const string &str)
+  {
+    RID rid;
+    sscanf(str.c_str(), "PageNum:%u, SlotNum:%u", &rid.page_num, &rid.slot_num);
+    return rid;
+  }
+
   bool operator==(const RID &other) const { return page_num == other.page_num && slot_num == other.slot_num; }
 
   bool operator!=(const RID &other) const { return !(*this == other); }

@@ -13,7 +13,7 @@ See the Mulan PSL v2 for more details. */
 
 IMPLEMENT_GET_PRIVATE_VAR(KeywordExtractor, cppjieba::KeywordExtractor, stopWords_, std::unordered_set<std::string>)
 
-RC JiebaTokenizer::cut(std::string &text, std::vector<std::string> &tokens)
+RC JiebaTokenizer::cut(const std::string &text, std::vector<std::string> &tokens)
 {
   // Implement Jieba tokenizer logic here
   jieba.Cut(text, tokens);

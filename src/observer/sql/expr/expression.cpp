@@ -23,11 +23,16 @@ See the Mulan PSL v2 for more details. */
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <fcntl.h>
+#include <memory>
 #include <string>
 #include "sql/parser/parse_defs.h"
 #include "sql/operator/physical_operator.h"
 #include "sql/operator/logical_operator.h"
 #include "sql/stmt/select_stmt.h"
+#include "storage/index/full_text_index.h"
+#include "storage/tokenizer/jieba_tokenizer.h"
+#include "storage/tokenizer/tokenizer.h"
 
 class SelectStmt;
 class ParsedSqlNode;
@@ -196,6 +201,66 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
       date_format(format_, child_value, value);
     } break;
+    case Type::TOKENIZE: {
+      if (common::is_blank(format_.c_str()) || format_ != "jieba") {
+        return RC::UNSUPPORTED;
+      }
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
+      if (child_value.attr_type() != AttrType::CHARS && child_value.attr_type() != AttrType::TEXTS) {
+        LOG_WARN("TOKENIZE function only support string type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      unique_ptr<Tokenizer> tokenizer = make_unique<JiebaTokenizer>();
+      vector<string>        words;
+      tokenizer->cut(child_value.get_string(), words);
+
+      string result_str;
+      result_str += "[";
+      for (size_t i = 0; i < words.size(); ++i) {
+        if (i != 0) {
+          result_str += ", ";
+        }
+        result_str += words[i];
+      }
+      result_str += "]";
+      value.set_string(result_str.c_str());
+    } break;
+    case Type::MATCH_AGAINST: {
+      auto field_expr = dynamic_cast<FieldExpr *>(child_.get());
+      if (field_expr == nullptr) {
+        LOG_WARN("MATCH_AGAINST function only support field expression as child");
+        return RC::UNSUPPORTED;
+      }
+      auto table = field_expr->field().table();
+      if (table == nullptr) {
+        LOG_WARN("failed to get table from field expression");
+        return RC::INTERNAL;
+      }
+      const RowTuple &row_tuple = dynamic_cast<const RowTuple &>(tuple);
+      RID             rid       = row_tuple.record().rid();
+      float           score     = 0.0;
+      Index          *index     = table->find_index_by_field(field_expr->field_name());
+      if (index == nullptr) {
+        LOG_WARN("failed to get index from table:%s, field:%s", table->name(), field_expr->field_name());
+        return RC::INTERNAL;
+      }
+      FullTextIndex *ft_index = dynamic_cast<FullTextIndex *>(index);
+      if (ft_index == nullptr) {
+        LOG_WARN("failed to get full text index from table:%s, field:%s", table->name(), field_expr->field_name());
+        return RC::INTERNAL;
+      }
+      auto result = ft_index->search(format_);
+      for (const auto &res : result) {
+        if (res.rid == rid) {
+          score = res.score;
+          break;
+        }
+      }
+      value.set_float(score);
+    } break;
     default: {
       LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
       return RC::UNSUPPORTED;
@@ -250,6 +315,46 @@ RC FunctionExpr::try_get_value(Value &value) const
         return rc;
       }
       date_format(format_, child_value, value);
+    } break;
+    case Type::TOKENIZE: {
+      if (common::is_blank(format_.c_str()) || format_ != "jieba") {
+        return RC::UNSUPPORTED;
+      }
+      if (child_value.is_null()) {
+        value.set_null();
+        return rc;
+      }
+      if (child_value.attr_type() != AttrType::CHARS && child_value.attr_type() != AttrType::TEXTS) {
+        LOG_WARN("TOKENIZE function only support string type");
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      unique_ptr<Tokenizer> tokenizer = make_unique<JiebaTokenizer>();
+      vector<string>        words;
+      tokenizer->cut(child_value.get_string(), words);
+
+      string result_str;
+      result_str += "[";
+      for (size_t i = 0; i < words.size(); ++i) {
+        if (i != 0) {
+          result_str += ", ";
+        }
+        result_str += "\"" + words[i] + "\"";
+      }
+      result_str += "]";
+      value.set_string(result_str.c_str());
+    } break;
+    case Type::MATCH_AGAINST: {
+      auto field_expr = dynamic_cast<FieldExpr *>(child_.get());
+      if (field_expr == nullptr) {
+        LOG_WARN("MATCH_AGAINST function only support field expression as child");
+        return RC::UNSUPPORTED;
+      }
+      auto table = field_expr->field().table();
+      if (table == nullptr) {
+        LOG_WARN("failed to get table from field expression");
+        return RC::INTERNAL;
+      }
+      value.set_float(0.0);  // 无法在编译期获取分数，返回默认值0.0
     } break;
     default: {
       LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));

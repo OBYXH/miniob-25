@@ -34,4 +34,5 @@ public:
   RC alter_drop(SQLStageEvent *sql_event);
   RC alter_change(SQLStageEvent *sql_event);
   RC alter_rename(SQLStageEvent *sql_event);
+  RC alter_add_fulltext_index(SQLStageEvent *sql_event);
 };
