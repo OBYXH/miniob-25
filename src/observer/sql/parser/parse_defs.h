@@ -19,7 +19,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/type/attr_type.h"
 #include "common/value.h"
-#include "common/lang/utility.h"
 #include <vector>
 #include <memory>
 
@@ -34,7 +33,8 @@ enum AlterType
   ALTER_ADD,
   ALTER_DROP,
   ALTER_CHANGE,
-  ALTER_RENAME
+  ALTER_RENAME,
+  ALTER_ADD_FULLTEXT_INDEX,
 };
 
 /**
@@ -101,6 +101,7 @@ enum CompOp
 enum class IndexType
 {
   BPlusTreeIndex,
+  FullTextIndex,
 };
 
 /**
@@ -257,6 +258,10 @@ struct AlterSqlNode
   AttrInfoSqlNode *old_attr_info;
   string           new_attribute_name;  ///< 新字段名，仅在CHANGE时使用
   string           new_relation_name;   ///< 新表名，仅在RENAME时使用
+  // fulltext index
+  string index_name;    /// < index name
+  string index_column;  /// < index column
+  string parser_name;   /// < 分词器名称
 };
 
 /**

@@ -33,13 +33,15 @@ class AlterTableStmt : public Stmt
 {
 public:
   AlterTableStmt() = default;
-  AlterTableStmt(
-      Table *table, AlterType alter_type, string new_attribute_name, AttrInfoSqlNode attr_info, string new_table_name)
+  AlterTableStmt(Table *table, AlterType alter_type, string new_attribute_name, AttrInfoSqlNode attr_info,
+      string new_table_name, string index_name = "", vector<FieldMeta> field_meta = {})
       : table_(table),
         alter_type_(alter_type),
         attr_info_(attr_info),
         new_attribute_name_(new_attribute_name),
-        new_table_name_(new_table_name)
+        new_table_name_(new_table_name),
+        index_name_(index_name),
+        index_field_meta_(field_meta)
   {}
   StmtType type() const override { return StmtType::ALTER_TABLE; }
 
@@ -47,11 +49,13 @@ public:
   static RC create(Db *db, AlterSqlNode &alter_sql, Stmt *&stmt);
 
 public:
-  Table          *table() const { return table_; }
-  AlterType       alter_type() const { return alter_type_; }
-  const string   &new_attribute_name() const { return new_attribute_name_; }
-  AttrInfoSqlNode attr_info() const { return attr_info_; }
-  const string   &new_table_name() const { return new_table_name_; }
+  Table                   *table() const { return table_; }
+  AlterType                alter_type() const { return alter_type_; }
+  const string            &new_attribute_name() const { return new_attribute_name_; }
+  AttrInfoSqlNode          attr_info() const { return attr_info_; }
+  const string            &new_table_name() const { return new_table_name_; }
+  const string            &index_name() const { return index_name_; }
+  const vector<FieldMeta> &index_field_meta() const { return index_field_meta_; }
 
 private:
   Table          *table_ = nullptr;
@@ -59,4 +63,7 @@ private:
   AttrInfoSqlNode attr_info_;
   string          new_attribute_name_;
   string          new_table_name_;
+  // for fulltext index
+  string            index_name_;
+  vector<FieldMeta> index_field_meta_;
 };

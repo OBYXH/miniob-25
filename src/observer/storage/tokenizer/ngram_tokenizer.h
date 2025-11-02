@@ -15,7 +15,7 @@ class NgramTokenizer : public Tokenizer
 public:
   NgramTokenizer(int n) : n_(n) {}
   ~NgramTokenizer() override = default;
-  RC cut(std::string &text, std::vector<std::string> &tokens) override { return RC::UNIMPLEMENTED; }
+  RC cut(const std::string &text, std::vector<std::string> &tokens) override { return RC::UNIMPLEMENTED; }
 
 private:
   int n_;  ///< 分词的n值

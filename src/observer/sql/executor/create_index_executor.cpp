@@ -41,6 +41,7 @@ RC CreateIndexExecutor::execute(SQLStageEvent *sql_event)
           create_index_stmt->index_name().c_str(),
           create_index_stmt->unique());
     }
+    default:;
   }
   return RC::UNSUPPORTED;
 }

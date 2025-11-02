@@ -63,6 +63,7 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(IOERR_TOO_LONG)              \
   DEFINE_RC(IOERR_SYNC)                  \
   DEFINE_RC(INDEX_NOT_EXIST)             \
+  DEFINE_RC(INDEX_EXIST)                 \
   DEFINE_RC(VECTOR_PARSE_ERROR)          \
   DEFINE_RC(DATA_TOO_LONG)               \
   DEFINE_RC(LOCKED_UNLOCK)               \

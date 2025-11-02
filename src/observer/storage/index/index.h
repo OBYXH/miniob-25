@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/sys/rc.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/field/field_meta.h"
 #include "storage/index/index_meta.h"
 #include "storage/record/record_manager.h"
@@ -40,16 +41,13 @@ public:
   Index()          = default;
   virtual ~Index() = default;
 
-  virtual RC create(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
-  {
-    return RC::UNSUPPORTED;
-  }
-  virtual RC open(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
-  {
-    return RC::UNSUPPORTED;
-  }
+  virtual RC create(Table *table, const char *file_name, const IndexMeta &index_meta) { return RC::UNSUPPORTED; }
+  virtual RC open(Table *table, const char *file_name, const IndexMeta &index_meta) { return RC::UNSUPPORTED; }
+  virtual RC close() { return RC::UNSUPPORTED; }
 
   virtual bool is_vector_index() { return false; }
+
+  virtual IndexType type() const { return index_meta_.index_type(); }
 
   const IndexMeta &index_meta() const { return index_meta_; }
 

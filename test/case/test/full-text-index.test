@@ -1,0 +1,39 @@
+-- echo 1. INITIALIZATION
+CREATE TABLE articles(id INT, content TEXT);
+INSERT INTO articles VALUES (1, 'A database is an organized collection of data, generally stored and accessed electronically from a computer system.');
+INSERT INTO articles VALUES (2, 'Computer science is the study of computation, automation, and information.');
+
+-- echo 2. CREATE FULLTEXT INDEX
+ALTER TABLE articles ADD FULLTEXT INDEX idx_content (content) WITH PARSER jieba;
+SHOW INDEX FROM articles;
+
+-- echo 3. INSERT AFTER INDEX CREATION
+INSERT INTO articles VALUES (3, 'SQL is a standard language for database management. A database query can be complex.');
+INSERT INTO articles VALUES (4, 'A search engine is a software system designed to carry out web searches. The search results are generally presented in a line of results.');
+INSERT INTO articles VALUES (5, 'This article is about database search. Database search is a key feature.');
+
+-- echo 4. BASIC SEARCH AND RANKING TEST
+-- sort SELECT id, MATCH(content) AGAINST('database') AS score FROM articles WHERE MATCH(content) AGAINST('database') > 0;
+-- sort SELECT id, MATCH(content) AGAINST('search') AS score FROM articles WHERE MATCH(content) AGAINST('search') > 0;
+
+-- echo 5. MULTI-TERM CHINESE SEARCH
+-- sort SELECT id, MATCH(content) AGAINST('数据库 查询') AS score FROM articles WHERE MATCH(content) AGAINST('数据库 查询') > 0;
+
+-- echo 6. NO MATCH TEST
+SELECT id, MATCH(content) AGAINST('nonexistentword') AS score FROM articles WHERE MATCH(content) AGAINST('nonexistentword') > 0;
+
+-- echo 7. UPDATE TEST
+UPDATE articles SET content = 'Computer science is the study of computation, automation, and information. It involves database theory.' WHERE id = 2;
+-- sort SELECT id, MATCH(content) AGAINST('database') AS score FROM articles WHERE MATCH(content) AGAINST('database') > 0;
+
+-- echo 8. DELETE TEST
+DELETE FROM articles WHERE id = 5;
+-- sort SELECT id, MATCH(content) AGAINST('database') AS score FROM articles WHERE MATCH(content) AGAINST('database') > 0;
+
+-- echo 9. TOKENIZE FUNCTION TEST
+SELECT TOKENIZE('数据库系统的核心是查询引擎', 'jieba') as text_tokens;
+
+-- echo 10. DROP INDEX TEST
+DROP INDEX idx_content ON articles;
+SELECT id, content, MATCH(content) AGAINST('database') AS score FROM articles;
+SHOW INDEX FROM articles;

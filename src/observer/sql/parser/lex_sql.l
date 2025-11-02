@@ -164,6 +164,12 @@ INNER                                   RETURN_TOKEN(INNER);
 JOIN                                    RETURN_TOKEN(JOIN);
 UNION                                   RETURN_TOKEN(UNION);
 ALL                                     RETURN_TOKEN(ALL); 
+FULLTEXT                                RETURN_TOKEN(FULLTEXT);
+MATCH                                   RETURN_TOKEN(MATCH);
+AGAINST                                 RETURN_TOKEN(AGAINST);
+WITH                                    RETURN_TOKEN(WITH);
+PARSER                                  RETURN_TOKEN(PARSER);
+TOKENIZE                                RETURN_TOKEN(TOKENIZE);
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

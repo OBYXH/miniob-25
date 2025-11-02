@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/sys/rc.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/field/field_meta.h"
+#include "storage/index/full_text_index.h"
 #include "storage/record/heap_record_scanner.h"
 #include "common/log/log.h"
 #include "storage/index/bplus_tree_index.h"
@@ -176,13 +177,22 @@ RC HeapTableEngine::create_index(
   }
 
   // 创建索引相关数据
-  BplusTreeIndex *index      = new BplusTreeIndex();
-  string          index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_name);
+
+  Index *index;
+  switch (index_type) {
+    case IndexType::BPlusTreeIndex: {
+      index = new BplusTreeIndex();
+    } break;
+    case IndexType::FullTextIndex: {
+      index = new FullTextIndex();
+    } break;
+  }
+  string index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_name);
 
   rc = index->create(table_, index_file.c_str(), new_index_meta);
   if (rc != RC::SUCCESS) {
     delete index;
-    LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
+    LOG_ERROR("Failed to create index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
     return rc;
   }
 
@@ -265,10 +275,12 @@ RC HeapTableEngine::drop_index(const char *index_name)
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", table_meta_->name());
     return RC::INVALID_ARGUMENT;
   }
-  if (find_index(index_name) == nullptr) {
+  auto index = find_index(index_name);
+  if (index == nullptr) {
     LOG_INFO("Index (%s) not found on table (%s) ", index_name, table_meta_->name());
     return RC::INDEX_NOT_EXIST;
   }
+  IndexType type = index->type();
 
   // 更新表的元数据，删除对应的索引信息
   TableMeta new_table_meta(*table_meta_);
@@ -309,7 +321,7 @@ RC HeapTableEngine::drop_index(const char *index_name)
                      indexes_.end(),
                      [&](Index *index) {
                        if (0 == strcmp(index->index_meta().name(), index_name)) {
-                         ((BplusTreeIndex *)index)->close();
+                         index->close();
                          delete index;
                          return true;
                        }
@@ -317,9 +329,11 @@ RC HeapTableEngine::drop_index(const char *index_name)
                      }),
       indexes_.end());
   string index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_name);
-  if (!filesystem::remove(index_file.c_str())) {
-    LOG_ERROR("Failed to remove index file. file name=%s, errmsg=%s", index_file.c_str(), strerror(errno));
-    return RC::IOERR_WRITE;
+  if (type != IndexType::FullTextIndex) {
+    if (!filesystem::remove(index_file.c_str())) {
+      LOG_ERROR("Failed to remove index file. file name=%s, errmsg=%s", index_file.c_str(), strerror(errno));
+      return RC::IOERR_WRITE;
+    }
   }
   return rc;
 }
@@ -644,6 +658,10 @@ RC HeapTableEngine::open()
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_->index(i);
 
+    if (index_meta->index_type_ == IndexType::FullTextIndex) {
+      // FullTextIndex 先不支持
+      continue;
+    }
     BplusTreeIndex *index      = new BplusTreeIndex();
     string          index_file = table_index_file(db_->path().c_str(), table_meta_->name(), index_meta->name());
 

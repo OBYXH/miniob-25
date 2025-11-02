@@ -76,6 +76,10 @@ FunctionExpr *create_function_expression(const char *function_type,
   } else if(type_str == "DATE_FORMAT") {
     // INNER
     type = FunctionExpr::Type::DATE_FORMAT;
+  } else if (type_str == "TOKENIZE") {
+    type = FunctionExpr::Type::TOKENIZE;
+  } else if (type_str == "MATCH_AGAINST") {
+    type = FunctionExpr::Type::MATCH_AGAINST;
   } else {
     LOG_ERROR("Unsupported function type: %s", function_type);
     return nullptr;
@@ -208,6 +212,12 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         JOIN
         UNION
         ALL
+        FULLTEXT
+        MATCH
+        AGAINST
+        WITH
+        PARSER
+        TOKENIZE
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -633,6 +643,16 @@ alter_stmt:
       alter_table.old_attr_info = new AttrInfoSqlNode;
       alter_table.new_relation_name = $6;
     }
+    | ALTER TABLE ID ADD FULLTEXT INDEX ID LBRACE ID RBRACE WITH PARSER ID {
+      $$ = new ParsedSqlNode(SCF_ALTER);
+      AlterSqlNode &alter_table = $$->alter_table;
+      alter_table.relation_name = $3;
+      alter_table.alter_type = AlterType::ALTER_ADD_FULLTEXT_INDEX;
+      alter_table.old_attr_info = new AttrInfoSqlNode;
+      alter_table.index_name = $7;
+      alter_table.index_column = $9;
+      alter_table.parser_name = $13;
+    }
     ;
 
 insert_stmt:        /*insert   语句的语法解析树*/
@@ -667,7 +687,7 @@ value:
       $$ = new Value(-(int)$2);
       @$ = @1;
     }
-    |FLOAT {
+    | FLOAT {
       $$ = new Value((float)$1);
       @$ = @1;
     }
@@ -675,12 +695,12 @@ value:
       $$ = new Value(-(float)$2);
       @$ = @1;
     }
-    |SSS {
+    | SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
     }
-    |DATE {
+    | DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
       // 在语法解析时检查，强制清空以触发FAILURE
@@ -690,11 +710,11 @@ value:
       free(tmp);
       free($1);
     }
-    |NULL_T {
+    | NULL_T {
       $$ = new Value();
       $$->set_null();
     }
-    |STRING_TO_VECTOR LBRACE VECTOR RBRACE {
+    | STRING_TO_VECTOR LBRACE VECTOR RBRACE {
       if ($3[0] =='\'' || $3[0] == '\"') {
         // 去掉引号
         char *tmp = common::substr($3,1,strlen($3)-2);
@@ -706,7 +726,7 @@ value:
       }
       free($3);
     }
-    |VECTOR{
+    | VECTOR {
       if ($1[0] =='\'' || $1[0] == '\"') {
         // 去掉引号
         char *tmp = common::substr($1,1,strlen($1)-2);
@@ -718,7 +738,6 @@ value:
       }
       free($1);
     }
-
     ;
 storage_format:
     /* empty */
@@ -972,7 +991,7 @@ expression_list:
       }
       $$->emplace($$->begin(), $1);
     }
-    |expression alias
+    | expression alias
     {
       $$ = new vector<unique_ptr<Expression>>;
       $1->set_field_alias($2);
@@ -1038,9 +1057,7 @@ expression:
     }
     | aggregate_expression {
       $$ = $1;
-    }    | vector_expression {
-      $$ = $1;
-    }
+    } 
     | function_expression {
       $$ = $1;
     }
@@ -1106,6 +1123,18 @@ function_expression:
     | DATE_FORMAT LBRACE expression COMMA SSS RBRACE {
       string format = common::substr($5,1,strlen($5)-2);
       $$ = create_function_expression("DATE_FORMAT", $3, sql_string, 0, format, &@$);
+    }
+    | TOKENIZE LBRACE expression COMMA SSS RBRACE {
+      char* tmp_format = common::substr($5,1,strlen($5)-2);
+      string format = tmp_format;
+      $$ = create_function_expression("TOKENIZE", $3, sql_string, 0, format, &@$);
+      free(tmp_format);
+    }
+    | MATCH LBRACE expression RBRACE AGAINST LBRACE SSS RBRACE {
+      char* tmp = common::substr($7,1,strlen($7)-2);
+      string format = tmp;
+      $$ = create_function_expression("MATCH_AGAINST", $3, sql_string, 0, format, &@$);
+      free(tmp); 
     }
     ;
 

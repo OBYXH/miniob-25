@@ -45,6 +45,10 @@ RC AlterTableExecutor::execute(SQLStageEvent *sql_event)
       RC rc = alter_rename(sql_event);
       return rc;
     } break;
+    case AlterType::ALTER_ADD_FULLTEXT_INDEX: {
+      RC rc = alter_add_fulltext_index(sql_event);
+      return rc;
+    } break;
     default: {
       LOG_WARN("unsupported alter type: %d", static_cast<int>(alter_table_stmt->alter_type()));
       return RC::UNIMPLEMENTED;
@@ -101,6 +105,24 @@ RC AlterTableExecutor::alter_rename(SQLStageEvent *sql_event)
   RC rc = table->rename_table(new_table_name.c_str(), sql_event->session_event()->session()->current_trx());
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to change table name from %s to %s, rc=%d",  table->name(),new_table_name.c_str(), rc);
+    return rc;
+  }
+  return RC::SUCCESS;
+}
+
+RC AlterTableExecutor::alter_add_fulltext_index(SQLStageEvent *sql_event)
+{
+  AlterTableStmt *alter_table_stmt = static_cast<AlterTableStmt *>(sql_event->stmt());
+  Table          *table            = alter_table_stmt->table();
+  string          index_name       = alter_table_stmt->index_name();
+
+  RC rc = table->create_index(sql_event->session_event()->session()->current_trx(),
+      IndexType::FullTextIndex,
+      alter_table_stmt->index_field_meta(),
+      index_name.c_str(),
+      false);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to add fulltext index %s to table %s, rc=%d", index_name.c_str(), table->name(), rc);
     return rc;
   }
   return RC::SUCCESS;

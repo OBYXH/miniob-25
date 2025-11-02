@@ -20,6 +20,6 @@ class Tokenizer
 private:
   /* data */
 public:
-  virtual RC cut(std::string &text, std::vector<std::string> &tokens) = 0;
-  virtual ~Tokenizer()                                                = default;
+  virtual RC cut(const std::string &text, std::vector<std::string> &tokens) = 0;
+  virtual ~Tokenizer()                                                      = default;
 };
