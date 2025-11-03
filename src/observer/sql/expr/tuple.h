@@ -153,6 +153,14 @@ public:
     result = 0;
     return rc;
   }
+  void set_rid(const RID &rid) { rid_ = rid; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
+  RID  raw_rid() const { return rid_; }
+  const std::string &raw_table_name() const { return table_name_; }
+
+protected:
+  RID rid_;
+  std::string table_name_;
 };
 
 /**

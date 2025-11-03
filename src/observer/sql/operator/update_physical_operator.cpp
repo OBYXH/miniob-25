@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include "storage/table/view.h"
 #include <cstdint>
 #include <cstring>
 
@@ -38,60 +39,140 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     return rc;
   }
 
+  unordered_map<string, Table *> base_table_map;
+  if (table_->is_view()) {
+    auto *view = static_cast<View *>(table_);
+    auto base_tables = view->base_tables();
+    for (auto *base_table : base_tables) {
+      base_table_map[base_table->name()] = base_table;
+
+      vector<size_t> update_field_idx;
+      for (const auto & field_meta : field_metas_) {
+        auto field_name = field_meta.name();
+        for (size_t j = 0; j < base_table->table_meta().field_num(); j++) {
+          if (strcmp(base_table->table_meta().field(j)->name(), field_name) == 0) {
+            update_field_idx.push_back(j);
+            break;
+          }
+        }
+      }
+      selected_update_field_idx_[base_table->name()] = update_field_idx;
+    }
+  } else {
+    vector<size_t> update_field_idx;
+    for (size_t i = 0; i < field_metas_.size(); i++) {
+      update_field_idx.push_back(i);
+    }
+    selected_update_field_idx_[table_->name()] = update_field_idx;
+  }
+
   trx_ = trx;
 
+  // 收集需要更新的记录
   while (OB_SUCC(rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
       LOG_WARN("failed to get current record: %s", strrc(rc));
       return rc;
     }
+
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
+    
+    // 保存原始表信息和RID
+    string raw_table_name = tuple->raw_table_name();
+    RID raw_rid = tuple->raw_rid();
+    
+    // 如果是普通表，使用record的rid
+    if (!table_->is_view()) {
+      raw_rid = row_tuple->record().rid();
+      raw_table_name = table_->name();
+    }
+    
     records_.push_back(row_tuple->record());
-    // auto      field     = table_->table_meta().field(attribute_name_.c_str());
-    // if (field == nullptr) {
-    //   LOG_WARN("no such field: %s", attribute_name_.c_str());
-    //   return RC::SCHEMA_FIELD_MISSING;
-    // }
-    // int field_index = field.field_id();
-    // row_tuple->set_cell_at(field_index, value_);
+    record_table_names_.push_back(raw_table_name);
+    record_rids_.push_back(raw_rid);
   }
+  
   // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
   child->close();
+  
   if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
     LOG_WARN("record is invisible");
     return rc;
   }
 
-  for (auto &old_record : records_) {
+  // 执行更新操作
+  for (size_t idx = 0; idx < records_.size(); idx++) {
+    auto &old_record = records_[idx];
+    auto &raw_table_name = record_table_names_[idx];
+    auto &raw_rid = record_rids_[idx];
+    
+    Table *update_table = table_;
+    vector<size_t> update_field_idx;
+    
+    // 选择更新的表
+    if (table_->is_view()) {
+      if (raw_table_name.empty()) {
+        LOG_PANIC("update view: raw table name is empty, we might got failed");
+        return RC::INTERNAL;
+      }
+      if (base_table_map.find(raw_table_name) == base_table_map.end()) {
+        LOG_PANIC("update view: cannot find base table: %s", raw_table_name.c_str());
+        return RC::INTERNAL;
+      }
+      update_table = base_table_map[raw_table_name];
+      update_field_idx = selected_update_field_idx_[raw_table_name];
+    } else {
+      update_field_idx = selected_update_field_idx_[table_->name()];
+    }
+
     Record new_record;
-    new_record.set_rid(old_record.rid());
-    new_record.copy_data(old_record.data(), old_record.len());
-    for (uint32_t i = 0; i < field_metas_.size(); i++) {
-      auto     field = field_metas_[i];
-      Value    value;
-      RowTuple tuple;
-      bool     has_sub_queried_ = false;
-      if (exprs_[i]->type() == ExprType ::SUBQUERY) {
-        while (exprs_[i]->get_value(tuple, value) == RC::SUCCESS) {
-          // do nothing
+    new_record.set_rid(raw_rid);
+    
+    // 从实际的表中读取记录
+    rc = update_table->get_record(raw_rid, new_record);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to get record from table %s, rid=%s", update_table->name(), raw_rid.to_string().c_str());
+      return rc;
+    }
+    
+    RowTuple tuple;
+    tuple.set_record(&old_record);
+    tuple.set_schema(update_table, update_table->table_meta().field_metas());
+    
+    // 只更新需要的字段
+    for (size_t i = 0; i < update_field_idx.size(); i++) {
+      size_t field_idx = update_field_idx[i];
+      auto field = field_metas_[field_idx];
+      
+      Value value;
+      bool has_sub_queried_ = false;
+      if (exprs_[field_idx]->type() == ExprType::SUBQUERY) {
+        while (exprs_[field_idx]->get_value(tuple, value) == RC::SUCCESS) {
           if (has_sub_queried_) {
             has_sub_queried_ = false;
-            rc               = RC::SUB_QUERY_VALUES_DISMATCH;
+            rc = RC::SUB_QUERY_VALUES_DISMATCH;
             break;
           } else {
             has_sub_queried_ = true;
           }
         }
       } else {
-        rc = exprs_[i]->get_value(tuple, value);
+        rc = exprs_[field_idx]->get_value(tuple, value);
       }
+      
+      if (OB_FAIL(rc)) {
+        LOG_WARN("failed to get value from expression");
+        return rc;
+      }
+      
       if (value.attr_type() == AttrType::UNDEFINED) {
         value.set_null(true);
       }
+      
       if (value.is_null()) {
         if (!field.nullable()) {
-          LOG_WARN("field is not nullable. table name:%s,field name:%s", table_->name(), field.name());
+          LOG_WARN("field is not nullable. table name:%s,field name:%s", update_table->name(), field.name());
           return RC::UNSUPPORTED_NULL_VALUE;
         }
         new_record.data()[field.offset() + field.len() - 1] = '1';
@@ -102,41 +183,44 @@ RC UpdatePhysicalOperator::open(Trx *trx)
             rc = real_value.borrow_text(value);
             if (OB_FAIL(rc)) {
               LOG_WARN("failed to borrow text value. table name:%s, field name:%s, value length:%d",
-                  table_->name(), field.name(), value.length());
+                  update_table->name(), field.name(), value.length());
               break;
             }
           } else {
-            // 插入不允许非目标类型的类型提升
             rc = Value::cast_to(value, field.type(), real_value);
-
             if (OB_FAIL(rc)) {
               LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
-                  table_->name(), field.name(), value.to_string().c_str());
+                  update_table->name(), field.name(), value.to_string().c_str());
               return rc;
             }
           }
         }
-        // 进行长度校验
+        
         if (real_value.length() > field.len() - field.nullable()) {
-          LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s, Type: %s, Offset: %d, Length: %d, Max Length: %d",
-                    field.name(),
-                    attr_type_to_string(field.type()),
-                    field.offset(),
-                    value.length(),
-                    field.len());
+          LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s", field.name());
           return RC::IOERR_TOO_LONG;
         }
-        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), real_value);
+        
+        rc = new_record.set_field(field.offset(), field.len(), real_value);
         if (OB_FAIL(rc)) {
           LOG_WARN("failed to set field value. table name=%s, field name=%s, rc=%s",
-              table_->name(), field_metas_[i].name(), strrc(rc));
+              update_table->name(), field.name(), strrc(rc));
           return rc;
         }
       }
     }
-    rc = trx_->update_record(table_, old_record, new_record);
+    
+    // 从实际表中读取旧记录
+    Record actual_old_record;
+    rc = update_table->get_record(raw_rid, actual_old_record);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to get old record");
+      return rc;
+    }
+    
+    rc = trx_->update_record(update_table, actual_old_record, new_record);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to update record. table name=%s, rc=%s", table_->name(), strrc(rc));
+      LOG_WARN("failed to update record. table name=%s, rc=%s", update_table->name(), strrc(rc));
       return rc;
     }
   }

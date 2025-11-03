@@ -72,7 +72,9 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
 
     // check views
   // 逻辑暂时放在这里，做可行性验证
-  if (sql_event->sql_node()->flag == SCF_SELECT || sql_event->sql_node()->flag == SCF_INSERT) {
+  if (sql_event->sql_node()->flag == SCF_SELECT || 
+    sql_event->sql_node()->flag == SCF_INSERT ||
+    sql_event->sql_node()->flag == SCF_UPDATE) {
     auto *db = sql_event->session_event()->session()->get_current_db();
     if (db == nullptr) return RC::INTERNAL;
 
@@ -85,6 +87,8 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     case SCF_INSERT:
       view_names.push_back(sql_event->sql_node()->insertion.relation_name);
       break;
+    case SCF_UPDATE:
+      view_names.push_back(sql_event->sql_node()->update.relation_name);
     default:
       break;
     }
