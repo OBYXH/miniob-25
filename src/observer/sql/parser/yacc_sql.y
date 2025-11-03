@@ -218,6 +218,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         PARSER
         TOKENIZE
         VIEW
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -1001,6 +1003,7 @@ join_clauses:
       $$->emplace_back(std::move(*$2));
     }
     ;
+
 calc_stmt:
     CALC expression_list
     {
