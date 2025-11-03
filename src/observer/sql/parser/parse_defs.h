@@ -95,6 +95,17 @@ struct SelectSqlNode
 };
 
 /**
+ * @brief 描述一个join语句
+ * @ingroup SQLParser
+ * @details 支持INNER JOIN和逗号的隐式内连接，前者必须带ON条件，后者不能带ON条件
+ */
+struct JoinSqlNode
+{
+  string      relation;   ///< 查询的表
+  vector<ConditionSqlNode> conditions;  ///< 查询条件(可多个，用连接词连接)
+};
+
+/**
  * @brief 算术表达式计算的语法树
  * @ingroup SQLParser
  */
