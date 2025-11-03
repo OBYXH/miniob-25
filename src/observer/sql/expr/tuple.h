@@ -357,7 +357,8 @@ public:
   void set_cells(const vector<Value> &cells) { cells_ = cells; }
 
   virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
-
+  std::vector<Value> cells() const { return cells_; }
+  
   virtual RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= cell_num()) {

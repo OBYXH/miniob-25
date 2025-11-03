@@ -44,9 +44,12 @@ RC TableScanPhysicalOperator::next()
     while (OB_SUCC(rc = record_scanner_view_.next_tuple())) {
       auto t_tuple = record_scanner_view_.current_tuple();
       LOG_TRACE("table scan oper got a tuple.");
-      value_list_tuple_ = ValueListTuple();
+      ValueListTuple value_list_tuple_ = ValueListTuple();
 
       ValueListTuple::make(*t_tuple, value_list_tuple_, table_->name());
+
+      // 重新创建 Record，为了转换成 RowTuple
+      table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
       
       rc = filter(value_list_tuple_, filter_result);
       if (rc != RC::SUCCESS) {
@@ -95,15 +98,11 @@ RC TableScanPhysicalOperator::close()
     delete record_scanner_;
     record_scanner_ = nullptr;
   }
-  value_list_tuple_ = ValueListTuple();
   return rc;
 }
 
 Tuple *TableScanPhysicalOperator::current_tuple()
 {
-  if (table_->is_view()) {
-    return &value_list_tuple_;
-  }
   tuple_.set_record(&current_record_);
   return &tuple_;
 }

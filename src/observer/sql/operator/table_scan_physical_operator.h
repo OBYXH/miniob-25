@@ -83,7 +83,6 @@ private:
   vector<unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
 
   // FOR view
-  ValueListTuple                           value_list_tuple_;
   RecordPhysicalOperatorScanner            record_scanner_view_;
 
 };

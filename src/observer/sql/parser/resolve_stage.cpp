@@ -59,6 +59,7 @@ RC ResolveStage::handle_request(SQLStageEvent *sql_event)
     auto *view = db->find_view(sql_event->views_name()[i].c_str());
     auto select_stmt_ = static_cast<SelectStmt *>(view_stmt);
     view->init_table_meta(select_stmt_->get_query_fields()); // 初始化 table_meta
+    view->set_base_tables(select_stmt_->tables()); // for update, insert
   }
   // 到这里，视图和视图的描述的 Stmt 都已经创建好了
 
