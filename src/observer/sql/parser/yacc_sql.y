@@ -498,10 +498,10 @@ create_table_stmt:    /*create table 语句的语法解析树*/
 create_view_stmt:
     CREATE VIEW ID AS select_stmt
     {
+      LOG_DEBUG("Enter CREATE VIEW parsing.");
       $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
       CreateViewSqlNode &create_view = $$->create_view;
       create_view.view_name = $3;
-      free($3);
       create_view.sub_select = $5;
       // 得到 AS 之后的字符串
       create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
