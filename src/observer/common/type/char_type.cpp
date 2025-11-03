@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "common/utils.h"
 #include "common/value.h"
+#include "common/utils.h"
 
 int CharType::compare(const Value &left, const Value &right) const
 {

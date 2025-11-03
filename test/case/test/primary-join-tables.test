@@ -1,7 +1,7 @@
 -- echo initialization
 CREATE TABLE join_table_1(id int, name char);
-CREATE TABLE join_table_2(id int, num int);
-CREATE TABLE join_table_3(id int, num2 int);
+CREATE TABLE join_table_2(id int, age int);
+CREATE TABLE join_table_3(id int, level int);
 create table join_table_empty_1(id int, num_empty_1 int);
 create table join_table_empty_2(id int, num_empty_2 int);
 
@@ -16,11 +16,11 @@ INSERT INTO join_table_3 VALUES (3, 800);
 -- echo 1. Select
 -- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id;
 -- sort Select join_table_1.name from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id;
--- sort Select join_table_2.num from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id;
+-- sort Select join_table_2.age from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id;
 -- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id inner join join_table_3 on join_table_1.id=join_table_3.id;
--- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.num>13 where join_table_1.name='b';
--- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.num>13 where join_table_1.name='a';
--- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.num>23 where join_table_1.name='b';
+-- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.age>13 where join_table_1.name='b';
+-- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.age>13 where join_table_1.name='a';
+-- sort Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table_2.id and join_table_2.age>23 where join_table_1.name='b';
 
 -- echo 3. empty
 select * from join_table_1 inner join join_table_empty_1 on join_table_1.id=join_table_empty_1.id;
@@ -37,7 +37,7 @@ Select * from join_table_1 inner join join_table_2 on join_table_1.id=join_table
 
 -- echo 6. very large join
 create table join_table_large_1(id int, num1 int);
-create table join_table_large_2(id int, num2 int);
+create table join_table_large_2(id int, level int);
 create table join_table_large_3(id int, num3 int);
 create table join_table_large_4(id int, num4 int);
 create table join_table_large_5(id int, num5 int);
