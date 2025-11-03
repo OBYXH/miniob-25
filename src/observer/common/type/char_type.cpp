@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/type/char_type.h"
 #include "common/value.h"
+#include "common/utils.h"
 
 int CharType::compare(const Value &left, const Value &right) const
 {
@@ -29,7 +30,27 @@ RC CharType::set_value_from_str(Value &val, const string &data) const
 RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
 {
   switch (type) {
-    default: return RC::UNIMPLEMENTED;
+    case AttrType::INTS: {
+      float float_val;
+      RC    rc = parse_float_prefix(val.value_.pointer_value_, float_val);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to cast char to int, invalid int format. data=%s",
+                 static_cast<const char *>(val.value_.pointer_value_));
+        return rc;
+      }
+      result.set_int(static_cast<int>(float_val));
+    } break;
+    case AttrType::FLOATS: {
+      float float_val;
+      RC    rc = parse_float_prefix(val.value_.pointer_value_, float_val);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to cast char to float, invalid float format. data=%s",
+                 static_cast<const char *>(val.value_.pointer_value_));
+        return rc;
+      }
+      result.set_float(float_val);
+    } break;
+    default: return RC::UNSUPPORTED;
   }
   return RC::SUCCESS;
 }
@@ -38,6 +59,12 @@ int CharType::cast_cost(AttrType type)
 {
   if (type == AttrType::CHARS) {
     return 0;
+  }
+  if (type == AttrType::INTS) {
+    return 1;
+  }
+  if (type == AttrType::FLOATS) {
+    return 1;
   }
   return INT32_MAX;
 }
