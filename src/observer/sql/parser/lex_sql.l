@@ -170,6 +170,7 @@ AGAINST                                 RETURN_TOKEN(AGAINST);
 WITH                                    RETURN_TOKEN(WITH);
 PARSER                                  RETURN_TOKEN(PARSER);
 TOKENIZE                                RETURN_TOKEN(TOKENIZE);
+VIEW                                    RETURN_TOKEN(VIEW); 
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

@@ -279,6 +279,14 @@ struct CreateTableSqlNode
   string storage_engine;  ///< storage engine
 };
 
+typedef class ParsedSqlNode SubSelectSqlNode;
+struct CreateViewSqlNode
+{
+  std::string view_name;
+  SubSelectSqlNode* sub_select = nullptr;
+  std::string description;
+};
+
 /**
  * @brief 描述一个drop table语句
  * @ingroup SQLParser
@@ -422,6 +430,7 @@ enum SqlCommandFlag
   SCF_SET_VARIABLE,  ///< 设置变量
   SCF_ALTER,         ///< 修改表结构
   SCF_UNION,         ///< union 语句
+  SCF_CREATE_VIEW,  ///< create view 语句
 };
 /**
  * @brief 表示一个SQL语句
@@ -449,6 +458,7 @@ public:
   SetVariableSqlNode  set_variable;
   AlterSqlNode        alter_table;
   UnionSqlNode        union_node;
+  CreateViewSqlNode   create_view;
 
 public:
   ParsedSqlNode();

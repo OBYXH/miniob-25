@@ -41,6 +41,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/update_stmt.h"
+#include "sql/stmt/create_view_stmt.h"
 
 #include "sql/expr/expression_iterator.h"
 #include <memory>
@@ -94,6 +95,17 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
 
       rc = create_plan(explain_stmt, logical_operator);
     } break;
+
+    case StmtType::CREATE_VIEW: {
+      auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+      if (create_view_stmt->select_stmt() != nullptr) {
+        // create view xx as select ...
+        auto stmt_ = create_view_stmt->select_stmt();
+        return create_plan(stmt_, logical_operator);
+      }
+      return RC::UNIMPLEMENTED;
+    } break;
+
     default: {
       rc = RC::UNIMPLEMENTED;
     }

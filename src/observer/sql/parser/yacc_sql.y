@@ -218,6 +218,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         WITH
         PARSER
         TOKENIZE
+        VIEW
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -329,6 +330,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
+%type <sql_node>            create_view_stmt
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
@@ -372,6 +374,7 @@ command_wrapper:
   | help_stmt
   | exit_stmt
   | alter_stmt
+  | create_view_stmt
     ;
 
 exit_stmt:      
@@ -491,7 +494,20 @@ create_table_stmt:    /*create table 语句的语法解析树*/
       }
     }
     ;
-    
+
+create_view_stmt:
+    CREATE VIEW ID AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      free($3);
+      create_view.sub_select = $5;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
+    }
+    ;
+
 attr_def_list:
     attr_def
     {

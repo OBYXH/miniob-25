@@ -59,3 +59,14 @@ RC ParseStage::handle_request(SQLStageEvent *sql_event)
 
   return RC::SUCCESS;
 }
+
+RC ParseStage::handle_view_request(SQLStageEvent *sql_event)
+{
+  for (const auto &view_sql : sql_event->sql_views()) {
+    ParsedSqlResult parsed_sql_result_view;
+    parse(view_sql.c_str(), &parsed_sql_result_view);
+    sql_event->add_view_sql_node(std::move(parsed_sql_result_view.sql_nodes().front()));
+  }
+
+  return RC::SUCCESS;
+}

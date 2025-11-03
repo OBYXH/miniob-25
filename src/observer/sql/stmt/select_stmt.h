@@ -55,6 +55,51 @@ public:
     return having_filter_stmt_ ? having_filter_stmt_->conditions() : *(new vector<unique_ptr<Expression>>());
   }
 
+  std::vector<FieldMeta> get_query_fields() {
+    std::vector<FieldMeta> query_fields;
+
+    for (auto &expr : query_expressions_) {
+      if (expr->type() == ExprType::FIELD) {
+        // 此时已经将所有的 UnboundFieldExpr 转换为 FieldExpr
+        auto field_expr = static_cast<FieldExpr *>(expr.get());
+        FieldMeta field_meta(*field_expr->field().meta());
+        field_meta.table_name_ = (*field_expr).table_name(); // 记录表名
+        if (!expr->alias_std_string().empty()) {
+          // 别名覆盖字段名
+          field_meta.set_name(expr->alias_std_string().c_str());
+        }
+        query_fields.push_back(field_meta);
+      } else {
+        FieldMeta field_meta;
+        std::string field_name;
+        if (!expr->alias_std_string().empty()) {
+          // 别名覆盖字段名
+          field_name = expr->alias_std_string();
+        } else {
+          field_name = expr->name();
+        }
+        field_meta.init(field_name.c_str(), expr->value_type(), 0, expr->value_length(), true, 0);
+        query_fields.push_back(field_meta);
+      }
+    }
+
+    return query_fields;
+  }
+
+  bool has_special_queries() {
+    for (auto &expr : query_expressions_) {
+      if (expr->type() == ExprType::AGGREGATION ||
+          expr->type() == ExprType::ARITHMETIC) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool has_join() {
+    return tables_.size() > 1;
+  }
+  
 private:
   vector<unique_ptr<Expression>> query_expressions_;
   vector<Table *>                tables_;

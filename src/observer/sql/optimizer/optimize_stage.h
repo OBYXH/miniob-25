@@ -38,7 +38,7 @@ class OptimizeStage
 {
 public:
   RC handle_request(SQLStageEvent *event);
-
+  RC handle_view_request(SQLStageEvent *event);
 private:
   /**
    * @brief 根据SQL生成逻辑计划
@@ -48,6 +48,7 @@ private:
    * @param logical_operator  生成的逻辑计划
    */
   RC create_logical_plan(SQLStageEvent *sql_event, unique_ptr<LogicalOperator> &logical_operator);
+  RC create_logical_plan_view(SQLStageEvent *sql_event, std::unique_ptr<LogicalOperator> &logical_operator, size_t stmt_idx);
 
   /**
    * @brief 重写逻辑计划

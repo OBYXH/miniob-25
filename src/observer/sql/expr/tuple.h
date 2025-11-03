@@ -392,7 +392,7 @@ public:
     return RC::NOTFOUND;
   }
 
-  static RC make(const Tuple &tuple, ValueListTuple &value_list)
+  static RC make(const Tuple &tuple, ValueListTuple &value_list, std::string table_name = "")
   {
     const int cell_num = tuple.cell_num();
     for (int i = 0; i < cell_num; i++) {
@@ -408,6 +408,13 @@ public:
         return rc;
       }
 
+      if (!table_name.empty()) {
+        spec.set_table_name(table_name.c_str());
+        spec.set_field_name(spec.alias());
+        std::string alias = table_name + "." + spec.alias();
+        spec.set_alias(alias.c_str());
+      }
+      
       value_list.cells_.push_back(cell);
       value_list.specs_.push_back(spec);
     }

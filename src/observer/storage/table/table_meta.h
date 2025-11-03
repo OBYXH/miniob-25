@@ -42,7 +42,7 @@ public:
 
   RC init(int32_t table_id, const char *name, const vector<FieldMeta> *trx_fields,
       span<const AttrInfoSqlNode> attributes, const vector<string> &primary_keys, StorageFormat storage_format,
-      StorageEngine storage_engine);
+      StorageEngine storage_engine = StorageEngine::HEAP);
 
   RC add_index(const IndexMeta &index);
   RC drop_index(const char *index_name);

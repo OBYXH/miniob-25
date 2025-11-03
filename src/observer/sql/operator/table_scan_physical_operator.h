@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/record/record_scanner.h"
 #include "common/types.h"
+#include "storage/record/physical_op_record_scanner.h"
 
 class Table;
 
@@ -70,7 +71,7 @@ public:
   void set_predicates(vector<unique_ptr<Expression>> &&exprs);
 
 private:
-  RC filter(RowTuple &tuple, bool &result);
+  RC filter(Tuple &tuple, bool &result);
 
 private:
   Table                         *table_ = nullptr;
@@ -80,4 +81,9 @@ private:
   Record                         current_record_;
   RowTuple                       tuple_;
   vector<unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
+
+  // FOR view
+  ValueListTuple                           value_list_tuple_;
+  RecordPhysicalOperatorScanner            record_scanner_view_;
+
 };
