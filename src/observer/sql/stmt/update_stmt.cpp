@@ -57,15 +57,6 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  // 某些视图不支持更新
-  if (table->is_view()) {
-    auto *view = static_cast<View *>(table);
-    if (!view->is_updatable()) {
-      LOG_WARN("the target table(view) of the INSERT is not updatable");
-      return RC::INVALID_ARGUMENT;
-    }
-  }
-
   unordered_map<std::string, Table *> table_map;
   table_map.insert(pair<string, Table *>(string(table_name), table));
 

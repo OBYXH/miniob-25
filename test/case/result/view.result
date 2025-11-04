@@ -14,13 +14,13 @@ INSERT INTO table2 VALUES(7,'B');
 SUCCESS
 
 2. basic
-CREATE VIEW v1 AS select * from table1;
+CREATE VIEW v1(id, age) AS select id, age from table1;
 SUCCESS
 SELECT * FROM v1;
 1 | 2
 3 | 4
 id | age
-INSERT INTO v1 VALUES(11,12);
+INSERT INTO v1(id, age) VALUES(11,12);
 SUCCESS
 SELECT * FROM v1;
 1 | 2

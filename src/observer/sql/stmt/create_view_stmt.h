@@ -18,8 +18,8 @@ class Db;
 class CreateViewStmt : public Stmt
 {
 public:
-  explicit CreateViewStmt(const std::string &view_name)
-      : view_name_(view_name)
+  explicit CreateViewStmt(const std::string &view_name, const std::vector<std::string> &attrs_name)
+      : view_name_(view_name), attrs_name_(attrs_name)
   {}
   virtual ~CreateViewStmt() = default;
 
@@ -38,7 +38,7 @@ public:
 
   const std::vector<FieldMeta> &query_fields_meta() const { return query_fields_meta_; }
   void set_query_fields(const std::vector<FieldMeta> &query_fields_meta) { query_fields_meta_ = query_fields_meta; }
-
+  const std::vector<std::string> &attrs_name() const { return attrs_name_; }
 
   static RC            create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt);
 
@@ -50,4 +50,5 @@ private:
   std::unique_ptr<PhysicalOperator> physical_operator_ = nullptr;
   std::vector<FieldMeta> query_fields_meta_;
   bool is_view_updatable_ = false;
+  std::vector<std::string> attrs_name_;
 };

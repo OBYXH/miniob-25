@@ -285,6 +285,7 @@ struct CreateViewSqlNode
   std::string view_name;
   SubSelectSqlNode* sub_select = nullptr;
   std::string description;
+  std::vector<std::string> attrs_name;      ///< 视图的属性名称列表
 };
 
 /**

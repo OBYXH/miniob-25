@@ -9,9 +9,10 @@ class RecordPhysicalOperatorScanner;
 class View : public Table {
  public:
   virtual ~View() = default;
-  View(std::string view_name, std::string view_definition, bool is_updatable, int32_t view_id)
+  View(std::string view_name, std::vector<std::string> attrs_name, std::string view_definition, bool is_updatable, int32_t view_id)
       : view_name_(std::move(view_name)),
         view_definition_(std::move(view_definition)),
+        attrs_name_(std::move(attrs_name)),
         is_updatable_(is_updatable),
         view_id_(view_id) {set_view(true);}
   
@@ -39,6 +40,7 @@ class View : public Table {
  private:
   std::string view_name_;
   std::string view_definition_;
+  std::vector<std::string> attrs_name_;
   bool is_updatable_;
   int32_t view_id_;
 
