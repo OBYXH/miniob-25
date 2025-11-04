@@ -952,10 +952,12 @@ join_clauses:
     {
       $$ = new vector<JoinSqlNode>;
       $$->emplace_back(std::move(*$1));
+      delete $1;
     }
     | join_clauses join_clause  {
       $$ = $1;
       $$->emplace_back(std::move(*$2));
+      delete $2;
     }
     ;
 calc_stmt:
