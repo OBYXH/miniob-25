@@ -164,7 +164,6 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         SET
         ON
         LOAD
-        DATA
         UNIQUE
         INFILE
         EXPLAIN
@@ -325,7 +324,6 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            begin_stmt
 %type <sql_node>            commit_stmt
 %type <sql_node>            rollback_stmt
-%type <sql_node>            load_data_stmt
 %type <sql_node>            explain_stmt
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
@@ -368,7 +366,6 @@ command_wrapper:
   | begin_stmt
   | commit_stmt
   | rollback_stmt
-  | load_data_stmt
   | explain_stmt
   | set_variable_stmt
   | help_stmt
@@ -1367,27 +1364,6 @@ group_by:
       // group by 的表达式范围与select查询值的表达式范围是不同的，比如group by不支持 *
       // 但是这里没有处理。
       $$ = $3;
-    }
-    ;
-load_data_stmt:
-    LOAD DATA INFILE SSS INTO TABLE ID fields_terminated_by enclosed_by
-    {
-      char *tmp_file_name = common::substr($4, 1, strlen($4) - 2);
-      
-      $$ = new ParsedSqlNode(SCF_LOAD_DATA);
-      $$->load_data.relation_name = $7;
-      $$->load_data.file_name = tmp_file_name;
-      if ($8 != nullptr) {
-        char *tmp = common::substr($8,1,strlen($8)-2);
-        $$->load_data.terminated = $8;
-        free(tmp);
-      }
-      if ($9 != nullptr) {
-        char *tmp = common::substr($9,1,strlen($9)-2);
-        $$->load_data.enclosed = $9;
-        free(tmp);
-      }
-      free(tmp_file_name);
     }
     ;
 
