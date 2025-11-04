@@ -223,13 +223,13 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   }
 
   // create filter statement in `where` statement
-  if (tables.size() == 3 && !strcmp(tables[0]->name(), "join_table_1") && !strcmp(tables[1]->name(), "join_table_2") &&
-      !strcmp(tables[2]->name(), "join_table_3") && bound_expressions.size() == 6 &&
-      !strcmp(bound_expressions[0]->name(), "id") && !strcmp(bound_expressions[1]->name(), "name") &&
-      !strcmp(bound_expressions[2]->name(), "id") && !strcmp(bound_expressions[3]->name(), "age") &&
-      !strcmp(bound_expressions[4]->name(), "id") && !strcmp(bound_expressions[5]->name(), "level")) {
-    return RC::INVALID_ARGUMENT;
-  }
+  // if (tables.size() == 3 && !strcmp(tables[0]->name(), "join_table_1") && !strcmp(tables[1]->name(), "join_table_2") &&
+  //     !strcmp(tables[2]->name(), "join_table_3") && bound_expressions.size() == 6 &&
+  //     !strcmp(bound_expressions[0]->name(), "id") && !strcmp(bound_expressions[1]->name(), "name") &&
+  //     !strcmp(bound_expressions[2]->name(), "id") && !strcmp(bound_expressions[3]->name(), "age") &&
+  //     !strcmp(bound_expressions[4]->name(), "id") && !strcmp(bound_expressions[5]->name(), "level")) {
+  //   return RC::INVALID_ARGUMENT;
+  // }
   FilterStmt *filter_stmt = nullptr;
   RC          rc =
       FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt, FilterStmt::Type::WHERE);
