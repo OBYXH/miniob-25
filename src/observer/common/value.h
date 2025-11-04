@@ -40,6 +40,7 @@ public:
   friend class VectorType;
   friend class NullType;
   friend class TextType;
+  friend class BoolType;
 
   Value() = default;
 

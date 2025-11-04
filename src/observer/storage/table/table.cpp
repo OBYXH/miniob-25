@@ -328,7 +328,9 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   }
   LOG_INFO("set value to record, field name:%s, field offset:%d, field len:%d, value len:%d, copy len:%d",
     field->name(), field->offset(), field->len(), value.length(), copy_len);
-  memcpy(record_data + field->offset(), value.data(), copy_len);
+  if (value.data() != nullptr) {
+    memcpy(record_data + field->offset(), value.data(), copy_len);
+  }
   return RC::SUCCESS;
 }
 

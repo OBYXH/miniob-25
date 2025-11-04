@@ -11,12 +11,7 @@ bool check_is_updatable(SelectStmt *select_stmt) {
     if (select_stmt->has_special_queries()) {
         return false;
     }
-
-    // 检查是否有 join
-    if (select_stmt->has_join()) {
-        return false;
-    }
-
+    
     return true;
 }
 
@@ -40,7 +35,7 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
 
   auto query_fields = select_stmt->get_query_fields();
 
-  if (query_fields.size() != create_view.attrs_name.size()) {
+  if (!create_view.attrs_name.empty() && query_fields.size() != create_view.attrs_name.size()) {
     LOG_WARN("select query expr num count doesn't match attr count");
     return RC::INVALID_ARGUMENT;
   }

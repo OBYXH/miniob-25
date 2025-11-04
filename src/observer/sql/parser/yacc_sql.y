@@ -692,6 +692,20 @@ insert_stmt:        /*insert   语句的语法解析树*/
       $$->insertion.values.swap(*$6);
       delete $6;
     }
+    | INSERT INTO ID LBRACE attr_list RBRACE VALUES LBRACE value_list RBRACE
+     {
+      $$ = new ParsedSqlNode(SCF_INSERT);
+      $$->insertion.relation_name = $3;
+      
+      // fields list
+      if ($5 != nullptr) {
+        $$->insertion.attrs_name.swap(*$5);
+        delete $5;
+      }
+
+      $$->insertion.values.swap(*$9);
+      delete $9;
+    }
     ;
 
 value_list:
