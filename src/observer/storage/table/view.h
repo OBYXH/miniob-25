@@ -29,6 +29,13 @@ class View : public Table {
   
   const std::vector<Table *> &base_tables() const { return base_tables_; }
 
+  std::string find_base_table_name(const std::string &field_name) {
+    if (field_base_table_name.find(field_name) != field_base_table_name.end()) {
+      return field_base_table_name[field_name];
+    }
+    return "";
+  }
+
  private:
   std::string view_name_;
   std::string view_definition_;
@@ -36,5 +43,8 @@ class View : public Table {
   int32_t view_id_;
 
   std::unique_ptr<PhysicalOperator> operator_;
+  // 维护某个视图的基表列表
   std::vector<Table *> base_tables_;
+  // 维护某个视图的普通字段对应的基表名称
+  std::unordered_map<std::string, std::string> field_base_table_name;
 };
