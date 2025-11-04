@@ -25,7 +25,7 @@ void CreateViewExecutor::init_sys_view_table_attr_infos(std::vector<AttrInfoSqlN
     attr_infos.push_back(attr_info);
 
     attr_info.name = "is_updatable";
-    attr_info.type = AttrType::INTS;
+    attr_info.type = AttrType::BOOLEANS;
     attr_info.length = 1;
     attr_info.nullable = false;
     attr_infos.push_back(attr_info);
@@ -39,7 +39,7 @@ void CreateViewExecutor::make_view_values(std::vector<Value> &values, const std:
     value.set_string(view_definition.c_str());
     values.push_back(value);
 
-    value.set_int(is_updatable);
+    value.set_boolean(is_updatable);
     values.push_back(value);
 }
 
@@ -105,7 +105,7 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     Record record;
     std::vector<Value> values;
     make_view_values(values, view_name, view_definition, is_updatable);
-    table->make_record(values.size(), values.data(), record);
+    rc = table->make_record(values.size(), values.data(), record);
     if (rc != RC::SUCCESS) {
         LOG_WARN("failed to make record. rc=%s", strrc(rc));
         return rc;

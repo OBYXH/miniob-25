@@ -1,0 +1,74 @@
+1. init
+CREATE TABLE table1(id INT, age INT);
+SUCCESS
+CREATE TABLE table2(id INT, name CHAR);
+SUCCESS
+
+INSERT INTO table1 VALUES(1,2);
+SUCCESS
+INSERT INTO table1 VALUES(3,4);
+SUCCESS
+INSERT INTO table2 VALUES(5,'A');
+SUCCESS
+INSERT INTO table2 VALUES(7,'B');
+SUCCESS
+
+2. basic
+CREATE VIEW v1 AS select * from table1;
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+3 | 4
+id | age
+INSERT INTO v1 VALUES(11,12);
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+11 | 12
+3 | 4
+id | age
+UPDATE v1 SET id = 114 where age > 3;
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+114 | 12
+114 | 4
+id | age
+
+3. complex
+CREATE VIEW v3 AS select t1.id AS id, t1.age AS age, t2.name AS name FROM table1 t1, table2 t2 WHERE t1.id < t2.id;
+SUCCESS
+SELECT * FROM v3;
+1 | 2 | A
+1 | 2 | B
+id | age | name
+INSERT INTO v3(id, age) VALUES(100, 100);
+SUCCESS
+SELECT * FROM table1;
+1 | 2
+114 | 12
+114 | 4
+100 | 100
+id | age
+SELECT * FROM v3;
+1 | 2 | A
+1 | 2 | B
+id | age | name
+UPDATE v3 SET id=1, age=1;
+SUCCESS
+SELECT * FROM table1;
+1 | 1
+114 | 12
+114 | 4
+100 | 100
+id | age
+SELECT * FROM v3;
+1 | 1 | A
+1 | 1 | B
+id | age | name
+
+4. error
+INSERT INTO v3(id, name) VALUES(100, 'Z');
+FAILURE
+UPDATE v3 SET id=1,name='100';
+FAILURE

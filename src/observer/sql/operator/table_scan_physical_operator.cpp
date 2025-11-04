@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/table_scan_physical_operator.h"
+#include "common/log/log.h"
 #include "event/sql_debug.h"
 #include "storage/table/table.h"
 #include "storage/table/view.h"
@@ -24,7 +25,7 @@ RC TableScanPhysicalOperator::open(Trx *trx)
   RC rc = RC::SUCCESS;
   if (table_->is_view()) {
     auto *view = static_cast<View *>(table_);
-    rc = view->get_record_scanner(record_scanner_view_, trx, mode_);;
+    rc = view->get_record_scanner(record_scanner_view_, trx, mode_);
   } else {
     rc = table_->get_record_scanner(record_scanner_, trx, mode_);
   }
@@ -71,7 +72,7 @@ RC TableScanPhysicalOperator::next()
   } else {
     bool filter_result = false;
     while (OB_SUCC(rc = record_scanner_->next(current_record_))) {
-      LOG_TRACE("got a record. rid=%s", current_record_.rid().to_string().c_str());
+      LOG_DEBUG("got a record. rid=%s", current_record_.rid().to_string().c_str());
   
       tuple_.set_record(&current_record_);
       tuple_.set_rid(RID(current_record_.rid()));
@@ -96,6 +97,14 @@ RC TableScanPhysicalOperator::next()
 RC TableScanPhysicalOperator::close()
 {
   RC rc = RC::SUCCESS;
+  // view的时候应该用view的scanner关闭
+  if (table_->is_view()) {
+    rc = record_scanner_view_.close_scan();
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to close record scanner for view");
+    }
+    return rc;
+  }
   if (record_scanner_ != nullptr) {
     rc = record_scanner_->close_scan();
     if (rc != RC::SUCCESS) {

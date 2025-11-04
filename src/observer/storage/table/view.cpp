@@ -11,11 +11,7 @@ void View::init_table_meta(const vector<FieldMeta> &fields)
     attr_info.nullable = field.nullable();
     attr_info.name     = field.name();
     attr_info.type     = field.type();
-    if (attr_info.type == AttrType::CHARS) {
-      attr_info.length = field.len();
-    } else {
-      attr_info.length = 1;
-    }
+    attr_info.length = field.len();
     attr_infos.push_back(attr_info);
   }
   table_meta_.init(view_id_, view_name_.c_str(), nullptr, attr_infos, {}, StorageFormat::ROW_FORMAT);

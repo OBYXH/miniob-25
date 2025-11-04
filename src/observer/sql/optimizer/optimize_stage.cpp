@@ -75,6 +75,8 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
       return rc;
     }
   }
+  sql_event->set_operator(std::move(physical_operator));
+  
 
   // create table set physical oper
   Stmt *stmt = sql_event->stmt();
@@ -87,7 +89,6 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
   }
 
   handle_view_request(sql_event);
-  sql_event->set_operator(std::move(physical_operator));
 
   return rc;
 }
