@@ -58,6 +58,19 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       }
       selected_update_field_idx_[base_table->name()] = update_field_idx;
     }
+    size_t affected_tables = 0;
+    for (const auto &pair : selected_update_field_idx_) {
+      if (!pair.second.empty()) {  // 该基表有字段需要更新
+        affected_tables++;
+      }
+    }
+    
+    // 如果涉及多个基表，拒绝更新
+    if (affected_tables > 1) {
+      LOG_WARN("Cannot update view: operation involves %zu base tables, only single table operations are allowed", 
+              affected_tables);
+      return RC::MULTIPLE_BASE_TABLES;
+    }
   } else {
     vector<size_t> update_field_idx;
     for (size_t i = 0; i < field_metas_.size(); i++) {

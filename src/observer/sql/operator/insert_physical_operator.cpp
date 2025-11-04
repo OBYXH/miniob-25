@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/insert_physical_operator.h"
+#include "common/log/log.h"
 #include "sql/stmt/insert_stmt.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
@@ -65,6 +66,11 @@ RC InsertPhysicalOperator::open(Trx *trx)
       }
       base_table_map[base_table->name()] = base_table;
       base_table_values[base_table->name()] = base_table_value;
+    }
+    LOG_DEBUG("values from %d base tables", base_table_values.size());
+    // values 来自多个基表，拒绝更新
+    if (base_table_values.size() > 1) {
+      return RC::MULTIPLE_BASE_TABLES;
     }
     
     // 插入
