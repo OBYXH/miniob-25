@@ -24,15 +24,25 @@ public:
   BinderContext()          = default;
   virtual ~BinderContext() = default;
 
+  void add_db(Db *db) { db_ = db; }
   void add_table(Table *table) { query_tables_.push_back(table); }
   void set_table_map(unordered_map<string, Table *> *table_map) { table_map_ = table_map; }
 
   Table *find_table(const char *table_name) const;
+  const std::vector<std::string> &alias() { return tables_alias_; }
+  bool has_tables_alias() { return !tables_alias_.empty(); }
 
   const vector<Table *> &query_tables() const { return query_tables_; }
 
+  [[nodiscard]] Table *default_table() const { return default_table_; }
+  void                     set_default_table(Table *default_table) { default_table_ = default_table; }
+  void set_alias(std::vector<std::string> alias) { tables_alias_ = std::move(alias); }
+
 private:
+  Db *db_;
+  Table* default_table_;
   vector<Table *>                 query_tables_;
+  std::vector<std::string>                      tables_alias_;
   unordered_map<string, Table *> *table_map_;
 };
 
@@ -45,7 +55,7 @@ private:
 class ExpressionBinder
 {
 public:
-  ExpressionBinder(BinderContext &context) : context_(context) {}
+  ExpressionBinder(BinderContext &context) : context_(context) { multi_tables_ = context.query_tables().size() > 1; }
   virtual ~ExpressionBinder() = default;
 
   RC bind_expression(unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions);
@@ -63,15 +73,11 @@ private:
       unique_ptr<Expression> &conjunction_expr, vector<unique_ptr<Expression>> &bound_expressions);
   RC bind_arithmetic_expression(
       unique_ptr<Expression> &arithmetic_expr, vector<unique_ptr<Expression>> &bound_expressions);
-  RC bind_aggregate_expression(
-      unique_ptr<Expression> &aggregate_expr, vector<unique_ptr<Expression>> &bound_expressions);
-  RC bind_vector_distance_expression(
-      unique_ptr<Expression> &distance_expr, vector<unique_ptr<Expression>> &bound_expressions);
   RC bind_function_expression(unique_ptr<Expression> &function_expr, vector<unique_ptr<Expression>> &bound_expressions);
-  RC bind_vecstr_expression(unique_ptr<Expression> &vecstr_expr, vector<unique_ptr<Expression>> &bound_expressions);
   RC bind_subquery_expression(unique_ptr<Expression> &subquery_expr, vector<unique_ptr<Expression>> &bound_expressions);
-  RC bind_values_expression(unique_ptr<Expression> &values_expr, vector<unique_ptr<Expression>> &bound_expressions);
+  RC bind_list_expression(unique_ptr<Expression> &values_expr, vector<unique_ptr<Expression>> &bound_expressions);
 
 private:
+  bool           multi_tables_;
   BinderContext &context_;
 };

@@ -47,7 +47,7 @@ public:
   virtual RC add_chunk(Chunk &groups_chunk, Chunk &aggrs_chunk) = 0;
 
   virtual ~AggregateHashTable() = default;
-  vector<AggregateExpr::Type> aggr_types_;
+  vector<AggregateFunctionType> aggr_types_;
   vector<AttrType>            aggr_child_types_;
 };
 
@@ -135,7 +135,7 @@ public:
     int scan_count_ = 0;
   };
 
-  LinearProbingAggregateHashTable(AggregateExpr::Type aggregate_type, int capacity = DEFAULT_CAPACITY)
+  LinearProbingAggregateHashTable(AggregateFunctionType aggregate_type, int capacity = DEFAULT_CAPACITY)
       : keys_(capacity, EMPTY_KEY), values_(capacity, 0), capacity_(capacity), aggregate_type_(aggregate_type)
   {}
   virtual ~LinearProbingAggregateHashTable() {}
@@ -173,6 +173,6 @@ private:
   vector<V>           values_;
   int                 size_     = 0;
   int                 capacity_ = 0;
-  AggregateExpr::Type aggregate_type_;
+  AggregateFunctionType aggregate_type_;
 };
 #endif  // USE_SIMD

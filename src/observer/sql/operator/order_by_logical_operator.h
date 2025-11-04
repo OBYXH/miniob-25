@@ -9,8 +9,8 @@
 class OrderByLogicalOperator : public LogicalOperator
 {
 public:
-  OrderByLogicalOperator(std::vector<OrderBySqlNode> order_by, const std::vector<Expression *> exprs)
-      : order_by_(std::move(order_by)), exprs_(std::move(exprs))
+  OrderByLogicalOperator(std::vector<OrderBySqlNode> order_by, const std::vector<Expression *> exprs, int limit)
+      : order_by_(std::move(order_by)), exprs_(std::move(exprs)), limit_(limit)
   {}
 
   LogicalOperatorType type() const override { return LogicalOperatorType::ORDER_BY; }
@@ -19,9 +19,12 @@ public:
 
   std::vector<Expression *> &exprs() { return exprs_; }
 
+  int limit() { return limit_; }
+
 private:
   std::vector<OrderBySqlNode> order_by_;
 
   /// 在 create order by stmt 之前提取 select clause 后的 field_expr (非agg_expr 中的) 和 agg_expr
   std::vector<Expression *> exprs_;
+  int limit_;
 };

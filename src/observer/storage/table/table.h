@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "sql/builtin/builtin.h"
 #include "storage/table/table_meta.h"
 #include "storage/table/table_engine.h"
 #include "storage/common/chunk.h"
@@ -104,6 +105,7 @@ public:
   // TODO refactor
   RC create_index(
       Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique);
+  RC create_vector_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name);
 
   RC drop_index(Trx *trx, const char *index_name);
 
@@ -140,6 +142,8 @@ public:
 
   LobFileHandler *lob_handler() const { return lob_handler_; }
 
+  int insert_num_get() const { return insert_num; }
+
   RC sync();
 
 private:
@@ -148,6 +152,7 @@ private:
 public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
+  Index *find_vector_index(NormalFunctionType distance_fn, const char *field_name) const;
 
   bool is_outer_table() const { return is_outer_table_; }
   void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
@@ -158,6 +163,7 @@ private:
   TableMeta               table_meta_{};
   unique_ptr<TableEngine> engine_      = nullptr;
   LobFileHandler         *lob_handler_ = nullptr;
+  int insert_num = 0;
 
   bool is_outer_table_ = false;
 };

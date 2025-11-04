@@ -172,6 +172,7 @@ RC Table::drop()
       return RC::IOERR_WRITE;
     }
   }
+  LOG_WARN("Drop table %s successfully", table_name);
   return RC::SUCCESS;
 }
 
@@ -215,7 +216,10 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   return rc;
 }
 
-RC Table::insert_record(Record &record) { return engine_->insert_record(record); }
+RC Table::insert_record(Record &record) { 
+  insert_num++;
+  return engine_->insert_record(record);
+}
 
 RC Table::insert_chunk(const Chunk &chunk) { return engine_->insert_chunk(chunk); }
 
@@ -347,6 +351,9 @@ RC Table::create_index(
 {
   return engine_->create_index(trx, index_type, field_meta, index_name, unique);
 }
+RC Table::create_vector_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name) {
+  return engine_->create_vector_index(trx, index_type, field_meta, index_name);
+}
 
 RC Table::drop_index(Trx *trx, const char *index_name)
 {
@@ -387,3 +394,7 @@ Index *Table::find_index(const char *index_name) const { return engine_->find_in
 Index *Table::find_index_by_field(const char *field_name) const { return engine_->find_index_by_field(field_name); }
 
 RC Table::sync() { return engine_->sync(); }
+
+Index *Table::find_vector_index(NormalFunctionType distance_fn, const char *field_name) const {
+  return engine_->find_vector_index(distance_fn, field_name);
+}

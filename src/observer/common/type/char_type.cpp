@@ -35,13 +35,13 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
 {
   switch (type) {
     case AttrType::TEXTS: {
-      if (val.length() > 65535) {
+      if (val.length() > 16384) {
         LOG_WARN("Failed to cast char to text, data too long. data length=%d", val.length());
         return RC::DATA_TOO_LONG;
       }
       result.set_text(val.value_.pointer_value_, val.length_);
     } break;
-    case AttrType::CHARS: {
+    case AttrType::DATES: {
       int date_val;
       RC  rc = parse_date(val.value_.pointer_value_, date_val);
       if (rc != RC::SUCCESS) {

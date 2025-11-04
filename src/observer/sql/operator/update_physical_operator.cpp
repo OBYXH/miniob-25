@@ -30,7 +30,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     return RC::SUCCESS;
   }
 
-  unique_ptr<PhysicalOperator> &child = children_[0];
+  std::unique_ptr<PhysicalOperator> &child = children_[0];
 
   RC rc = child->open(trx);
   if (rc != RC::SUCCESS) {
@@ -47,101 +47,140 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       return rc;
     }
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    records_.push_back(row_tuple->record());
-    // auto      field     = table_->table_meta().field(attribute_name_.c_str());
-    // if (field == nullptr) {
-    //   LOG_WARN("no such field: %s", attribute_name_.c_str());
-    //   return RC::SCHEMA_FIELD_MISSING;
-    // }
-    // int field_index = field.field_id();
-    // row_tuple->set_cell_at(field_index, value_);
-  }
-  // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
-  child->close();
-  if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
-    LOG_WARN("record is invisible");
-    return rc;
+    Record   &record    = row_tuple->record();
+    records_.emplace_back(std::move(record));
   }
 
-  for (auto &old_record : records_) {
-    Record new_record;
+  child->close();
+
+  // 如果需要更新的记录为空，直接返回成功，即使 value 校验异常也应该返回成功
+  if (records_.empty()) {
+    return RC::SUCCESS;
+  }
+
+  // 得到真正的 value，并做校验
+  RowTuple           tuple;
+  Value              value;
+  std::vector<Value> real_values(values_.size());
+  SubQueryExpr      *sub_query_expr = nullptr;
+  int                size           = static_cast<int>(values_.size());
+  for (int i = 0; i < size; ++i) {
+    auto &value_expr = values_[i];
+    auto &field_meta = field_metas_[i];
+
+    if (value_expr->type() == ExprType::SUBQUERY) {
+      sub_query_expr = dynamic_cast<SubQueryExpr *>(value_expr.get());
+      rc             = sub_query_expr->open(trx_, tuple);
+      if (OB_FAIL(rc)) {
+        LOG_ERROR("Failed to open subquery for field: %s",
+                  field_meta.name());
+        return rc;
+      }
+    }
+
+    // 得到表达式的值
+    rc = value_expr->get_value(tuple, value);
+    if (OB_FAIL(rc) && rc != RC::RECORD_EOF) {
+      LOG_ERROR("Failed to get value for field: %s",
+                  field_meta.name());
+      return rc;
+    }
+
+    // 如果是子查询只能有一行一列
+    if (sub_query_expr && sub_query_expr->has_more_row(tuple)) {
+      LOG_ERROR("Subquery returned more than one row for field: %s",
+                 field_meta.name());
+      return RC::SUBQUERY_RETURNED_MULTIPLE_ROWS;
+    }
+
+    // 进行类型校验
+    if (value.attr_type() != field_meta.type()) {
+      // 尝试转换，发生转换时不考虑数值溢出
+      Value to_value;
+      // 更新不允许非目标类型的类型提升
+      rc = Value::cast_to(value, field_meta.type(), to_value);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("Schema field type mismatch and cast to failed. Field: %s, Expected Type: %s, Provided Type: %s, Length: %d",
+        field_meta.name(),
+                  attr_type_to_string(field_meta.type()),
+                  attr_type_to_string(value.attr_type()), value.length());
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      // 转换成功
+      value = std::move(to_value);
+    }
+
+    // 进行长度校验
+    if (value.length() > field_meta.len() - field_meta.nullable()) {
+      LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s, Type: %s, Offset: %d, Length: %d, Max Length: %d",
+                field_meta.name(),
+                attr_type_to_string(field_meta.type()),
+                field_meta.offset(),
+                value.length(),
+                field_meta.len());
+      return RC::INVALID_ARGUMENT;
+    }
+
+    if (sub_query_expr) {
+      sub_query_expr->close();
+      sub_query_expr = nullptr;
+    }
+
+    real_values[i] = std::move(value);
+  }
+
+  // 先收集记录再更新
+  // 记录的有效性由事务来保证，如果事务不保证删除的有效性，那说明此事务类型不支持并发控制，比如VacuousTrx
+  Record new_record;
+  for (Record &old_record : records_) {
+    // rid 得手动拷贝
     new_record.set_rid(old_record.rid());
     new_record.copy_data(old_record.data(), old_record.len());
-    for (uint32_t i = 0; i < field_metas_.size(); i++) {
-      auto     field = field_metas_[i];
-      Value    value;
-      RowTuple tuple;
-      bool     has_sub_queried_ = false;
-      if (exprs_[i]->type() == ExprType ::SUBQUERY) {
-        while (exprs_[i]->get_value(tuple, value) == RC::SUCCESS) {
-          // do nothing
-          if (has_sub_queried_) {
-            has_sub_queried_ = false;
-            rc               = RC::SUB_QUERY_VALUES_DISMATCH;
-            break;
-          } else {
-            has_sub_queried_ = true;
-          }
+    for (size_t i = 0; i < field_metas_.size(); ++i) {
+      if (field_metas_[i].nullable()) {
+        auto null_offset = field_metas_[i].offset() + field_metas_[i].len() - 1;
+        if (real_values[i].is_null()) {
+          new_record.data()[null_offset] = '1';
+        } else {
+          new_record.data()[null_offset] = 0;
         }
-      } else {
-        rc = exprs_[i]->get_value(tuple, value);
+      } else if (real_values[i].is_null()) {
+        rollback();
+        return RC::UNSUPPORTED_NULL_VALUE;
       }
-      if (value.attr_type() == AttrType::UNDEFINED) {
-        value.set_null(true);
-      }
-      if (value.is_null()) {
-        if (!field.nullable()) {
-          LOG_WARN("field is not nullable. table name:%s,field name:%s", table_->name(), field.name());
-          return RC::UNSUPPORTED_NULL_VALUE;
-        }
-        new_record.data()[field.offset() + field.len() - 1] = '1';
-      } else {
-        Value real_value = value;
-        if (field.type() != value.attr_type()) {
-          if (field.type() == AttrType::TEXTS && value.attr_type() == AttrType::CHARS) {
-            rc = real_value.borrow_text(value);
-            if (OB_FAIL(rc)) {
-              LOG_WARN("failed to borrow text value. table name:%s, field name:%s, value length:%d",
-                  table_->name(), field.name(), value.length());
-              break;
-            }
-          } else {
-            // 插入不允许非目标类型的类型提升
-            rc = Value::cast_to(value, field.type(), real_value);
-
-            if (OB_FAIL(rc)) {
-              LOG_WARN("failed to cast value. table name:%s, field name:%s, value:%s",
-                  table_->name(), field.name(), value.to_string().c_str());
-              return rc;
-            }
-          }
-        }
-        // 进行长度校验
-        if (real_value.length() > field.len() - field.nullable()) {
-          LOG_ERROR("Value length exceeds maximum allowed length for field. Field: %s, Type: %s, Offset: %d, Length: %d, Max Length: %d",
-                    field.name(),
-                    attr_type_to_string(field.type()),
-                    field.offset(),
-                    value.length(),
-                    field.len());
-          return RC::IOERR_TOO_LONG;
-        }
-        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), real_value);
+      // 只有非 null 值才需要拷贝数据，防止读到垃圾数据
+      if (!real_values[i].is_null()) {
+        rc = new_record.set_field(field_metas_[i].offset(), field_metas_[i].len(), real_values[i]);
         if (OB_FAIL(rc)) {
-          LOG_WARN("failed to set field value. table name=%s, field name=%s, rc=%s",
-              table_->name(), field_metas_[i].name(), strrc(rc));
+          LOG_ERROR("failed to set field: %s", strrc(rc));
           return rc;
         }
       }
     }
-    rc = trx_->update_record(table_, old_record, new_record);
+    auto rollback_old_record = old_record.clone();
+    auto rollback_new_record = new_record.clone();
+    rc                       = trx_->update_record(table_, old_record, new_record);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to update record. table name=%s, rc=%s", table_->name(), strrc(rc));
+      LOG_WARN("failed to update record: %s", strrc(rc));
+      rollback();
       return rc;
+    } else {
+      log_records.emplace_back(rollback_old_record, rollback_new_record);
     }
   }
 
   return RC::SUCCESS;
+}
+
+void UpdatePhysicalOperator::rollback()
+{
+  RC rc;
+  for (auto &[rollback_old_record, rollback_new_record] : log_records) {
+    rc = trx_->update_record(table_, rollback_new_record, rollback_old_record);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to update record: %s", strrc(rc));
+    }
+  }
 }
 
 RC UpdatePhysicalOperator::next() { return RC::RECORD_EOF; }

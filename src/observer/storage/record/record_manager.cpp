@@ -12,7 +12,9 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 #include "storage/record/record_manager.h"
+#include "common/lang/bitmap.h"
 #include "common/log/log.h"
+#include "storage/common/column.h"
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/log_handler.h"
@@ -467,12 +469,36 @@ RC PaxRecordPageHandler::insert_record(const char *data, RID *rid)
   // 1.参考RowRecordPageHandler::insert_record完成大体实现
   // 2.将一行数据拆分成不同的列插入到不同偏移中
   // 对应列的偏移可以参照RecordPageHandler::init_empty_page
-  return RC::UNIMPLEMENTED;
+
+  ASSERT(rw_mode_ != ReadWriteMode::READ_ONLY, 
+         "cannot insert record into page while the page is readonly");
+  if (is_full()) {
+    LOG_WARN("Page is full, page_num %d:%d.", disk_buffer_pool_->file_desc(), frame_->page_num());
+    return RC::RECORD_NOMEM;
+  }
+  Bitmap bitmap(bitmap_, page_header_->record_capacity);
+  int slot_num = bitmap.next_unsetted_bit(0);
+  bitmap.set_bit(slot_num);
+  page_header_->record_num++;
+  for (int col_id = 0; col_id < page_header_->column_num; col_id++) {
+    char* field_data = get_field_data(slot_num, col_id);
+    int field_len = get_field_len(col_id);
+    memcpy(field_data, data, field_len);
+    data += field_len;
+  }
+  frame_->mark_dirty();
+
+  if (rid) {
+    rid->page_num = get_page_num();
+    rid->slot_num = slot_num;
+  }
+  return RC::SUCCESS;
 }
 
 RC PaxRecordPageHandler::insert_chunk(const Chunk &chunk, int start_row, int &insert_rows)
 {
   // your code here
+
   return RC::UNIMPLEMENTED;
 }
 
@@ -507,7 +533,30 @@ RC PaxRecordPageHandler::get_record(const RID &rid, Record &record)
   // 1.参考RowRecordPageHandler::get_record完成大体实现
   // 2.通过列的偏移拼接出完整的行数据
   // 可以参照PaxRecordPageHandler::insert_record的实现
-  return RC::UNIMPLEMENTED;
+
+  if (rid.slot_num >= page_header_->record_capacity) {
+    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, frame=%s, page_header=%s",
+              rid.slot_num, frame_->to_string().c_str(), page_header_->to_string().c_str());
+    return RC::RECORD_INVALID_RID;
+  }
+
+  Bitmap bitmap(bitmap_, page_header_->record_capacity);
+  if (!bitmap.get_bit(rid.slot_num)) {
+    return RC::RECORD_NOT_EXIST;
+  }
+
+  record.set_rid(rid);
+  char* record_data = new char[page_header_->record_real_size];
+  int offset = 0;
+  for (int col_id = 0; col_id < page_header_->column_num; col_id++) {
+    char* field_data = get_field_data(rid.slot_num, col_id);
+    int field_len = get_field_len(col_id);
+    memcpy(record_data + offset, field_data, field_len);
+    offset += field_len;
+  }
+  record.copy_data(record_data, offset);
+  delete[] record_data;
+  return RC::SUCCESS;
 }
 
 // TODO: specify the column_ids that chunk needed. currenly we get all columns
@@ -517,7 +566,33 @@ RC PaxRecordPageHandler::get_chunk(Chunk &chunk)
   // Todo:
   // 参照PaxRecordPageHandler::get_record
   // 一次性获得一个page的所有record
-  return RC::UNIMPLEMENTED;
+  if (page_header_->record_num == 0) {
+    return RC::RECORD_EOF;
+  }
+
+  Bitmap bitmap(bitmap_, page_header_->record_capacity);
+  int slot_num = -1;
+  while ((slot_num = bitmap.next_setted_bit(slot_num + 1)) != -1) {
+    if (chunk.rows() >= chunk.capacity()) {
+      // chunk满了，提前返回
+      return RC::SUCCESS;
+    }
+    for (int i = 0; i < chunk.column_num(); i++) {
+      int idx = chunk.column_ids(i);
+      Column& col = chunk.column(i);
+      RC rc = col.append_one(get_field_data(slot_num, idx));
+      if (OB_FAIL(rc)) {
+        LOG_ERROR("Failed to append record to chunk. page_num %d:%d. rc=%s", 
+                  disk_buffer_pool_->file_desc(), frame_->page_num(), strrc(rc));
+        return rc;
+      }
+    }
+  }
+  if (chunk.rows() == 0) {
+    // 如果遍历完 bitmap 发现没有任何有效的行（理论上 record_num > 0 不会发生）
+    return RC::RECORD_EOF;
+  }
+  return RC::SUCCESS;
 }
 
 char *PaxRecordPageHandler::get_field_data(SlotNum slot_num, int col_id)

@@ -38,49 +38,20 @@ SelectStmt::~SelectStmt()
   }
 }
 
-RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
-    std::shared_ptr<std::vector<string>> loaded_relation_names, unordered_map<string, Table *> outer_table_map)
+RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt, const unordered_map<string, Table *> &outer_table_map)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
   }
 
-  if (select_sql.expressions.empty()) {
-    LOG_WARN("invalid argument. select expr is empty");
-    return RC::INVALID_ARGUMENT;
-  }
-  if (loaded_relation_names == nullptr)
-    loaded_relation_names = std::make_shared<std::vector<string>>();
-
   BinderContext binder_context;
 
   // collect tables in `from` statement
   vector<Table *>                tables;
-  unordered_map<string, Table *> table_map;
-  // 继承外面的 table_map
-  if (!outer_table_map.empty()) {
-    for (auto &table_pair : outer_table_map) {
-      LOG_DEBUG("filter stmt: table map: (%s, %s)", table_pair.first.c_str(), table_pair.second->name());
-    }
-    table_map = outer_table_map;
-  }
-
-  // 首先将 loaded_relation_names 中的表名添加到 table_map 中
-  // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select
-  // 会额外拥有外层扫到的 table，而外层不会。
-  for (auto &rel_name : *loaded_relation_names) {
-    // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。
-    Table *table = db->find_table(rel_name.c_str());
-    if (nullptr == table) {
-      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
-      return RC::SCHEMA_TABLE_NOT_EXIST;
-    }
-    table->set_is_outer_table(true);
-    table_map.insert({rel_name, table});
-  }
-
-  // 然后才是处理 select 语句中的 from 语句
+  unordered_map<string, Table *> table_map = outer_table_map;
+  unordered_map<string, Table *> temp_map;
+  std::vector<std::string>           tables_alias(select_sql.relations.size());
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation_name.c_str();
     if (nullptr == table_name) {
@@ -93,52 +64,37 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
-
-    binder_context.add_table(table);
-    tables.emplace_back(table);
-    loaded_relation_names->push_back(table_name);
-
-    // 检查 alias 重复
-    for (size_t j = i + 1; j < select_sql.relations.size(); j++) {
-      if (select_sql.relations[i].ralation_alias.empty() || select_sql.relations[j].ralation_alias.empty())
-        continue;
-      if (select_sql.relations[i].ralation_alias == select_sql.relations[j].ralation_alias) {
-        LOG_WARN("duplicate alias: %s", select_sql.relations[i].ralation_alias.c_str());
-        return RC::INVALID_ARGUMENT;
-      }
-    }
-
-    auto table_alias = select_sql.relations[i].ralation_alias;
+    // 建立别名
+    auto &table_alias = select_sql.relations[i].relation_alias;
     if (!table_alias.empty()) {
-      table_map[table_alias] = table;
-      // if (!success.second) {
-      //   LOG_WARN("duplicate table alias %s", table_alias.c_str());
-      //   return RC::INVALID_ALIAS;
-      // }
+      const auto &success = temp_map.emplace(table_alias, table);
+      if (!success.second)
+        return RC::INVALID_ALIAS;
     } else {
-      table_map[table_name] = table;
+      temp_map.emplace(table_name, table);
     }
+
+    tables_alias[i] = table_alias;
+    tables.emplace_back(table);
+    binder_context.add_table(table);
   }
 
-  // 下面做的是绑定表达式操作，各种新算子都需要走下面流程
+  // alias is all avaliable
+  table_map.insert(temp_map.begin(), temp_map.end());
 
-  // table_map.insert(table_alias_map.begin(), table_alias_map.end());
+  Table *default_table = nullptr;
+  if (tables.size() == 1) {
+    default_table = tables[0];
+  }
+
+  binder_context.set_alias(tables_alias);
   binder_context.set_table_map(&table_map);
+  binder_context.set_default_table(default_table);
   // collect query fields in `select` statement
   vector<unique_ptr<Expression>> bound_expressions;
   ExpressionBinder               expression_binder(binder_context);
 
   for (unique_ptr<Expression> &expression : select_sql.expressions) {
-
-    // 如果是 StarExpr，检查是否有别名，如果有报错
-    if (expression->type() == ExprType::STAR) {
-      StarExpr *star_expr = static_cast<StarExpr *>(expression.get());
-      if (!is_blank(star_expr->field_alias())) {
-        LOG_WARN("alias found in star expression");
-        return RC::INVALID_ARGUMENT;
-      }
-    }
-
     RC rc = expression_binder.bind_expression(expression, bound_expressions);
     if (OB_FAIL(rc)) {
       LOG_INFO("bind expression failed. rc=%s", strrc(rc));
@@ -152,46 +108,6 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     if (OB_FAIL(rc)) {
       LOG_INFO("bind expression failed. rc=%s", strrc(rc));
       return rc;
-    }
-  }
-
-  // 子查询，遍历 conditions 中的表达式，（递归）创建对应的 stmt。
-  // 这个 for 会将所有的子查询的 stmt 都创建好，放到 SubqueryExpr 中
-  for (auto &condition : select_sql.conditions) {
-    // exists/not exists 可能会使得 left_expr 为空
-    if (condition.left != nullptr && condition.left->type() == ExprType::SUBQUERY) {
-      SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.left.get());
-      Stmt         *stmt          = nullptr;
-      RC rc = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names, table_map);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot construct subquery stmt");
-        return rc;
-      }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
-      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
-        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-        if (rc_ != RC::SUCCESS) {
-          return rc_;
-        }
-      }
-      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    }
-    if (condition.right != nullptr && condition.right->type() == ExprType::SUBQUERY) {
-      SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right.get());
-      Stmt         *stmt          = nullptr;
-      RC rc = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, loaded_relation_names, table_map);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot construct subquery stmt");
-        return rc;
-      }
-      // 检查子查询的合法性：子查询的查询的属性只能有一个, 但exists除外
-      if (condition.comp != EXISTS_OP && condition.comp != NOT_EXISTS_OP) {
-        RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
-        if (rc_ != RC::SUCCESS) {
-          return rc_;
-        }
-      }
-      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     }
   }
 
@@ -211,42 +127,38 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   }
 
   int limit = -1;
-  if (select_sql.limit >= 0) {
-    // bind limit
-    limit = select_sql.limit;
-  }
-
-  Table *default_table = nullptr;
-  if (tables.size() == 1) {
-    default_table = tables[0];
+  if (select_sql.limit) {
+    limit = select_sql.limit->limit;
   }
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC          rc =
-      FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt, FilterStmt::Type::WHERE);
+  RC rc = FilterStmt::create(db, default_table, binder_context.alias(), &table_map, select_sql.conditions, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
 
+  // create filter statement in `having` statement
   FilterStmt *having_filter_stmt = nullptr;
   rc                             = FilterStmt::create(
-      db, default_table, &table_map, select_sql.having_conditions, having_filter_stmt, FilterStmt::Type::HAVING);
+      db, default_table, binder_context.alias(), &table_map, select_sql.having_conditions, having_filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct having filter stmt");
     return rc;
   }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
 
   select_stmt->tables_.swap(tables);
+  select_stmt->tables_alias_ = std::move(tables_alias);
   select_stmt->query_expressions_.swap(bound_expressions);
-  select_stmt->filter_stmt_        = filter_stmt;
-  select_stmt->having_filter_stmt_ = having_filter_stmt;
+  select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->group_by_.swap(group_by_expressions);
   select_stmt->order_by_.swap(order_by_);
-  select_stmt->limit_ = limit;
-  stmt                = select_stmt;
+  select_stmt->limit_              = limit;
+  select_stmt->having_filter_stmt_ = having_filter_stmt;
+  stmt                             = select_stmt;
   return RC::SUCCESS;
 }

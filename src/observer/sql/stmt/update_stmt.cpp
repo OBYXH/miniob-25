@@ -27,9 +27,9 @@ See the Mulan PSL v2 for more details. */
 #include <utility>
 #include <vector>
 
-UpdateStmt::UpdateStmt(
-    Table *table, vector<unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas, FilterStmt *filter_stmt)
-    : table_(table), exprs_(std::move(exprs)), field_metas_(std::move(field_metas)), filter_stmt_(filter_stmt)
+UpdateStmt::UpdateStmt(Table *table, vector<FieldMeta> field_metas,
+    vector<unique_ptr<Expression>> values, FilterStmt *filter_stmt)
+    : table_(table), field_metas_(std::move(field_metas)), values_(std::move(values)), filter_stmt_(filter_stmt)
 {}
 
 UpdateStmt::~UpdateStmt()
@@ -40,69 +40,85 @@ UpdateStmt::~UpdateStmt()
   }
 }
 
-RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt)
 {
   // TODO
-  const char *table_name = update.relation_name.c_str();
-  if (nullptr == db || nullptr == table_name || update.update_list.size() == 0) {
-    LOG_WARN("invalid argument. db=%p, table_name=%p, value_num=%d",
-        db, table_name, static_cast<int>(update.update_list.size()));
+  const char *table_name = update_sql.relation_name.c_str();
+  if (nullptr == db || nullptr == table_name || update_sql.update_list.empty()) {
+    std::ostringstream set_clauses_logger;
+    set_clauses_logger << "invalid argument. db=" << db << ", table_name=" << table_name;
+    set_clauses_logger << ", set_clauses=[";
+    for (const auto &clause : update_sql.update_list) {
+      // 实现表达式打印
+      // set_clauses_logger << "{" << clause.field_name << ": " << clause.value.to_string() << "}, ";
+      set_clauses_logger << "{" << clause.field_name << ": "
+                         << "}, ";
+    }
+    set_clauses_logger << "]";
+    LOG_WARN("%s", set_clauses_logger.str().c_str());
     return RC::INVALID_ARGUMENT;
   }
 
   // check whether the table exists
-  Table *table = db->find_table(table_name);
+  auto table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  unordered_map<std::string, Table *> table_map;
-  table_map.insert(pair<string, Table *>(string(table_name), table));
+  auto                                     table_meta = table->table_meta();
+  std::vector<FieldMeta>                   field_metas;
+  std::vector<std::unique_ptr<Expression>> values;
 
-  FilterStmt *filter_stmt = nullptr;
-  RC          rc = FilterStmt::create(db, table, &table_map, update.conditions, filter_stmt, FilterStmt::Type::WHERE);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-
-  TableMeta     meta = table->table_meta();
-  BinderContext context;
-  context.add_table(table);
-  context.set_table_map(&table_map);
-  ExpressionBinder                    binder(context);
-  std::vector<unique_ptr<Expression>> bound_expressions;
-  std::vector<FieldMeta>              field_metas;
-  for (const auto &[attr, expr] : update.update_list) {
-    auto field_meta = meta.field(attr.c_str());
+  RC rc = RC::SUCCESS;
+  for (auto &clause : update_sql.update_list) {
+    // check whether the field exists
+    auto field_meta = table_meta.field(clause.field_name.c_str());
     if (field_meta == nullptr) {
-      LOG_WARN("no such field. table=%s, field=%s", table_name, attr.c_str());
+      LOG_WARN("Field does not exist. db=%s, table_name=%s, field_name=%s",
+                db->name(), table_name, clause.field_name.c_str());
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
 
-    if (expr->type() == ExprType::SUBQUERY) {
-      auto  subquery_expr = static_cast<SubqueryExpr *>(expr);
-      Stmt *stmt          = nullptr;
-      RC    rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("failed to create sub select statement");
-        return rc;
-      }
-      // 检查子查询是否合法，属性只能有一个
-      RC rc_ = Stmt::check_sub_select_legal(db, subquery_expr->sub_query_sn());
-      if (rc_ != RC::SUCCESS) {
-        return rc_;
-      }
-      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    }
-    unique_ptr<Expression> exprp(expr);
-    RC                     rc = binder.bind_expression(exprp, bound_expressions);
+
+    // check whether the value is valid
+    std::unordered_map<std::string, Table *> table_map;
+    table_map.insert(std::pair(std::string(table_name), table));
+
+    vector<unique_ptr<Expression>> expressions;
+    BinderContext                  binder_context;
+
+    binder_context.add_table(table);
+    binder_context.add_db(db);
+    binder_context.set_table_map(&table_map);
+    binder_context.set_default_table(table);
+
+    ExpressionBinder expression_binder(binder_context);
+    rc = expression_binder.bind_expression(clause.value, expressions);
+
     if (OB_FAIL(rc)) {
-      LOG_WARN("failed to bind expression");
+      LOG_WARN("Failed to bind expression for field: %s",
+                clause.field_name.c_str());
       return rc;
     }
-    field_metas.push_back(*field_meta);
+
+    // 表达式值类型检查延迟到 UpdatePhysicalOperator 阶段
+
+    field_metas.emplace_back(*field_meta);
+    values.emplace_back(std::move(expressions[0]));
   }
-  stmt = new UpdateStmt(table, std::move(bound_expressions), std::move(field_metas), filter_stmt);
-  return rc;
+
+  std::unordered_map<std::string, Table *> table_map;
+  table_map.insert(std::pair(std::string(table_name), table));
+
+  FilterStmt *filter_stmt = nullptr;
+  rc                      = FilterStmt::create(db, table, {}, &table_map, update_sql.conditions, filter_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
+    return rc;
+  }
+
+  // everything alright
+  stmt = new UpdateStmt(table, std::move(field_metas), std::move(values), filter_stmt);
+  return RC::SUCCESS;
 }

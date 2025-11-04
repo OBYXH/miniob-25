@@ -9,11 +9,23 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by WangYunlai on 2023/4/25.
+// Created by Wangyunlai on 2022/12/29.
 //
 
-#include "sql/operator/insert_logical_operator.h"
+#pragma once
 
-InsertLogicalOperator::InsertLogicalOperator(Table *table, const std::vector<std::vector<Value>> &values_list)
-    : table_(table), values_list_(values_list)
-{}
+#include "sql/optimizer/rewrite_rule.h"
+
+/**
+ * @brief 向量索引重写规则
+ * @ingroup Rewriter
+ * @details 识别 orderby limit 重写为向量索引
+ */
+class VectorIndexScanRewrite : public RewriteRule
+{
+public:
+  VectorIndexScanRewrite()          = default;
+  virtual ~VectorIndexScanRewrite() = default;
+
+  RC rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made) override;
+};

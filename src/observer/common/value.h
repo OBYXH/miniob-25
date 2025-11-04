@@ -94,6 +94,14 @@ public:
     return DataType::type_instance(value.attr_type())->cast_to(value, to_type, result);
   }
 
+  static int implicit_cast_cost(AttrType from, AttrType to)
+  {
+    if (from == to) {
+      return 0;
+    }
+    return DataType::type_instance(from)->cast_cost(to);
+  }
+
   void set_type(AttrType type) { this->attr_type_ = type; }
   void set_data(char *data, int length);
   void set_data(const char *data, int length) { this->set_data(const_cast<char *>(data), length); }
@@ -113,6 +121,7 @@ public:
   int      length() const { return length_; }
   AttrType attr_type() const { return attr_type_; }
   RC       borrow_text(const Value &v);
+  RC       borrow_vector(const Value &v);
 
 public:
   /**
@@ -125,6 +134,7 @@ public:
   string_t           get_string_t() const;
   std::vector<float> get_vector() const;
   bool               get_boolean() const;
+  int                get_date() const;
   int                get_vector_length() const;
   float              get_vector_element(int i) const;
   bool               is_null() const { return is_null_; }
@@ -135,11 +145,11 @@ public:
   void          set_float(float val, int precision = 2);
   void          set_string(const char *s, int len = 0);
   void          set_empty_string(int len);
-  void          set_text(const char *s, int len = 65535);
+  void          set_text(const char *s, int len = 16384);
   void          set_vector(float *array, int length);
   void          set_vector(const std::vector<float> &vec);
   void          set_vector(const char *s);
-  static Value *string_to_vector(const char *s);
+  static Value  string_to_vector(const char *s);
   void          set_string_from_other(const Value &other);
 
 private:

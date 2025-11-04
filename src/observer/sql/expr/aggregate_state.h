@@ -60,9 +60,9 @@ public:
   }
 };
 
-void *create_aggregate_state(AggregateExpr::Type aggr_type, AttrType attr_type);
+void *create_aggregate_state(AggregateFunctionType aggr_type, AttrType attr_type);
 
-RC aggregate_state_update_by_value(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, const Value &val);
-RC aggregate_state_update_by_column(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, Column &col);
+RC aggregate_state_update_by_value(void *state, AggregateFunctionType aggr_type, AttrType attr_type, const Value &val);
+RC aggregate_state_update_by_column(void *state, AggregateFunctionType aggr_type, AttrType attr_type, Column &col);
 
-RC finialize_aggregate_state(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, Column &col);
+RC finialize_aggregate_state(void *state, AggregateFunctionType aggr_type, AttrType attr_type, Column &col);

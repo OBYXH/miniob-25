@@ -20,6 +20,12 @@ TableGetLogicalOperator::TableGetLogicalOperator(Table *table, ReadWriteMode mod
     : LogicalOperator(), table_(table), mode_(mode)
 {}
 
+TableGetLogicalOperator::TableGetLogicalOperator(Table *table, std::string table_alias, ReadWriteMode mode)
+    : table_(table), mode_(mode)
+{
+  table_alias_ = std::move(table_alias);
+}
+
 void TableGetLogicalOperator::set_predicates(vector<unique_ptr<Expression>> &&exprs) { predicates_ = std::move(exprs); }
 
 unique_ptr<LogicalProperty> TableGetLogicalOperator::find_log_prop(const vector<LogicalProperty *> &log_props)

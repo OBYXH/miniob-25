@@ -46,6 +46,9 @@ public:
   {
     return RC::UNIMPLEMENTED;
   }
+  RC create_vector_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name) override {
+    return RC::UNIMPLEMENTED;
+  }
   RC drop_index(const char *index_name) override { return RC::UNIMPLEMENTED; }
   RC add_column(const AttrInfoSqlNode &attr_info, Trx *trx) override { return RC::UNIMPLEMENTED; }
   RC drop_column(const AttrInfoSqlNode &attr_info, Trx *trx) override { return RC::UNIMPLEMENTED; }
@@ -61,6 +64,10 @@ public:
   RC     sync() override { return RC::SUCCESS; }
   Index *find_index(const char *index_name) const override { return nullptr; }
   Index *find_index_by_field(const char *field_name) const override { return nullptr; }
+  Index *find_vector_index(NormalFunctionType distance_fn, const char *field_name) const override
+  {
+    return nullptr;
+  }
   RC     open() override;
   RC     drop() override { return RC::UNIMPLEMENTED; }
   RC     init() override { return RC::UNIMPLEMENTED; }

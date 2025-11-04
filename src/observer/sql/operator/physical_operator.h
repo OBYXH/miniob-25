@@ -37,6 +37,7 @@ enum class PhysicalOperatorType
   TABLE_SCAN,
   TABLE_SCAN_VEC,
   INDEX_SCAN,
+  VECTOR_INDEX_SCAN,
   NESTED_LOOP_JOIN,
   HASH_JOIN,
   EXPLAIN,
@@ -94,9 +95,9 @@ public:
 
   vector<unique_ptr<PhysicalOperator>> &children() { return children_; }
 
-  void set_outer_tuple(Tuple *tuple) { outer_tuple = tuple; }
+  void set_outer_tuple(const Tuple *tuple) { outer_tuple = tuple; }
 
 protected:
   vector<unique_ptr<PhysicalOperator>> children_;
-  Tuple                               *outer_tuple = nullptr;
+  const Tuple                               *outer_tuple = nullptr;
 };

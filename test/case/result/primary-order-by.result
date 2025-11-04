@@ -110,7 +110,7 @@ id | score | name
 
 6. multi-table order by
 select * from t_order_by,t_order_by_2 order by t_order_by.id,t_order_by.score,t_order_by.name,t_order_by_2.id,t_order_by_2.age;
-id | score | name | id | age
+t_order_by.id | t_order_by.score | t_order_by.name | t_order_by_2.id | t_order_by_2.age
 1 | 2 | b | 1 | 10
 1 | 2 | b | 2 | 20
 1 | 2 | b | 3 | 10
@@ -154,7 +154,7 @@ id | score | name | id | age
 4 | 3 | c | 3 | 40
 4 | 3 | c | 4 | 20
 select * from t_order_by, t_order_by_2 where t_order_by.id=t_order_by_2.id order by t_order_by.score desc, t_order_by_2.age asc, t_order_by.id asc, t_order_by.name;
-id | score | name | id | age
+t_order_by.id | t_order_by.score | t_order_by.name | t_order_by_2.id | t_order_by_2.age
 3 | 4 | c | 3 | 10
 3 | 4 | c | 3 | 20
 3 | 4 | c | 3 | 40

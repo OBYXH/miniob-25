@@ -41,12 +41,12 @@ public:
 public:
   FilterStmt() = default;
   virtual ~FilterStmt();
-  std::vector<std::unique_ptr<Expression>> &conditions() { return conditions_; }
+  bool                         condition_empty() const { return nullptr == condition_; }
+  unique_ptr<Expression> &condition() { return condition_; }
 
 public:
-  static RC create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-      std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type);
+  static RC create(Db *db, Table *default_table, std::vector<std::string> tables_alias,
+      std::unordered_map<std::string, Table *> *tables, std::unique_ptr<Expression> &condition, FilterStmt *&stmt);
 
-  std::vector<std::unique_ptr<Expression>> conditions_;
-  std::vector<char>                        conjunction_types_;  // conditon 连接类型
+  unique_ptr<Expression> condition_;
 };

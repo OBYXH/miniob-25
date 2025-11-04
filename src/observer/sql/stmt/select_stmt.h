@@ -35,11 +35,11 @@ public:
   ~SelectStmt() override;
 
   StmtType type() const override { return StmtType::SELECT; }
+  size_t   query_expressions_size() const { return query_expressions_.size(); }
 
 public:
   static RC create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
-      std::shared_ptr<std::vector<string>> loaded_relation_names = nullptr,
-      unordered_map<string, Table *>       outer_table_map       = {});
+      const std::unordered_map<std::string, Table *> &outer_table_map = {});
 
 public:
   const vector<Table *> &tables() const { return tables_; }
@@ -50,14 +50,12 @@ public:
   vector<unique_ptr<Expression>> &group_by() { return group_by_; }
   std::vector<OrderBySqlNode>    &order_by() { return order_by_; }
   int                             limit() const { return limit_; }
-  vector<unique_ptr<Expression>> &having_expressions()
-  {
-    return having_filter_stmt_ ? having_filter_stmt_->conditions() : *(new vector<unique_ptr<Expression>>());
-  }
+  std::vector<std::string>                 &tables_alias() { return tables_alias_; }
 
 private:
   vector<unique_ptr<Expression>> query_expressions_;
   vector<Table *>                tables_;
+  std::vector<std::string>                 tables_alias_;  // 存表名
   FilterStmt                    *filter_stmt_        = nullptr;
   FilterStmt                    *having_filter_stmt_ = nullptr;
   vector<unique_ptr<Expression>> group_by_;

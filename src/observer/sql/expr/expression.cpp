@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/sys/rc.h"
 #include "common/type/attr_type.h"
 #include "common/value.h"
+#include "sql/builtin/builtin.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
 #include <cmath>
@@ -33,6 +34,11 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/full_text_index.h"
 #include "storage/tokenizer/jieba_tokenizer.h"
 #include "storage/tokenizer/tokenizer.h"
+#include "sql/stmt/select_stmt.h"
+#include "sql/operator/logical_operator.h"
+#include "sql/operator/physical_operator.h"
+#include "sql/optimizer/logical_plan_generator.h"
+#include "sql/optimizer/physical_plan_generator.h"
 
 class SelectStmt;
 class ParsedSqlNode;
@@ -41,41 +47,11 @@ class PhysicalOperator;
 
 using namespace std;
 
-RC VectorToStringExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
-{
-  RC    rc = RC::SUCCESS;
-  Value child_value;
-  rc = child_->get_value(tuple, child_value, trx);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
-    return rc;
+#define check_type(str, rule)           \
+  if (0 == strcasecmp(type_str, str)) { \
+    type = rule;                        \
+    return RC::SUCCESS;                 \
   }
-  if (child_value.attr_type() != AttrType::VECTORS) {
-    LOG_WARN("VectorToString function only support vector type");
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-  }
-  auto str_vec = child_value.to_string();
-  value.set_string(str_vec.c_str(), str_vec.size());
-  return rc;
-}
-
-RC VectorToStringExpr::try_get_value(Value &value) const
-{
-  RC    rc = RC::SUCCESS;
-  Value child_value;
-  rc = child_->try_get_value(child_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  if (child_value.attr_type() != AttrType::VECTORS) {
-    LOG_WARN("VectorToString function only support vector type");
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-  }
-  auto str_vec = child_value.to_string();
-  value.set_string(str_vec.c_str(), str_vec.size());
-  return rc;
-}
 
 // 日期后缀查找函数
 std::string get_day_suffix(int day)
@@ -154,345 +130,7 @@ void date_format(string format, const Value &child_value, Value &value)
   value.set_string(result_format.c_str());
 }
 
-RC FunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
-{
-  RC    rc = RC::SUCCESS;
-  Value child_value;
-  rc = child_->get_value(tuple, child_value, trx);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  switch (function_type_) {
-    case Type::LENGTH: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::CHARS) {
-        LOG_WARN("LENGTH function only support string type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      value.set_int(static_cast<int>(child_value.get_string().size()));
-    } break;
-    case Type::ROUND: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::FLOATS) {
-        LOG_WARN("ROUND function only support float type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      value.set_float(child_value.get_float(), precision_);
-    } break;
-    case Type::DATE_FORMAT: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::DATES) {
-        LOG_WARN("DATE_FORMAT function only support date type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      if (common::is_blank(format_.c_str())) {
-        value.set_string(format_.c_str());
-        return rc;
-      }
-      date_format(format_, child_value, value);
-    } break;
-    case Type::TOKENIZE: {
-      if (common::is_blank(format_.c_str()) || format_ != "jieba") {
-        return RC::UNSUPPORTED;
-      }
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::CHARS && child_value.attr_type() != AttrType::TEXTS) {
-        LOG_WARN("TOKENIZE function only support string type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      unique_ptr<Tokenizer> tokenizer = make_unique<JiebaTokenizer>();
-      vector<string>        words;
-      tokenizer->cut(child_value.get_string(), words);
-
-      string result_str;
-      result_str += "[";
-      for (size_t i = 0; i < words.size(); ++i) {
-        if (i != 0) {
-          result_str += ", ";
-        }
-        result_str += words[i];
-      }
-      result_str += "]";
-      value.set_string(result_str.c_str());
-    } break;
-    case Type::MATCH_AGAINST: {
-      auto field_expr = dynamic_cast<FieldExpr *>(child_.get());
-      if (field_expr == nullptr) {
-        LOG_WARN("MATCH_AGAINST function only support field expression as child");
-        return RC::UNSUPPORTED;
-      }
-      auto table = field_expr->field().table();
-      if (table == nullptr) {
-        LOG_WARN("failed to get table from field expression");
-        return RC::INTERNAL;
-      }
-      const RowTuple &row_tuple = dynamic_cast<const RowTuple &>(tuple);
-      RID             rid       = row_tuple.record().rid();
-      float           score     = 0.0;
-      Index          *index     = table->find_index_by_field(field_expr->field_name());
-      if (index == nullptr) {
-        LOG_WARN("failed to get index from table:%s, field:%s", table->name(), field_expr->field_name());
-        return RC::INTERNAL;
-      }
-      FullTextIndex *ft_index = dynamic_cast<FullTextIndex *>(index);
-      if (ft_index == nullptr) {
-        LOG_WARN("failed to get full text index from table:%s, field:%s", table->name(), field_expr->field_name());
-        return RC::INTERNAL;
-      }
-      auto result = ft_index->search(format_);
-      for (const auto &res : result) {
-        if (res.rid == rid) {
-          score = res.score;
-          break;
-        }
-      }
-      value.set_float(score);
-    } break;
-    default: {
-      LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
-      return RC::UNSUPPORTED;
-    }
-  }
-  return rc;
-}
-
-RC FunctionExpr::try_get_value(Value &value) const
-{
-  RC    rc = RC::SUCCESS;
-  Value child_value;
-  rc = child_->try_get_value(child_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of child expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  switch (function_type_) {
-    case Type::LENGTH: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::CHARS) {
-        LOG_WARN("LENGTH function only support string type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      value.set_int(static_cast<int>(child_value.get_string().size()));
-    } break;
-    case Type::ROUND: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::FLOATS) {
-        LOG_WARN("ROUND function only support float type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      value.set_float(child_value.get_float(), precision_);
-    } break;
-    case Type::DATE_FORMAT: {
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::DATES) {
-        LOG_WARN("DATE_FORMAT function only support date type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      if (common::is_blank(format_.c_str())) {
-        value.set_string(format_.c_str());
-        return rc;
-      }
-      date_format(format_, child_value, value);
-    } break;
-    case Type::TOKENIZE: {
-      if (common::is_blank(format_.c_str()) || format_ != "jieba") {
-        return RC::UNSUPPORTED;
-      }
-      if (child_value.is_null()) {
-        value.set_null();
-        return rc;
-      }
-      if (child_value.attr_type() != AttrType::CHARS && child_value.attr_type() != AttrType::TEXTS) {
-        LOG_WARN("TOKENIZE function only support string type");
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      unique_ptr<Tokenizer> tokenizer = make_unique<JiebaTokenizer>();
-      vector<string>        words;
-      tokenizer->cut(child_value.get_string(), words);
-
-      string result_str;
-      result_str += "[";
-      for (size_t i = 0; i < words.size(); ++i) {
-        if (i != 0) {
-          result_str += ", ";
-        }
-        result_str += "\"" + words[i] + "\"";
-      }
-      result_str += "]";
-      value.set_string(result_str.c_str());
-    } break;
-    case Type::MATCH_AGAINST: {
-      auto field_expr = dynamic_cast<FieldExpr *>(child_.get());
-      if (field_expr == nullptr) {
-        LOG_WARN("MATCH_AGAINST function only support field expression as child");
-        return RC::UNSUPPORTED;
-      }
-      auto table = field_expr->field().table();
-      if (table == nullptr) {
-        LOG_WARN("failed to get table from field expression");
-        return RC::INTERNAL;
-      }
-      value.set_float(0.0);  // 无法在编译期获取分数，返回默认值0.0
-    } break;
-    default: {
-      LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
-      return RC::UNSUPPORTED;
-    }
-  }
-  return rc;
-}
-
-RC VecDistanceExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
-{
-  RC    rc = RC::SUCCESS;
-  Value left_value;
-  Value right_value;
-  rc = left_->get_value(tuple, left_value, trx);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  rc = right_->get_value(tuple, right_value, trx);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
-    LOG_WARN("vector distance expr only support vector type");
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-  }
-  if (left_value.get_vector().size() != right_value.get_vector().size()) {
-    LOG_WARN("vector dimension mismatch, left size: %d, right size: %d", left_value.get_vector().size(),
-             right_value.get_vector().size());
-    return RC::VECTOR_DIMENSION_MISMATCH;
-  }
-  switch (distance_type_) {
-    case Type::L2: {
-      float sum = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
-        sum += diff * diff;
-      }
-      value.set_float(sqrt(sum));
-      // value.set_float(round(sqrt(sum) * 100) / 100);
-    } break;
-    case Type::COSINE: {
-      float dot_product = 0.0;
-      float left_norm   = 0.0;
-      float right_norm  = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
-        left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
-        right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
-      }
-      if (left_norm == 0 || right_norm == 0) {
-        LOG_WARN("vector norm is zero");
-        value.set_null();
-        return RC::SUCCESS;
-      }
-      value.set_float(1 - dot_product / (sqrt(left_norm) * sqrt(right_norm)));
-      // value.set_float(round((1 - dot_product / (sqrt(left_norm) * sqrt(right_norm))) * 100) / 100);
-    } break;
-    case Type::INNER: {
-      float dot_product = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
-      }
-      value.set_float(dot_product);
-      // value.set_float(round(dot_product * 100) / 100);
-    } break;
-    default: return RC::UNSUPPORTED;
-  }
-  return RC::SUCCESS;
-}
-
-RC VecDistanceExpr::try_get_value(Value &value) const
-{
-  RC    rc = RC::SUCCESS;
-  Value left_value;
-  Value right_value;
-  rc = left_->try_get_value(left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  rc = right_->try_get_value(right_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
-  }
-  if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
-    LOG_WARN("vector distance expr only support vector type");
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-  }
-  if (left_value.get_vector().size() != right_value.get_vector().size()) {
-    LOG_WARN("vector dimension mismatch, left size: %d, right size: %d", left_value.get_vector().size(),
-             right_value.get_vector().size());
-    return RC::VECTOR_DIMENSION_MISMATCH;
-  }
-  switch (distance_type_) {
-    case Type::L2: {
-      float sum = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        float diff = left_value.get_vector()[i] - right_value.get_vector()[i];
-        sum += diff * diff;
-      }
-      value.set_float(sqrt(sum));
-      // value.set_float(round(sqrt(sum) * 100) / 100);
-    } break;
-    case Type::COSINE: {
-      float dot_product = 0.0;
-      float left_norm   = 0.0;
-      float right_norm  = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
-        left_norm += left_value.get_vector()[i] * left_value.get_vector()[i];
-        right_norm += right_value.get_vector()[i] * right_value.get_vector()[i];
-      }
-      if (left_norm == 0 || right_norm == 0) {
-        LOG_WARN("vector norm is zero");
-        value.set_null();
-        return RC::SUCCESS;
-      }
-      value.set_float(1 - dot_product / (sqrt(left_norm) * sqrt(right_norm)));
-      // value.set_float(round((1 - dot_product / (sqrt(left_norm) * sqrt(right_norm))) * 100) / 100);
-    } break;
-    case Type::INNER: {
-      float dot_product = 0.0;
-      for (size_t i = 0; i < left_value.get_vector().size(); i++) {
-        dot_product += left_value.get_vector()[i] * right_value.get_vector()[i];
-      }
-      value.set_float(dot_product);
-      // value.set_float(round(dot_product * 100) / 100);
-    } break;
-    default: return RC::UNSUPPORTED;
-  }
-  return RC::SUCCESS;
-}
-
-RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC FieldExpr::get_value(const Tuple &tuple, Value &value)
 {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
@@ -533,7 +171,7 @@ bool ValueExpr::equal(const Expression &other) const
   return value_.compare(other_value_expr.get_value()) == 0;
 }
 
-RC ValueExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC ValueExpr::get_value(const Tuple &tuple, Value &value)
 {
   value = value_;
   return RC::SUCCESS;
@@ -562,10 +200,10 @@ RC CastExpr::cast(const Value &value, Value &cast_value) const
   return rc;
 }
 
-RC CastExpr::get_value(const Tuple &tuple, Value &result, Trx *trx) const
+RC CastExpr::get_value(const Tuple &tuple, Value &result)
 {
   Value value;
-  RC    rc = child_->get_value(tuple, value, trx);
+  RC    rc = child_->get_value(tuple, value);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -605,6 +243,10 @@ RC CastExpr::try_get_value(Value &result) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+ComparisonExpr::ComparisonExpr(CompOp comp, Expression *left, Expression *right)
+    : comp_(comp), left_(std::unique_ptr<Expression>(left)), right_(std::unique_ptr<Expression>(right))
+{}
 
 ComparisonExpr::ComparisonExpr(CompOp comp, unique_ptr<Expression> left, unique_ptr<Expression> right)
     : comp_(comp), left_(std::move(left)), right_(std::move(right))
@@ -684,242 +326,112 @@ RC ComparisonExpr::try_get_value(Value &cell) const
   return RC::INVALID_ARGUMENT;
 }
 
-RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC ComparisonExpr::get_value(const Tuple &tuple, Value &value)
 {
+  RC    rc = RC::SUCCESS;
   Value left_value;
   Value right_value;
-  RC    rc = RC::SUCCESS;
 
-  // 子查询处理（排列组合共三类）
-  if (left_->type() == ExprType::SUBQUERY && right_->type() == ExprType::SUBQUERY) {
-    rc = left_->get_value(tuple, left_value, trx);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-      return rc;
-    }
-    // 对于这种情况子查询只支持一行
-    Value _test;
-    if (left_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
-      LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
-      return RC::INTERNAL;
-    }
-    rc = right_->get_value(tuple, right_value, trx);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-      return rc;
-    }
-    if (right_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
-      LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
-      return RC::INTERNAL;
-    }
-    bool bool_value = false;
-    rc              = compare_value(left_value, right_value, bool_value);
-    if (rc == RC::SUCCESS) {
-      value.set_boolean(bool_value);
-    }
-  } else if (left_->type() == ExprType::SUBQUERY || right_->type() == ExprType::SUBQUERY) {
-    SubqueryExpr *subquery_expr;
-    Value        *sub_query_value;
-    if (left_->type() == ExprType::SUBQUERY) {
-      subquery_expr = static_cast<SubqueryExpr *>(left_.get());
-      if (right_->type() != ExprType::SPECIAL) {
-        rc = right_->get_value(tuple, right_value, trx);
-      }
-      sub_query_value = &left_value;
-    } else {
-      subquery_expr = static_cast<SubqueryExpr *>(right_.get());
-      if (left_->type() != ExprType::SPECIAL) {
-        rc = left_->get_value(tuple, left_value, trx);
-      }
-      sub_query_value = &right_value;
-    }
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("ComparisonExpr:Subquery: failed to get value of expression. rc=%s", strrc(rc));
-      return rc;
-    }
+  SubQueryExpr *left_subquery_expr  = nullptr;
+  SubQueryExpr *right_subquery_expr = nullptr;
 
-    bool bool_value = false;
-    // 循环执行子查询的算子，直到找到一个满足条件的值
-    bool has_sub_queried_ = false;
-    while ((rc = subquery_expr->get_value(tuple, *sub_query_value, trx)) == RC::SUCCESS) {
-
-      if (comp_ == EXISTS_OP) {
-        bool_value = true;
-        value.set_boolean(true);
-        break;
-      } else if (comp_ == NOT_EXISTS_OP) {
-        bool_value = false;
-        value.set_boolean(false);
-        break;
-        // 当 comp_ 不是 IN、NOT_IN、EXISTS、NOT_EXISTS 时，子查询的结果只能是一个值
-      } else if (comp_ != IN_OP && comp_ != NOT_IN_OP && comp_ != EXISTS_OP && comp_ != NOT_EXISTS_OP) {
-        if (has_sub_queried_) {
-          has_sub_queried_ = false;
-          rc               = RC::SUB_QUERY_VALUES_DISMATCH;
-          break;
-        } else {
-          has_sub_queried_ = true;
-        }
-      }
-
-      // CompOp == EXISTS/NOT_EXISTS 不可能走到这里
-
-      rc = compare_value(left_value, right_value, bool_value);
-
-      // 对 IN/NOT_IN 的 fast-break 逻辑
-      // 当 CompOp 是 IN 时，只要找到一个满足条件的值就可以返回
-      // 当 CompOp 是 NOT_IN 时，必须得遍历完所有的值才能知道
-      if (rc == RC::SUCCESS && comp_ == IN_OP && bool_value) {
-        value.set_boolean(bool_value);
-        break;
-      } else if (rc == RC::SUCCESS && comp_ == NOT_IN_OP && !bool_value) {
-        // 当 CompOp==NOT_IN，且左右 value 相等（因为是NOTIN，所以bool_value前要加!），直接结束循环
-        value.set_boolean(bool_value);
-        break;
-      }
-    }
-
-    if (rc == RC::INVALID_ARGUMENT || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
-      if (subquery_expr->close_physical_operator() != RC::SUCCESS) {
-        LOG_WARN("failed to close physical operator.");
-      }
-      return rc;
-    }
-
-    // 执行到了算子末尾，还没有找到满足条件的值
-    if (rc == RC::RECORD_EOF) {
-      if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
-        bool_value = true;
-        rc         = RC::SUCCESS;
-      } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
-        bool_value = false;
-        rc         = RC::SUCCESS;
-      }
-    }
-    if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    }
-    value.set_boolean(bool_value);
-
-    // 关闭算子
-    // 可优化 static_cast 潜在的开销
-    if (subquery_expr->physical_operator() != nullptr) {
-      rc = subquery_expr->close_physical_operator();
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("failed to close physical operator. rc=%s", strrc(rc));
-      }
-    }
-
-  } else if (left_->type() == ExprType::VALUES || right_->type() == ExprType::VALUES) {
-    ValueListExpr *value_list_expr;
-    Value         *value_list_value;
-    if (left_->type() == ExprType::VALUES) {
-      value_list_expr  = static_cast<ValueListExpr *>(left_.get());
-      rc               = right_->get_value(tuple, right_value, trx);  // 假设右边不是value list
-      value_list_value = &left_value;
-    } else {
-      value_list_expr = static_cast<ValueListExpr *>(right_.get());
-      if (left_->type() != ExprType::SPECIAL) {
-        rc = left_->get_value(tuple, left_value, trx);  // 假设左边不是value list
-      }
-      value_list_value = &right_value;
-    }
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-      return rc;
-    }
-
-    bool bool_value       = false;
-    bool has_sub_queried_ = false;
-
-    // 循环执行子查询的算子，直到找到一个满足条件的值
-    while ((rc = value_list_expr->get_value(tuple, *value_list_value, trx)) == RC::SUCCESS) {
-      if (value_list_value->attr_type() == AttrType::UNDEFINED) {
-        rc = RC::RECORD_EOF;  // maybe wrong
-        break;
-      }
-
-      if (comp_ == EXISTS_OP) {
-        // 当comp_为EXISTS时，直接返回true
-        bool_value = true;
-        value.set_boolean(true);
-        break;
-      } else if (comp_ == NOT_EXISTS_OP) {
-        bool_value = false;
-        value.set_boolean(false);
-        break;
-      } else if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
-        if (has_sub_queried_) {
-          has_sub_queried_ = false;
-          rc               = RC::INVALID_ARGUMENT;
-          break;
-        } else {
-          has_sub_queried_ = true;
-        }
-      }
-
-      rc = compare_value(left_value, right_value, bool_value);
-
-      if (rc == RC::SUCCESS && comp_ != NOT_IN_OP && bool_value) {
-        value.set_boolean(bool_value);
-        break;
-      } else if (rc == RC::SUCCESS && comp_ == NOT_IN_OP && !bool_value) {
-        value.set_boolean(bool_value);
-        break;
-      }
-    }
-
-    // if (rc == RC::INVALID_ARGUMENT)
-    //   return rc;
-
-    // EOF判断
-    if (rc == RC::RECORD_EOF) {
-      if (comp_ == NOT_IN_OP || comp_ == NOT_EXISTS_OP) {
-        value.set_boolean(true);
-        rc = RC::SUCCESS;
-        return rc;
-      } else if (comp_ == IN_OP || comp_ == EXISTS_OP) {
-        value.set_boolean(false);
-        rc = RC::SUCCESS;
+  // Lambda to check if the expression is a subquery and open it
+  auto open_subquery = [&tuple](const std::unique_ptr<Expression> &expr, SubQueryExpr *&subquery_expr) -> RC {
+    if (expr->type() == ExprType::SUBQUERY) {
+      subquery_expr = dynamic_cast<SubQueryExpr *>(expr.get());
+      RC rc         = subquery_expr->open(nullptr, tuple);  // Open the subquery expression (pass nullptr for now)
+      if (OB_FAIL(rc)) {
         return rc;
       }
     }
-    if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    }
+    return RC::SUCCESS;
+  };
 
-    value.set_boolean(bool_value);
-
-    value_list_expr->set_index(0);  // 重置index
-  } else {                          // 普通表达式
-    // exists 和 not exists 不应该走到这里，TA们是用于子查询的。
-    if (comp_ == EXISTS_OP || comp_ == NOT_EXISTS_OP) {
-      LOG_WARN("exists and not exists should be used in subquery");
-      return RC::INVALID_ARGUMENT;
-    }
-
-    rc = left_->get_value(tuple, left_value, trx);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-      return rc;
-    }
-    rc = right_->get_value(tuple, right_value, trx);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-      return rc;
-    }
-
-    bool bool_value = false;
-
-    rc = compare_value(left_value, right_value, bool_value);
-    if (rc == RC::SUCCESS) {
-      value.set_boolean(bool_value);
-    }
+  // Check and open the left subquery expression if it exists
+  rc = open_subquery(left_, left_subquery_expr);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to open left subquery expression. rc=%s", strrc(rc));
+    return rc;
   }
 
-  if (rc == RC::RECORD_EOF)
-    rc = RC::SUCCESS;
+  // Check and open the right subquery expression if it exists
+  rc = open_subquery(right_, right_subquery_expr);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to open right subquery expression. rc=%s", strrc(rc));
+    return rc;
+  }
 
+  // Get the value of the left expression
+  rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
+    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  // Check if the left subquery has more rows (error if true)
+  if (left_subquery_expr && left_subquery_expr->has_more_row(tuple)) {
+    return RC::SUBQUERY_RETURNED_MULTIPLE_ROWS;
+  }
+
+  // Handle IN and NOT IN operations
+  if (comp_ == IN_OP || comp_ == NOT_IN_OP) {
+    if (left_value.is_null()) {
+      value.set_boolean(false);
+      return RC::SUCCESS;
+    }
+
+    if (right_->type() == ExprType::LIST) {
+      static_cast<ListExpr *>(right_.get())->reset();
+    }
+
+    // 比较表达式的结果，如果进入 while 循环且没有提前退出，那么结果即为该值
+    bool res = comp_ == NOT_IN_OP;
+
+    rc = right_->get_value(tuple, right_value);
+    if (rc == RC::RECORD_EOF) {
+      // 子查询结果为空，返回 null 值
+    } else if (OB_FAIL(rc)) {
+      // 其他错误
+      return rc;
+    } else if (left_value.compare(right_value) == 0) {
+      // 不为空才能比较，null 是不可比较的
+      res = comp_ == IN_OP;
+    } else {
+      while (RC::SUCCESS == (rc = right_->get_value(tuple, right_value))) {
+        if (right_value.is_null()) {
+          // 对于 not in，一边有 null 就为假
+          if (comp_ == NOT_IN_OP) {
+            res = false;
+            break;
+          }
+        } else if (left_value.compare(right_value) == 0) {
+          res = comp_ == IN_OP;
+          break;
+        }
+      }
+    }
+    value.set_boolean(res);
+    return rc == RC::RECORD_EOF ? RC::SUCCESS : rc;
+  }
+
+  // Get the value of the right expression
+  rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
+    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  // Check if the right subquery has more rows (error if true)
+  if (right_subquery_expr && right_subquery_expr->has_more_row(tuple)) {
+    return RC::SUBQUERY_RETURNED_MULTIPLE_ROWS;
+  }
+
+  // Compare the left and right values
+  bool bool_value = false;
+  rc              = compare_value(left_value, right_value, bool_value);
+  if (rc == RC::SUCCESS) {
+    value.set_boolean(bool_value);
+  }
   return rc;
 }
 
@@ -997,7 +509,18 @@ ConjunctionExpr::ConjunctionExpr(Type type, vector<unique_ptr<Expression>> &chil
     : conjunction_type_(type), children_(std::move(children))
 {}
 
-RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+ConjunctionExpr::ConjunctionExpr(Type type, Expression *left, Expression *right) : conjunction_type_(type)
+{
+  children_.emplace_back(left);
+  children_.emplace_back(right);
+}
+
+ConjunctionExpr::ConjunctionExpr(Type type, std::unique_ptr<Expression> children) : conjunction_type_(type)
+{
+  children_.push_back(std::move(children));
+}
+
+RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value)
 {
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
@@ -1007,7 +530,7 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 
   Value tmp_value;
   for (const unique_ptr<Expression> &expr : children_) {
-    rc = expr->get_value(tuple, tmp_value, trx);
+    rc = expr->get_value(tuple, tmp_value);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value by child expression. rc=%s", strrc(rc));
       return rc;
@@ -1095,7 +618,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     } break;
 
     case Type::NEGATIVE: {
-      rc = Value::negative(right_value, value);
+      rc = Value::negative(left_value, value);
     } break;
 
     default: {
@@ -1158,10 +681,11 @@ RC ArithmeticExpr::execute_calc(
       break;
     case Type::NEGATIVE:
       if (attr_type == AttrType::INTS) {
-        unary_operator<LEFT_CONSTANT, int, NegateOperator>((int *)left.data(), (int *)result.data(), result.capacity());
+        binary_operator<LEFT_CONSTANT, RIGHT_CONSTANT, int, SubtractOperator>(
+            (int *)left.data(), (int *)right.data(), (int *)result.data(), result.capacity());
       } else if (attr_type == AttrType::FLOATS) {
-        unary_operator<LEFT_CONSTANT, float, NegateOperator>(
-            (float *)left.data(), (float *)result.data(), result.capacity());
+        binary_operator<LEFT_CONSTANT, RIGHT_CONSTANT, float, SubtractOperator>(
+            (float *)left.data(), (float *)right.data(), (float *)result.data(), result.capacity());
       } else {
         rc = RC::UNIMPLEMENTED;
       }
@@ -1174,7 +698,7 @@ RC ArithmeticExpr::execute_calc(
   return rc;
 }
 
-RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value)
 {
   RC rc = RC::SUCCESS;
 
@@ -1182,14 +706,14 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
   Value right_value;
 
   if (left_) {
-    rc = left_->get_value(tuple, left_value, trx);
+    rc = left_->get_value(tuple, left_value);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
   }
   if (right_) {
-    rc = right_->get_value(tuple, right_value, trx);
+    rc = right_->get_value(tuple, right_value);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
@@ -1274,19 +798,226 @@ RC ArithmeticExpr::try_get_value(Value &value) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// AggregateExpr::AggregateExpr(Type type, Expression *child) : aggregate_type_(type), child_(child) {}
 
-UnboundAggregateExpr::UnboundAggregateExpr(const char *aggregate_name, Expression *child)
-    : aggregate_name_(aggregate_name), child_(child)
-{}
+// AggregateExpr::AggregateExpr(Type type, unique_ptr<Expression> child) : aggregate_type_(type), child_(std::move(child))
+// {}
 
-UnboundAggregateExpr::UnboundAggregateExpr(const char *aggregate_name, unique_ptr<Expression> child)
-    : aggregate_name_(aggregate_name), child_(std::move(child))
-{}
+// RC AggregateExpr::get_column(Chunk &chunk, Column &column)
+// {
+//   RC rc = RC::SUCCESS;
+//   if (pos_ != -1) {
+//     column.reference(chunk.column(pos_));
+//   } else {
+//     rc = RC::INTERNAL;
+//   }
+//   return rc;
+// }
+
+// bool AggregateExpr::equal(const Expression &other) const
+// {
+//   if (this == &other) {
+//     return true;
+//   }
+//   if (other.type() != type()) {
+//     return false;
+//   }
+//   const AggregateExpr &other_aggr_expr = static_cast<const AggregateExpr &>(other);
+//   return aggregate_type_ == other_aggr_expr.aggregate_type() && child_->equal(*other_aggr_expr.child());
+// }
+
+// unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
+// {
+//   unique_ptr<Aggregator> aggregator;
+//   switch (aggregate_type_) {
+//     case Type::SUM: {
+//       aggregator = make_unique<SumAggregator>();
+//       break;
+//     }
+//     case Type::COUNT: {
+//       aggregator = make_unique<CountAggregator>();
+//       break;
+//     }
+//     case Type::AVG: {
+//       aggregator = make_unique<AvgAggregator>();
+//       break;
+//     }
+//     case Type::MAX: {
+//       aggregator = make_unique<MaxAggregator>();
+//       break;
+//     }
+//     case Type::MIN: {
+//       aggregator = make_unique<MinAggregator>();
+//       break;
+//     }
+//     default: {
+//       ASSERT(false, "unsupported aggregate type");
+//       break;
+//     }
+//   }
+//   return aggregator;
+// }
+
+// RC AggregateExpr::get_value(const Tuple &tuple, Value &value) const
+// {
+//   return tuple.find_cell(TupleCellSpec(name()), value);
+// }
+
+// RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &type)
+// {
+//   RC rc = RC::SUCCESS;
+//   if (0 == strcasecmp(type_str, "count")) {
+//     type = Type::COUNT;
+//   } else if (0 == strcasecmp(type_str, "sum")) {
+//     type = Type::SUM;
+//   } else if (0 == strcasecmp(type_str, "avg")) {
+//     type = Type::AVG;
+//   } else if (0 == strcasecmp(type_str, "max")) {
+//     type = Type::MAX;
+//   } else if (0 == strcasecmp(type_str, "min")) {
+//     type = Type::MIN;
+//   } else {
+//     rc = RC::INVALID_ARGUMENT;
+//   }
+//   return rc;
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
-AggregateExpr::AggregateExpr(Type type, Expression *child) : aggregate_type_(type), child_(child) {}
 
-AggregateExpr::AggregateExpr(Type type, unique_ptr<Expression> child) : aggregate_type_(type), child_(std::move(child))
+SubQueryExpr::SubQueryExpr(SelectSqlNode &select_node) : sql_node_(select_node) {}
+
+SubQueryExpr::~SubQueryExpr() = default;
+
+RC SubQueryExpr::generate_select_stmt(Db *db, const std::unordered_map<std::string, Table *> &tables)
+{
+  // 仿照普通 select 的执行流程，tables 用来传递别名
+  Stmt *stmt = nullptr;
+  RC    rc   = SelectStmt::create(db, sql_node_, stmt, tables);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to create subquery select statement. return %s", strrc(rc));
+    return rc;
+  }
+
+  // 确保生成的 stmt 类型为 SELECT 类型
+  if (stmt->type() != StmtType::SELECT) {
+    LOG_WARN("subquery stmt type is not SELECT.");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  // 动态转换为 SelectStmt 类型，并进行子查询列数校验
+  auto *select_stmt = dynamic_cast<SelectStmt *>(stmt);
+  if (select_stmt == nullptr) {
+    LOG_WARN("failed to cast subquery stmt to SelectStmt. ");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  // 子查询不能有超过一个列
+  if (select_stmt->query_expressions_size() > 1) {
+    LOG_WARN("too many columns in subquery expression.");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  // 将 select_stmt_ 指针设置为 select_stmt，使用 std::unique_ptr 来管理
+  select_stmt_ = std::unique_ptr<SelectStmt>(select_stmt);
+  return RC::SUCCESS;
+}
+
+RC SubQueryExpr::generate_logical_oper()
+{
+  LogicalPlanGenerator generator;
+  RC rc = generator.create(select_stmt_.get(), logical_oper_);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to generate logical operator for subquery. return %s", strrc(rc));
+    return rc;
+  }
+  return RC::SUCCESS;
+}
+
+RC SubQueryExpr::generate_physical_oper()
+{
+  PhysicalPlanGenerator generator; 
+  RC rc = generator.create(*logical_oper_, physical_oper_, nullptr);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to generate physical operator for subquery. return %s", strrc(rc));
+    return rc;
+  }
+  return rc;
+}
+
+bool SubQueryExpr::one_row_ret() const { return res_query.size() <= 1; }
+
+// 子算子树的 open 和 close 逻辑由外部控制
+RC SubQueryExpr::open(Trx *trx, const Tuple &tuple)
+{
+  RC rc = RC::SUCCESS;
+  physical_oper_->set_outer_tuple(&tuple);
+  rc = physical_oper_->open(trx);
+
+  return rc;
+}
+
+RC SubQueryExpr::reset()
+{
+  visited_index = 0;
+  return RC::SUCCESS;
+}
+
+bool SubQueryExpr::has_more_row(const Tuple &tuple) const
+{
+  physical_oper_->set_outer_tuple(&tuple);
+  return physical_oper_->next() != RC::RECORD_EOF;
+}
+
+RC SubQueryExpr::get_value(const Tuple &tuple, Value &value)
+{
+  physical_oper_->set_outer_tuple(&tuple);
+  RC rc = physical_oper_->next();
+  if (rc == RC::RECORD_EOF) {
+    // 先返回 null 类型的值，之后再完善具体选择的列类型
+    // 如果已经成功执行过一次，结果不为空，那么这里的 value 不会被用到
+    value.set_type(AttrType::NULLS);
+    value.set_null(true);
+    // 给调用者判断结果是否为空，而不是直接返回 RC::SUCCESS
+    return rc;
+  } else if (OB_FAIL(rc)) {
+    // 其他错误
+    return rc;
+  }
+
+  // 到这里确保有一条记录
+  rc = physical_oper_->current_tuple()->cell_at(0, value);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+  return RC::SUCCESS;
+}
+
+RC SubQueryExpr::close() { return physical_oper_->close(); }
+
+RC SubQueryExpr::try_get_value(Value &value) const { return RC::UNIMPLEMENTED; }
+
+ExprType SubQueryExpr::type() const { return ExprType::SUBQUERY; }
+
+AttrType SubQueryExpr::value_type() const { return AttrType::UNDEFINED; }
+
+ListExpr::ListExpr(std::vector<Expression *> &&exprs)
+{
+  for (auto expr : exprs) {
+    exprs_.emplace_back(std::unique_ptr<Expression>(expr));
+  }
+  exprs.clear();
+}
+
+UnboundFunctionExpr::UnboundFunctionExpr(const char *function_name, std::vector<std::unique_ptr<Expression>> child)
+    : function_name_(function_name), args_(std::move(child))
+{}
+
+AggregateExpr::AggregateExpr(AggregateFunctionType type, Expression *child)
+    : aggregate_type_(type), child_(child)
+{}
+
+AggregateExpr::AggregateExpr(AggregateFunctionType type, unique_ptr<Expression> child)
+    : aggregate_type_(type), child_(std::move(child))
 {}
 
 RC AggregateExpr::get_column(Chunk &chunk, Column &column)
@@ -1316,23 +1047,23 @@ unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
 {
   unique_ptr<Aggregator> aggregator;
   switch (aggregate_type_) {
-    case Type::SUM: {
+    case AggregateFunctionType::SUM: {
       aggregator = make_unique<SumAggregator>();
       break;
     }
-    case Type::COUNT: {
+    case AggregateFunctionType::COUNT: {
       aggregator = make_unique<CountAggregator>();
       break;
     }
-    case Type::AVG: {
+    case AggregateFunctionType::AVG: {
       aggregator = make_unique<AvgAggregator>();
       break;
     }
-    case Type::MAX: {
+    case AggregateFunctionType::MAX: {
       aggregator = make_unique<MaxAggregator>();
       break;
     }
-    case Type::MIN: {
+    case AggregateFunctionType::MIN: {
       aggregator = make_unique<MinAggregator>();
       break;
     }
@@ -1344,144 +1075,113 @@ unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
   return aggregator;
 }
 
-RC AggregateExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC AggregateExpr::get_value(const Tuple &tuple, Value &value)
 {
   return tuple.find_cell(TupleCellSpec(name()), value);
 }
 
-RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &type)
+RC AggregateExpr::type_from_string(const char *type_str, AggregateFunctionType &type)
 {
-  RC rc = RC::SUCCESS;
-  if (0 == strcasecmp(type_str, "count")) {
-    type = Type::COUNT;
-  } else if (0 == strcasecmp(type_str, "sum")) {
-    type = Type::SUM;
-  } else if (0 == strcasecmp(type_str, "avg")) {
-    type = Type::AVG;
-  } else if (0 == strcasecmp(type_str, "max")) {
-    type = Type::MAX;
-  } else if (0 == strcasecmp(type_str, "min")) {
-    type = Type::MIN;
-  } else {
-    rc = RC::INVALID_ARGUMENT;
-  }
-  return rc;
+  check_type("sum", AggregateFunctionType::SUM);
+  check_type("avg", AggregateFunctionType::AVG);
+  check_type("max", AggregateFunctionType::MAX);
+  check_type("min", AggregateFunctionType::MIN);
+  check_type("count", AggregateFunctionType::COUNT);
+  return RC::INVALID_ARGUMENT;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-SubqueryExpr::SubqueryExpr(ParsedSqlNode *sub_query_sn) : sub_query_sn_(sub_query_sn) {}
-
-RC SubqueryExpr::open_physical_operator(Tuple *outer_tuple) const
+RC NormalFunctionExpr::type_from_string(const char *type_str, NormalFunctionType &type)
 {
-  if (physical_operator_ == nullptr) {
-    LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
-  }
-  // 将外层的 tuple 传递给子查询算子，以达到查外层表的目的
-  // proj -> orderby -> predicate 普通
-  // proj -> orderby -> groupby -> predicate 聚合
-  physical_operator_->set_outer_tuple(outer_tuple);
-  RC rc = physical_operator_->open(trx_);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to open physical operator. rc=%s", strrc(rc));
-  } else {
-    is_open_ = true;
-  }
-  return rc;
-}
-RC SubqueryExpr::close_physical_operator() const
-{
-  if (physical_operator_ == nullptr) {
-    LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
-  }
-  RC rc = physical_operator_->close();
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to close physical operator. rc=%s", strrc(rc));
-  } else {
-    is_open_ = false;
-  }
-  return rc;
+  check_type("typeof", NormalFunctionType::TYPEOF);
+  check_type("month", NormalFunctionType::MONTH);
+  check_type("year", NormalFunctionType::YEAR);
+  check_type("date_format", NormalFunctionType::DATE_FORMAT);
+  check_type("length", NormalFunctionType::LENGTH);
+  check_type("round", NormalFunctionType::ROUND);
+  check_type("l2_distance", NormalFunctionType::L2_DISTANCE);
+  check_type("cosine_distance", NormalFunctionType::COSINE_DISTANCE);
+  check_type("inner_product", NormalFunctionType::INNER_PRODUCT);
+  check_type("vector_to_string", NormalFunctionType::VECTOR_TO_STRING);
+  check_type("vector_dim", NormalFunctionType::VECTOR_DIM);
+  check_type("distance", NormalFunctionType::DISTANCE);
+  return RC::INVALID_ARGUMENT;
 }
 
-AttrType SubqueryExpr::value_type() const { return AttrType::INTS; }
-int      SubqueryExpr::value_length() const { return sizeof(int); }
-RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+RC NormalFunctionExpr::get_value(const Tuple &tuple, Value &result)
 {
-  RC rc = RC::SUCCESS;
-  if (logical_operator_ == nullptr && physical_operator_ == nullptr) {
-    return RC::RECORD_EOF;
-  }
-
-  if (physical_operator_ == nullptr) {
-    LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
-  }
-
-  trx_ = trx;
-
-  auto *tuple__ = const_cast<Tuple *>(&tuple);
-  if (!is_open_) {
-    rc = open_physical_operator(tuple__);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to open physical operator. rc=%s", strrc(rc));
+  vector<Value> args_values_;
+  for (auto &expr : args()) {
+    Value value;
+    RC    rc = expr->get_value(tuple, value);
+    if (OB_FAIL(rc)) {
       return rc;
     }
+    args_values_.push_back(value);
   }
+  switch (type_) {
+    case NormalFunctionType::LENGTH: return builtin::length(args_values_, result);
+    case NormalFunctionType::ROUND: return builtin::round(args_values_, result);
+    case NormalFunctionType::DATE_FORMAT: return builtin::date_format(args_values_, result);
+    case NormalFunctionType::VECTOR_TO_STRING: return builtin::vector_to_string(args_values_, result);
+    case NormalFunctionType::VECTOR_DIM: return builtin::vector_dim(args_values_, result);
+    case NormalFunctionType::YEAR: return builtin::year(args_values_, result);
+    case NormalFunctionType::MONTH: return builtin::month(args_values_, result);
+    case NormalFunctionType::DAY: return builtin::day(args_values_, result);
+    case NormalFunctionType::L2_DISTANCE: return builtin::l2_distance(args_values_, result);
+    case NormalFunctionType::COSINE_DISTANCE: return builtin::cosine_distance(args_values_, result);
+    case NormalFunctionType::INNER_PRODUCT: return builtin::inner_product(args_values_, result);
+    case NormalFunctionType::TYPEOF: return builtin::_typeof(args_values_, result);
+    default: break;
+  }
+  return RC::INTERNAL;
+}
 
-  // 开始执行物理操作
-  rc = physical_operator_->next();
-  if (rc != RC::SUCCESS) {
-    // 可能 EOF 了
-    if (rc != RC::RECORD_EOF) {
-      close_physical_operator();  // 关闭子查询算子
-      LOG_PANIC("failed to get next tuple. rc=%s", strrc(rc));
+RC NormalFunctionExpr::try_get_value(Value &result) const
+{
+  vector<Value> args_values_;
+  for (auto &expr : args()) {
+    Value value;
+    RC    rc = expr->try_get_value(value);
+    if (OB_FAIL(rc)) {
       return rc;
     }
-    rc = close_physical_operator();
-    if (rc == RC::SUCCESS) {
-      rc = RC::RECORD_EOF;
-    } else {
-      LOG_PANIC("failed to close physical operator. rc=%s", strrc(rc));
-    }
-    return rc;
+    args_values_.push_back(value);
   }
-  auto tuple_ = physical_operator_->current_tuple();
-  // if (tuple_->cell_num() > 1) {
-  //   LOG_WARN("tuple cell count is not 1");
-  //   close_physical_operator();  // 关闭子查询算子
-  //   return RC::INVALID_ARGUMENT;
-  // }
-
-  if (tuple_->cell_num() == 0) {
-    LOG_WARN("A warn from SubqueryExpr: tuple cell count is 0");
+  switch (type_) {
+    case NormalFunctionType::LENGTH: return builtin::length(args_values_, result);
+    case NormalFunctionType::ROUND: return builtin::round(args_values_, result);
+    case NormalFunctionType::DATE_FORMAT: return builtin::date_format(args_values_, result);
+    case NormalFunctionType::VECTOR_TO_STRING: return builtin::vector_to_string(args_values_, result);
+    case NormalFunctionType::VECTOR_DIM: return builtin::vector_dim(args_values_, result);
+    case NormalFunctionType::YEAR: return builtin::year(args_values_, result);
+    case NormalFunctionType::MONTH: return builtin::month(args_values_, result);
+    case NormalFunctionType::DAY: return builtin::day(args_values_, result);
+    case NormalFunctionType::L2_DISTANCE: return builtin::l2_distance(args_values_, result);
+    case NormalFunctionType::COSINE_DISTANCE: return builtin::cosine_distance(args_values_, result);
+    case NormalFunctionType::INNER_PRODUCT: return builtin::inner_product(args_values_, result);
+    case NormalFunctionType::TYPEOF: return builtin::_typeof(args_values_, result);
+    default: break;
   }
-  tuple_->cell_at(0, value);
-  return rc;
+  return RC::INTERNAL;
 }
 
-void SubqueryExpr::set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator)
+AttrType NormalFunctionExpr::value_type() const
 {
-  logical_operator_ = std::move(logical_operator);
-}
-void SubqueryExpr::set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator)
-{
-  physical_operator_ = std::move(physical_operator);
-}
-void                               SubqueryExpr::set_trx(Trx *trx) { trx_ = trx; }
-void                               SubqueryExpr::set_stmt(std::unique_ptr<SelectStmt> stmt) { stmt_ = std::move(stmt); }
-ParsedSqlNode                     *SubqueryExpr::sub_query_sn() { return sub_query_sn_; }
-std::unique_ptr<SelectStmt>       &SubqueryExpr::stmt() { return stmt_; }
-std::unique_ptr<LogicalOperator>  &SubqueryExpr::logical_operator() { return logical_operator_; }
-std::unique_ptr<PhysicalOperator> &SubqueryExpr::physical_operator() { return physical_operator_; }
-
-RC ValueListExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
-{
-  if (index_ >= values_.size()) {
-    index_ = 0;
-    return RC::RECORD_EOF;
+  switch (type_) {
+    case NormalFunctionType::LENGTH: return AttrType::INTS;
+    case NormalFunctionType::ROUND: return AttrType::FLOATS;
+    case NormalFunctionType::DATE_FORMAT: return AttrType::CHARS;
+    case NormalFunctionType::VECTOR_TO_STRING: return AttrType::CHARS;
+    case NormalFunctionType::VECTOR_DIM: return AttrType::INTS;
+    case NormalFunctionType::YEAR: return AttrType::INTS;
+    case NormalFunctionType::MONTH: return AttrType::INTS;
+    case NormalFunctionType::DAY: return AttrType::INTS;
+    case NormalFunctionType::L2_DISTANCE: return AttrType::FLOATS;
+    case NormalFunctionType::COSINE_DISTANCE: return AttrType::FLOATS;
+    case NormalFunctionType::INNER_PRODUCT: return AttrType::FLOATS;
+    case NormalFunctionType::TYPEOF: return AttrType::CHARS;
+    case NormalFunctionType::MATCH_AGAINST: return AttrType::FLOATS;
+    default: break;
   }
-  value = values_[index_++];
-  return RC::SUCCESS;
+  return AttrType::UNDEFINED;
 }

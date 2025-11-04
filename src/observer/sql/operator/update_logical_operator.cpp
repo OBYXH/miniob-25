@@ -17,6 +17,6 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/update_physical_operator.h"
 
 UpdateLogicalOperator::UpdateLogicalOperator(
-    Table *table, vector<unique_ptr<Expression>> exprs, vector<FieldMeta> field_metas)
-    : table_(table), exprs_(std::move(exprs)), field_metas_(std::move(field_metas))
+    Table *table, vector<unique_ptr<Expression>> values, vector<FieldMeta> field_metas)
+    : table_(table), values_(std::move(values)), field_metas_(std::move(field_metas))
 {}

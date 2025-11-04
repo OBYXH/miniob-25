@@ -89,6 +89,9 @@ Value::Value(const Value &other)
     case AttrType::TEXTS: {
       set_string_from_other(other);
     } break;
+    case AttrType::VECTORS: {
+      set_vector(other.value_.vector_value_, other.length_);
+    } break;
 
     default: {
       this->value_ = other.value_;
@@ -123,6 +126,9 @@ Value &Value::operator=(const Value &other)
     case AttrType::TEXTS: {
       set_string_from_other(other);
     } break;
+    case AttrType::VECTORS: {
+      set_vector(other.value_.vector_value_, other.length_);
+    } break;
 
     default: {
       this->value_ = other.value_;
@@ -155,6 +161,12 @@ void Value::reset()
       if (own_data_ && value_.pointer_value_ != nullptr) {
         delete[] value_.pointer_value_;
         value_.pointer_value_ = nullptr;
+      } 
+    } break;
+    case AttrType::VECTORS: {
+      if (own_data_ && value_.vector_value_ != nullptr) {
+        delete[] value_.vector_value_;
+        value_.vector_value_ = nullptr;
       }
     } break;
     default: break;
@@ -188,8 +200,6 @@ void Value::set_data(char *data, int length)
       length_            = length;
     } break;
     case AttrType::VECTORS: {
-      value_.vector_value_ = (float *)data;
-      length_              = length;
       set_vector((float *)data, length);
     } break;
     case AttrType::DATES: {
@@ -289,12 +299,13 @@ void Value::set_vector(const char *s)
   for (size_t i = 0; i < vec_.size(); i++) {
     value_.vector_value_[i] = vec_[i];
   }
+  own_data_ = true;
 }
 
-Value *Value::string_to_vector(const char *s)
+Value Value::string_to_vector(const char *s)
 {
-  Value *val = new Value();
-  val->set_vector(s);
+  Value val;
+  val.set_vector(s);
   return val;
 }
 
@@ -335,7 +346,7 @@ void Value::set_empty_string(int len)
   value_.pointer_value_[len] = '\0';
 }
 
-void Value::set_text(const char *s, int len /*= 65535*/)
+void Value::set_text(const char *s, int len /*= 16384*/)
 {
   reset();
   attr_type_ = AttrType::TEXTS;
@@ -517,7 +528,7 @@ std::vector<float> Value::get_vector() const
 {
   assert(attr_type_ == AttrType::VECTORS);
   std::vector<float> vector(get_vector_length());
-  for (int i = 0; i < vector.size(); ++i) {
+  for (size_t i = 0; i < vector.size(); ++i) {
     vector[i] = get_vector_element(i);
   }
   return vector;
@@ -581,6 +592,13 @@ bool Value::get_boolean() const
   return false;
 }
 
+int Value::get_date() const {
+  if (attr_type_ == AttrType::DATES) {
+    return value_.int_value_;
+  }
+  return 0;
+}
+
 RC Value::borrow_text(const Value &v)
 {
   ASSERT(v.attr_type_ != AttrType::TEXTS, "attr type is not TEXTS");
@@ -588,5 +606,17 @@ RC Value::borrow_text(const Value &v)
   this->attr_type_            = AttrType::TEXTS;
   this->length_               = v.length_;
   this->value_.pointer_value_ = v.value_.pointer_value_;
+  this->own_data_ = false;
+  return RC::SUCCESS;
+}
+
+RC Value::borrow_vector(const Value &v)
+{
+  ASSERT(v.attr_type_ != AttrType::VECTORS, "attr type is not VECTORS");
+  reset();
+  this->attr_type_           = AttrType::VECTORS;
+  this->length_              = v.length_;
+  this->value_.vector_value_ = v.value_.vector_value_;
+  this->own_data_ = false;
   return RC::SUCCESS;
 }

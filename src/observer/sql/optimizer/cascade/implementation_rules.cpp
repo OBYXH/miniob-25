@@ -99,8 +99,8 @@ void LogicalInsertToInsert::transform(
   InsertLogicalOperator *insert_oper = dynamic_cast<InsertLogicalOperator *>(input);
 
   Table         *table           = insert_oper->table();
-  vector<Value> &values          = insert_oper->values();
-  auto           insert_phy_oper = make_unique<InsertPhysicalOperator>(table, std::move(values));
+  const vector<vector<Value>> &values_list          = insert_oper->values_list();
+  auto           insert_phy_oper = make_unique<InsertPhysicalOperator>(table, std::move(values_list));
 
   transformed->emplace_back(std::move(insert_phy_oper));
 }

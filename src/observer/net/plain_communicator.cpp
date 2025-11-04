@@ -86,7 +86,7 @@ RC PlainCommunicator::read_event(SessionEvent *&event)
     return RC::IOERR_READ;
   }
 
-  LOG_INFO("receive command(size=%d): %s", data_len, buf.data());
+  LOG_INFO("receive command(size=%d)", data_len);
   event = new SessionEvent(this);
   event->set_query(string(buf.data()));
   return rc;
@@ -298,7 +298,7 @@ RC PlainCommunicator::write_tuple_result(SqlResult *sql_result)
     int cell_num = tuple->cell_num();
     for (int i = 0; i < cell_num; i++) {
       if (i != 0) {
-        const char *delim = " | ";
+        const char *delim = " |||| ";
 
         rc = writer_->writen(delim, strlen(delim));
         if (OB_FAIL(rc)) {

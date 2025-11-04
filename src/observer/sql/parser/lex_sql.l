@@ -7,6 +7,8 @@
 #define YY_TYPEDEF_YY_SIZE_T
 typedef int yy_size_t;
 
+#define YY_BUF_SIZE 1024 * 1024  // 设置缓冲区大小为1MB
+
 /* 参考生成的lex_sql.cpp代码，这个宏定义会放在每次运行yylex()最开始的地方 */
 #define YY_USER_INIT                                         \
   yycolumn = 0;
@@ -59,8 +61,9 @@ extern double atof();
 /* 不区分大小写 */
 %option case-insensitive
 %option bison-locations
+%option yylineno 
 
-WHITE_SPACE      [\ \t\b\f]
+WHITE_SPACE      [\ \t\b\f\n]
 DIGIT            [0-9]+
 
 ID               [A-Za-z_]+[A-Za-z0-9_]*
@@ -76,14 +79,18 @@ QUOTE            [\'\"]
 %%
 
 {WHITE_SPACE}                                        // ignore whitespace
-\n                                                   ;
-{QUOTE}(EUCLIDEAN|COSINE|DOT){QUOTE}     yylval->cstring = strdup(yytext);RETURN_TOKEN(DISTANCE_TYPE);
 {DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 {DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
-{QUOTE}\[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]{QUOTE}   yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
-\[{WHITE_SPACE}*([\-]?{DIGIT}+({DOT}{DIGIT}+)?({WHITE_SPACE}*,{WHITE_SPACE}*[\-]?{DIGIT}+({DOT}{DIGIT}+)?)*){WHITE_SPACE}*\]  yylval->cstring = strdup(yytext); RETURN_TOKEN(VECTOR);
-\'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 'YYYY-M[M]-D[D]'格式的日期
-\"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->cstring=strdup(yytext); RETURN_TOKEN(DATE); // 支持 "YYYY-M[M]-D[D]"格式的日期
+{QUOTE}\[[^\]]*\]{QUOTE}   {
+    yylval->cstring = strdup(yytext); 
+    static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); 
+    RETURN_TOKEN(VECTOR);
+}
+\[[^\]]*\]  {
+    yylval->cstring = strdup(yytext); 
+    static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); 
+    RETURN_TOKEN(VECTOR);
+}
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -122,6 +129,8 @@ UNIQUE                                  RETURN_TOKEN(UNIQUE);
 LOAD                                    RETURN_TOKEN(LOAD);
 DATA                                    RETURN_TOKEN(DATA);
 TEXT                                    RETURN_TOKEN(TEXT_T);
+TRUE                                    RETURN_TOKEN(TRUE);
+FALSE                                   RETURN_TOKEN(FALSE);
 INFILE                                  RETURN_TOKEN(INFILE);
 EXPLAIN                                 RETURN_TOKEN(EXPLAIN);
 GROUP                                   RETURN_TOKEN(GROUP);
@@ -138,24 +147,14 @@ ANALYZE                                 RETURN_TOKEN(ANALYZE);
 FIELDS                                  RETURN_TOKEN(FIELDS);
 TERMINATED                              RETURN_TOKEN(TERMINATED);
 ENCLOSED                                RETURN_TOKEN(ENCLOSED);
-DISTANCE                                RETURN_TOKEN(DISTANCE);
-VECTOR_TO_STRING                        RETURN_TOKEN(VECTOR_TO_STRING);
-FROM_VECTOR_STRING                      RETURN_TOKEN(VECTOR_TO_STRING);
 STRING_TO_VECTOR                        RETURN_TOKEN(STRING_TO_VECTOR);
 NULL                                    RETURN_TOKEN(NULL_T);
 NULLABLE                                RETURN_TOKEN(NULLABLE);
 IS                                      RETURN_TOKEN(IS);
-L2_DISTANCE                             RETURN_TOKEN(L2_DISTANCE);
-COSINE_DISTANCE                         RETURN_TOKEN(COSINE_DISTANCE);
-INNER_PRODUCT                           RETURN_TOKEN(INNER_PRODUCT_DISTANCE);
 AS                                      RETURN_TOKEN(AS);
 HAVING                                  RETURN_TOKEN(HAVING);
-ROUND                                   RETURN_TOKEN(ROUND);
-LENGTH                                  RETURN_TOKEN(LENGTH);
-DATE_FORMAT                             RETURN_TOKEN(DATE_FORMAT);
 LIMIT                                   RETURN_TOKEN(LIMIT);
 ALTER                                   RETURN_TOKEN(ALTER);
-ADD                                     RETURN_TOKEN(ADD);
 COLUMN                                  RETURN_TOKEN(COLUMN);
 CHANGE                                  RETURN_TOKEN(CHANGE);
 TO                                      RETURN_TOKEN(TO);
@@ -165,11 +164,10 @@ JOIN                                    RETURN_TOKEN(JOIN);
 UNION                                   RETURN_TOKEN(UNION);
 ALL                                     RETURN_TOKEN(ALL); 
 FULLTEXT                                RETURN_TOKEN(FULLTEXT);
-MATCH                                   RETURN_TOKEN(MATCH);
 AGAINST                                 RETURN_TOKEN(AGAINST);
 WITH                                    RETURN_TOKEN(WITH);
 PARSER                                  RETURN_TOKEN(PARSER);
-TOKENIZE                                RETURN_TOKEN(TOKENIZE);
+
 
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);
@@ -191,9 +189,17 @@ LIKE                                    RETURN_TOKEN(LIKE);
 "-" |
 "*" |
 "/"                                     { return yytext[0]; }
-\"[^"]*\"                               yylval->cstring = strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(SSS);
-'[^']*\'                                yylval->cstring = strdup(yytext); static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); RETURN_TOKEN(SSS);
+\"([^\"]|\"\"|\n)*\"    {
+    yylval->cstring = strdup(yytext); 
+    static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); 
+    RETURN_TOKEN(SSS);
+}
 
+\'([^\']|\'\'|\n)*\'    {
+    yylval->cstring = strdup(yytext); 
+    static_cast<std::vector<char*>*>(yyextra)->push_back(yylval->cstring); 
+    RETURN_TOKEN(SSS);
+}
 .                                       LOG_DEBUG("Unknown character [%c]",yytext[0]); return yytext[0];
 %%
 

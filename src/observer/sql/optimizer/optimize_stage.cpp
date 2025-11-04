@@ -45,11 +45,11 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
   ASSERT(logical_operator, "logical operator is null");
 
   // TODO: unify the RBO and CBO
-  // rc = rewrite(logical_operator);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_WARN("failed to rewrite plan. rc=%s", strrc(rc));
-  //   return rc;
-  // }
+  rc = rewrite(logical_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to rewrite plan. rc=%s", strrc(rc));
+    return rc;
+  }
 
   // TODO: better way
   logical_operator->generate_general_child();

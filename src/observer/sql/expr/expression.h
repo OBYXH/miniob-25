@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field.h"
 #include "sql/expr/aggregator.h"
 #include "storage/common/chunk.h"
+
 class Tuple;
 class ParsedSqlNode;
 class SelectStmt;
@@ -42,8 +43,9 @@ enum class ExprType
   NONE,
   STAR,                 ///< 星号，表示所有字段
   UNBOUND_FIELD,        ///< 未绑定的字段，需要在resolver阶段解析为FieldExpr
-  UNBOUND_AGGREGATION,  ///< 未绑定的聚合函数，需要在resolver阶段解析为AggregateExpr
+  UNBOUND_FUNCTION,     ///< 未绑定的聚合函数，需要在resolver阶段解析为AggregateExpr
 
+  NORMAL_FUNCTION,        ///< 规范化函数，需要在resolver阶段解析为NormFunctionExpr
   FIELD,        ///< 字段。在实际执行时，根据行数据内容提取对应字段的值
   VALUE,        ///< 常量值
   CAST,         ///< 需要做类型转换的表达式
@@ -51,11 +53,8 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
-  DISTANCE,     ///< 向量距离计算
-  FUNCTION,     ///< 函数表达式，比如ROUND、LENGTH、DATE_FORMAT等
-  VECTOSTRING,  ///< 向量字符串表达式
   SUBQUERY,     ///< 子查询表达式
-  VALUES,       ///< 值列表表达式
+  LIST,       ///< 值列表表达式
   SPECIAL,      ///< 特殊表达式，先留着
 };
 
@@ -91,7 +90,7 @@ public:
   /**
    * @brief 根据具体的tuple，来计算当前表达式的值。tuple有可能是一个具体某个表的行数据
    */
-  virtual RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const = 0;
+  virtual RC get_value(const Tuple &tuple, Value &value) = 0;
 
   /**
    * @brief 在没有实际运行的情况下，也就是无法获取tuple的情况下，尝试获取表达式的值
@@ -126,11 +125,13 @@ public:
    */
   virtual const char *name() const { return name_.c_str(); }
   virtual void        set_name(string name) { name_ = name; }
+
   /**
    * @brief 字段别名
    */
-  virtual const char *field_alias() const { return filed_alias_.c_str(); }
-  virtual void        set_field_alias(string alias) { filed_alias_ = alias; }
+  virtual const char *alias() const { return alias_.c_str(); }
+  bool                has_alias() const { return !alias_.empty(); }
+  virtual void        set_alias(std::string alias) { alias_ = std::move(alias); }
 
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -154,128 +155,7 @@ protected:
 
 private:
   string name_;
-  string filed_alias_;
-};
-
-class VectorToStringExpr : public Expression
-{
-public:
-  VectorToStringExpr(unique_ptr<Expression> child) : child_(std::move(child)) {}
-  VectorToStringExpr(Expression *child) : child_(child) {}
-  virtual ~VectorToStringExpr() = default;
-
-  unique_ptr<Expression> copy() const override { return make_unique<VectorToStringExpr>(child_->copy()); }
-
-  ExprType type() const override { return ExprType::VECTOSTRING; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
-  AttrType value_type() const override { return AttrType::CHARS; }
-
-  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
-
-  RC try_get_value(Value &value) const override;
-
-  unique_ptr<Expression> &child() { return child_; }
-
-private:
-  unique_ptr<Expression> child_;
-};
-
-class FunctionExpr : public Expression
-{
-public:
-  enum class Type
-  {
-    LENGTH,
-    ROUND,
-    DATE_FORMAT,
-    TOKENIZE,
-    MATCH_AGAINST,
-  };
-  FunctionExpr(Type type, unique_ptr<Expression> child, int precision = 0, string format = "")
-      : child_(std::move(child)), precision_(precision), format_(format), function_type_(type)
-  {}
-  FunctionExpr(Type type, Expression *child, int round = 0, string format = "")
-      : child_(child), precision_(round), format_(format), function_type_(type)
-  {}
-  virtual ~FunctionExpr() = default;
-
-  unique_ptr<Expression> copy() const override { return make_unique<FunctionExpr>(function_type_, child_->copy()); }
-
-  ExprType type() const override { return ExprType::FUNCTION; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
-  AttrType value_type() const override
-  {
-    switch (function_type_) {
-      case Type::LENGTH: {
-        return AttrType::INTS;
-      }
-      case Type::ROUND: {
-        return AttrType::FLOATS;
-      }
-      case Type::DATE_FORMAT: {
-        return AttrType::DATES;
-      }
-      case Type::TOKENIZE: {
-        return AttrType::CHARS;
-      }
-      case Type::MATCH_AGAINST: {
-        return AttrType::FLOATS;
-      }
-      default: {
-        LOG_WARN("unsupported function type: %d", static_cast<int>(function_type_));
-        return AttrType::UNDEFINED;
-      }
-    }
-  }
-
-  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
-
-  RC try_get_value(Value &value) const override;
-
-  unique_ptr<Expression> &child() { return child_; }
-
-private:
-  unique_ptr<Expression> child_;
-  int                    precision_ = 0;  // only for ROUND function
-  string                 format_;
-  Type                   function_type_;
-};
-
-class VecDistanceExpr : public Expression
-{
-public:
-  enum class Type
-  {
-    L2,
-    COSINE,
-    INNER
-  };
-  VecDistanceExpr(Type type, unique_ptr<Expression> left, unique_ptr<Expression> right)
-      : left_(std::move(left)), right_(std::move(right)), distance_type_(type)
-  {}
-  VecDistanceExpr(Type type, Expression *left, Expression *right) : left_(left), right_(right), distance_type_(type) {}
-  virtual ~VecDistanceExpr() = default;
-
-  unique_ptr<Expression> copy() const override
-  {
-    return make_unique<VecDistanceExpr>(distance_type_, left_->copy(), right_->copy());
-  }
-
-  ExprType type() const override { return ExprType::DISTANCE; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
-  AttrType value_type() const override { return AttrType::VECTORS; }
-
-  RC get_column(Chunk &chunk, Column &column) override { return RC::UNIMPLEMENTED; }
-
-  RC try_get_value(Value &value) const override;
-
-  unique_ptr<Expression> &left() { return left_; }
-  unique_ptr<Expression> &right() { return right_; }
-
-private:
-  unique_ptr<Expression> left_;
-  unique_ptr<Expression> right_;
-  Type                   distance_type_;
+  string alias_;
 };
 
 class StarExpr : public Expression
@@ -290,7 +170,7 @@ public:
   ExprType type() const override { return ExprType::STAR; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override
+  RC get_value(const Tuple &tuple, Value &value) override
   {
     return RC::UNIMPLEMENTED;
   }  // 不需要实现
@@ -315,7 +195,7 @@ public:
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC get_value(const Tuple &tuple, Value &value) override { return RC::INTERNAL; }
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
@@ -355,10 +235,13 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override;
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC get_value(const Tuple &tuple, Value &value) override;
+
+  void set_table_alias(std::string table_alias) { table_alias_ = std::move(table_alias); }
 
 private:
   Field field_;
+  string table_alias_;
 };
 
 /**
@@ -371,13 +254,13 @@ public:
   ValueExpr() = default;
   explicit ValueExpr(const Value &value) : value_(value) {}
 
-  virtual ~ValueExpr() = default;
+  virtual ~ValueExpr() override = default;
 
   bool equal(const Expression &other) const override;
 
   unique_ptr<Expression> copy() const override { return make_unique<ValueExpr>(value_); }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC get_value(const Tuple &tuple, Value &value) override;
   RC get_column(Chunk &chunk, Column &column) override;
   RC try_get_value(Value &value) const override
   {
@@ -410,7 +293,7 @@ public:
 
   ExprType type() const override { return ExprType::CAST; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC get_value(const Tuple &tuple, Value &value) override;
   RC get_column(Chunk &chunk, Column &column) override;
 
   RC try_get_value(Value &value) const override;
@@ -434,11 +317,12 @@ private:
 class ComparisonExpr : public Expression
 {
 public:
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   ComparisonExpr(CompOp comp, unique_ptr<Expression> left, unique_ptr<Expression> right);
   virtual ~ComparisonExpr();
 
   ExprType type() const override { return ExprType::COMPARISON; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC       get_value(const Tuple &tuple, Value &value) override;
   AttrType value_type() const override { return AttrType::BOOLEANS; }
   CompOp   comp() const { return comp_; }
 
@@ -494,6 +378,8 @@ public:
 
 public:
   ConjunctionExpr(Type type, vector<unique_ptr<Expression>> &children);
+  ConjunctionExpr(Type type, unique_ptr<Expression> children);
+  ConjunctionExpr(Type type, Expression *left, Expression *right);
   virtual ~ConjunctionExpr() = default;
 
   unique_ptr<Expression> copy() const override
@@ -507,7 +393,7 @@ public:
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
   AttrType value_type() const override { return AttrType::BOOLEANS; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC       get_value(const Tuple &tuple, Value &value) override;
 
   Type conjunction_type() const { return conjunction_type_; }
 
@@ -554,7 +440,7 @@ public:
   AttrType value_type() const override;
   int value_length() const override { return std::max(left_->value_length(), right_ ? right_->value_length() : 0); };
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
+  RC get_value(const Tuple &tuple, Value &value) override;
 
   RC get_column(Chunk &chunk, Column &column) override;
 
@@ -579,167 +465,163 @@ private:
   unique_ptr<Expression> right_;
 };
 
-class UnboundAggregateExpr : public Expression
-{
-public:
-  UnboundAggregateExpr(const char *aggregate_name, Expression *child);
-  UnboundAggregateExpr(const char *aggregate_name, unique_ptr<Expression> child);
-  virtual ~UnboundAggregateExpr() = default;
+// class AggregateExpr : public Expression
+// {
+// public:
+//   enum class Type
+//   {
+//     COUNT,
+//     SUM,
+//     AVG,
+//     MAX,
+//     MIN,
+//   };
 
-  ExprType type() const override { return ExprType::UNBOUND_AGGREGATION; }
+// public:
+//   AggregateExpr(Type type, Expression *child);
+//   AggregateExpr(Type type, unique_ptr<Expression> child);
+//   virtual ~AggregateExpr() = default;
 
-  unique_ptr<Expression> copy() const override
-  {
-    return make_unique<UnboundAggregateExpr>(aggregate_name_.c_str(), child_->copy());
-  }
+//   bool equal(const Expression &other) const override;
 
-  const char *aggregate_name() const { return aggregate_name_.c_str(); }
+//   unique_ptr<Expression> copy() const override { return make_unique<AggregateExpr>(aggregate_type_, child_->copy()); }
 
-  unique_ptr<Expression> &child() { return child_; }
+//   ExprType type() const override { return ExprType::AGGREGATION; }
 
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
-  AttrType value_type() const override { return child_->value_type(); }
+//   AttrType value_type() const override
+//   {
+//     if (aggregate_type_ == Type::COUNT) {
+//       return AttrType::INTS;
+//     } else if (aggregate_type_ == Type::AVG) {
+//       return AttrType::FLOATS;
+//     } else {
+//       return child_->value_type();
+//     }
+//   }
+//   int value_length() const override
+//   {
+//     if (aggregate_type_ == Type::COUNT) {
+//       return sizeof(int);
+//     } else if (aggregate_type_ == Type::AVG) {
+//       return sizeof(float);
+//     } else {
+//       return child_->value_length();
+//     }
+//   }
 
-private:
-  string                 aggregate_name_;
-  unique_ptr<Expression> child_;
-};
+//   RC get_value(const Tuple &tuple, Value &value) const override;
 
-class AggregateExpr : public Expression
-{
-public:
-  enum class Type
-  {
-    COUNT,
-    SUM,
-    AVG,
-    MAX,
-    MIN,
-  };
+//   RC get_column(Chunk &chunk, Column &column) override;
 
-public:
-  AggregateExpr(Type type, Expression *child);
-  AggregateExpr(Type type, unique_ptr<Expression> child);
-  virtual ~AggregateExpr() = default;
+//   Type aggregate_type() const { return aggregate_type_; }
 
-  bool equal(const Expression &other) const override;
+//   unique_ptr<Expression> &child() { return child_; }
 
-  unique_ptr<Expression> copy() const override { return make_unique<AggregateExpr>(aggregate_type_, child_->copy()); }
+//   const unique_ptr<Expression> &child() const { return child_; }
 
-  ExprType type() const override { return ExprType::AGGREGATION; }
+//   unique_ptr<Aggregator> create_aggregator() const;
 
-  AttrType value_type() const override
-  {
-    if (aggregate_type_ == Type::COUNT) {
-      return AttrType::INTS;
-    } else if (aggregate_type_ == Type::AVG) {
-      return AttrType::FLOATS;
-    } else {
-      return child_->value_type();
-    }
-  }
-  int value_length() const override
-  {
-    if (aggregate_type_ == Type::COUNT) {
-      return sizeof(int);
-    } else if (aggregate_type_ == Type::AVG) {
-      return sizeof(float);
-    } else {
-      return child_->value_length();
-    }
-  }
+// public:
+//   static RC type_from_string(const char *type_str, Type &type);
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
-
-  RC get_column(Chunk &chunk, Column &column) override;
-
-  Type aggregate_type() const { return aggregate_type_; }
-
-  unique_ptr<Expression> &child() { return child_; }
-
-  const unique_ptr<Expression> &child() const { return child_; }
-
-  unique_ptr<Aggregator> create_aggregator() const;
-
-public:
-  static RC type_from_string(const char *type_str, Type &type);
-
-private:
-  Type                   aggregate_type_;
-  unique_ptr<Expression> child_;
-};
+// private:
+//   Type                   aggregate_type_;
+//   unique_ptr<Expression> child_;
+// };
 
 /**
  * @brief 子查询表达式
  * @ingroup Expression
  */
-class SubqueryExpr : public Expression
+class SubQueryExpr : public Expression
 {
 public:
+  explicit SubQueryExpr(SelectSqlNode &select_node);
+  virtual ~SubQueryExpr();
+
   unique_ptr<Expression> copy() const override
   {
-    // 应该不会使用这个函数
-    assert(false);
-    return nullptr;
+    return make_unique<SubQueryExpr>(sql_node_);
   }
+  RC   open(Trx *trx, const Tuple &tuple);
+  RC   reset();
+  RC   close();
+  bool has_more_row(const Tuple &tuple) const;
 
-  SubqueryExpr(ParsedSqlNode *sub_query_sn);
-  ExprType type() const override { return ExprType::SUBQUERY; }
+  RC get_value(const Tuple &tuple, Value &value) override;
+
+  RC try_get_value(Value &value) const override;
+
+  ExprType type() const override;
+
   AttrType value_type() const override;
-  int      value_length() const override;
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
-  void                               set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
-  void                               set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
-  void                               set_trx(Trx *trx);
-  RC                                 open_physical_operator(Tuple *outer_tuple) const;
-  RC                                 close_physical_operator() const;
-  void                               set_stmt(std::unique_ptr<SelectStmt> stmt);
-  ParsedSqlNode                     *sub_query_sn();
-  std::unique_ptr<SelectStmt>       &stmt();
-  std::unique_ptr<LogicalOperator>  &logical_operator();
-  std::unique_ptr<PhysicalOperator> &physical_operator();
+  std::unique_ptr<Expression> deep_copy() const;
+
+  RC generate_select_stmt(Db *db, const std::unordered_map<std::string, Table *> &tables);
+
+  RC generate_logical_oper();
+  RC generate_physical_oper();
+
+  size_t res_nums() const { return res_query.size(); }
+
+  bool one_row_ret() const;
 
 private:
-  ParsedSqlNode                    *sub_query_sn_;
-  std::unique_ptr<SelectStmt>       stmt_;
-  std::unique_ptr<LogicalOperator>  logical_operator_;
-  std::unique_ptr<PhysicalOperator> physical_operator_;
-  mutable bool                      is_open_ = false;
-  mutable Trx                      *trx_;
+  SelectSqlNode                    &sql_node_;
+  std::unique_ptr<SelectStmt>       select_stmt_;
+  std::unique_ptr<LogicalOperator>  logical_oper_;
+  std::unique_ptr<PhysicalOperator> physical_oper_;
+
+  std::vector<Value> res_query;
+  size_t             visited_index = 0;
 };
 
 /**
  * @brief 常量值列表表达式，用于 IN/NOT IN 操作
  * @ingroup Expression
  */
-class ValueListExpr : public Expression
+class ListExpr : public Expression
 {
 public:
-  ValueListExpr() = default;
-  explicit ValueListExpr(const std::vector<Value> &values) : values_(values) {}
+  explicit ListExpr(std::vector<Expression *> &&exprs);
+  explicit ListExpr(std::vector<std::unique_ptr<Expression>> &&exprs) : exprs_(std::move(exprs)) {}
+  virtual ~ListExpr() = default;
 
-  virtual ~ValueListExpr() = default;
-  unique_ptr<Expression> copy() const override { return make_unique<ValueListExpr>(values_); }
-
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
-  RC try_get_value(Value &value) const override
+  unique_ptr<Expression> copy() const override
   {
-    value = values_[0];
+    std::vector<std::unique_ptr<Expression>> exprs;
+    for (const auto &expr : exprs_) {
+      exprs.emplace_back(expr->copy());
+    }
+    return make_unique<ListExpr>(std::move(exprs));
+  }
+
+  RC reset()
+  {
+    cur_idx_ = 0;
     return RC::SUCCESS;
   }
 
-  ExprType type() const override { return ExprType::VALUES; }
+  RC get_value(const Tuple &tuple, Value &value) override 
+  {
+    if (cur_idx_ >= exprs_.size()) {
+      return RC::RECORD_EOF;
+    }
+    return exprs_[cur_idx_++]->get_value(tuple, value);  // 移除const_cast
+  }
 
-  AttrType value_type() const override { return values_[0].attr_type(); }
+  RC try_get_value(Value &value) const override { return RC::UNIMPLEMENTED; }
 
-  void set_index(int index) { index_ = index; }
+  ExprType type() const override { return ExprType::LIST; }
 
-  const std::vector<Value> &get_values() const { return values_; }
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+
+  std::vector<std::unique_ptr<Expression>> &get_list() { return exprs_; }
 
 private:
-  std::vector<Value> values_;
-  mutable size_t     index_ = 0;
+  mutable size_t                                   cur_idx_ = 0;
+  std::vector<std::unique_ptr<Expression>> exprs_;
 };
 
 class SpecialPlaceholderExpr : public Expression
@@ -750,6 +632,127 @@ public:
 
   ExprType type() const override { return ExprType::SPECIAL; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value) override { return RC::INTERNAL; }
   unique_ptr<Expression> copy() const override { return make_unique<SpecialPlaceholderExpr>(); }
+};
+
+class UnboundFunctionExpr : public Expression
+{
+public:
+  UnboundFunctionExpr(const char *function_name, std::vector<std::unique_ptr<Expression>> child);
+  virtual ~UnboundFunctionExpr() = default;
+
+  unique_ptr<Expression> copy() const override
+  {
+    std::vector<std::unique_ptr<Expression>> args;
+    for (const auto &arg : args_) {
+      args.emplace_back(arg->copy());
+    }
+    return make_unique<UnboundFunctionExpr>(function_name_.c_str(), std::move(args));
+  }
+
+  ExprType type() const override { return ExprType::UNBOUND_FUNCTION; }
+
+  const char *function_name() const { return function_name_.c_str(); }
+
+  string to_string() const
+  {
+    string str = function_name_ + "(";
+    for (size_t i = 0; i < args_.size(); i++) {
+      str += args_[i]->name();
+      if (i < args_.size() - 1) {
+        str += ", ";
+      }
+    }
+    str += ")";
+    return str;
+  }
+
+  std::vector<std::unique_ptr<Expression>>       &args() { return args_; }
+  const std::vector<std::unique_ptr<Expression>> &args() const { return args_; }
+  void set_args(std::vector<std::unique_ptr<Expression>> args) { args_ = std::move(args); }
+
+  RC       get_value(const Tuple &tuple, Value &value) override { return RC::INTERNAL; }
+  AttrType value_type() const override { return {}; }
+
+protected:
+  std::string                              function_name_;
+  std::vector<std::unique_ptr<Expression>> args_;
+};
+
+class NormalFunctionExpr : public UnboundFunctionExpr
+{
+public:
+  NormalFunctionExpr(
+      NormalFunctionType type, const char *aggregate_name, std::vector<std::unique_ptr<Expression>> child)
+      : ::UnboundFunctionExpr(aggregate_name, std::move(child)), type_(type)
+  {}
+
+  virtual ~NormalFunctionExpr() = default;
+
+  unique_ptr<Expression> copy() const override
+  {
+    std::vector<std::unique_ptr<Expression>> args;
+    for (const auto &arg : args_) {
+      args.emplace_back(arg->copy());
+    }
+    return make_unique<NormalFunctionExpr>(type_, function_name_.c_str(), std::move(args));
+  }
+
+  static RC type_from_string(const char *type_str, NormalFunctionType &type);
+
+  ExprType type() const override { return ExprType::NORMAL_FUNCTION; }
+
+  bool is_vector_distance_func()
+  {
+    return type_ == NormalFunctionType::L2_DISTANCE || type_ == NormalFunctionType::COSINE_DISTANCE ||
+           type_ == NormalFunctionType::INNER_PRODUCT;
+  }
+
+  NormalFunctionType function_type() const { return type_; }
+
+  AttrType value_type() const override;
+
+  RC get_value(const Tuple &tuple, Value &value) override;
+  RC try_get_value(Value &value) const override;
+
+private:
+  NormalFunctionType type_;
+};
+
+class AggregateExpr : public Expression
+{
+public:
+  AggregateExpr(AggregateFunctionType type, Expression *child);
+  AggregateExpr(AggregateFunctionType type, std::unique_ptr<Expression> child);
+  virtual ~AggregateExpr() = default;
+  unique_ptr<Expression> copy() const override
+  {
+    return make_unique<AggregateExpr>(aggregate_type_, child_->copy());
+  }
+
+  bool equal(const Expression &other) const override;
+
+  ExprType type() const override { return ExprType::AGGREGATION; }
+
+  AttrType value_type() const override { return child_->value_type(); }
+  int      value_length() const override { return child_->value_length(); }
+
+  RC get_value(const Tuple &tuple, Value &value) override;
+
+  RC get_column(Chunk &chunk, Column &column) override;
+
+  AggregateFunctionType aggregate_type() const { return aggregate_type_; }
+
+  std::unique_ptr<Expression> &child() { return child_; }
+
+  const std::unique_ptr<Expression> &child() const { return child_; }
+
+  std::unique_ptr<Aggregator> create_aggregator() const;
+
+  static RC type_from_string(const char *type_str, AggregateFunctionType &type);
+
+private:
+  AggregateFunctionType       aggregate_type_;
+  std::unique_ptr<Expression> child_;
 };

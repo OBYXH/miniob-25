@@ -1,11 +1,12 @@
 #include "sql/operator/physical_operator.h"
 #include "sql/expr/tuple.h"
 #include "sql/operator/external_sorter.h"
+#include <queue>
 
 class OrderByPhysicalOperator : public PhysicalOperator
 {
 public:
-  OrderByPhysicalOperator(std::vector<OrderBySqlNode> order_by, std::vector<Expression *> exprs);
+  OrderByPhysicalOperator(std::vector<OrderBySqlNode> order_by, std::vector<Expression *> exprs, int limit);
 
   virtual ~OrderByPhysicalOperator() = default;
 
@@ -19,8 +20,12 @@ public:
   RC open(Trx *trx) override;
   RC next() override;
   RC close() override;
+  int limit() {
+    return limit_;
+  }
 
   Tuple *current_tuple() override;
+  RC fetch_and_sort_with_heap();
 
 private:
   std::vector<OrderBySqlNode> order_by_;
@@ -36,4 +41,6 @@ private:
   std::unique_ptr<ExternalSorter> sorter_;
 
   static constexpr size_t MAX_MEMORY_BYTES = 200 * 1024 * 1024;  // 100MB
+
+  int limit_;
 };

@@ -15,9 +15,6 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_physical_operator.h"
 #include "common/log/log.h"
 #include "sql/expr/tuple.h"
-#include "sql/stmt/filter_stmt.h"
-#include "storage/field/field.h"
-#include "storage/record/record.h"
 
 PredicatePhysicalOperator::PredicatePhysicalOperator(std::unique_ptr<Expression> expr) : expression_(std::move(expr))
 {
@@ -41,6 +38,8 @@ RC PredicatePhysicalOperator::next()
   RC                rc   = RC::SUCCESS;
   PhysicalOperator *oper = children_.front().get();
 
+  Tuple      *tp = nullptr;
+  JoinedTuple jt;
   while (RC::SUCCESS == (rc = oper->next())) {
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
@@ -48,22 +47,16 @@ RC PredicatePhysicalOperator::next()
       LOG_WARN("failed to get tuple from operator");
       break;
     }
-
-    // 如果 outer_tuple 不为空，说明在子查询，我们用 JoinedTuple 来存储
-    if (outer_tuple != nullptr) {
-      auto row_tuple = static_cast<RowTuple *>(outer_tuple);
-      // 外层tuple存在，但可能含空值，此时不需要使用JoinedTuple
-      if (row_tuple->is_valid()) {
-        LOG_DEBUG("msg from predicate_phy_oper: we are in subquery");
-        JoinedTuple *joined_tuple = new JoinedTuple();
-        joined_tuple->set_left(outer_tuple);
-        joined_tuple->set_right(tuple);
-        tuple = joined_tuple;
-      }
+    if (outer_tuple) {
+      jt.set_left(tuple);
+      jt.set_right(const_cast<Tuple *>(outer_tuple));
+      tp = &jt;
+    } else {
+      tp = tuple;
     }
 
     Value value;
-    rc = expression_->get_value(*tuple, value, trx_);
+    rc = expression_->get_value(*tp, value);
     if (rc != RC::SUCCESS) {
       return rc;
     }

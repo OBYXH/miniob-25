@@ -54,7 +54,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/update_physical_operator.h"
 #include "sql/operator/limit_logical_operator.h"
 #include "sql/operator/limit_physical_operator.h"
-#include <memory>
+#include "sql/operator/vector_scan_physical_operator.h"
 
 using namespace std;
 
@@ -159,11 +159,27 @@ RC PhysicalPlanGenerator::create_plan(
 
   Index     *index      = nullptr;
   ValueExpr *value_expr = nullptr;
+    // 是向量索引
+  if (table_get_oper.is_vector_scan()) {
+    auto vector_scan_oper = new VectorScanPhysicalOperator(table,
+        std::move(table_get_oper.table_alias()),
+        table_get_oper.index(),
+        table_get_oper.base_vector(),
+        table_get_oper.limit(),
+        table_get_oper.read_write_mode());
+
+    vector_scan_oper->set_predicates(std::move(predicates));
+    oper = unique_ptr<PhysicalOperator>(vector_scan_oper);
+    LOG_TRACE("Vector Index scan used on table: {}", table->name());
+    return RC::SUCCESS;
+  }
+
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
-      auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
+      auto comparison_expr = dynamic_cast<ComparisonExpr *>(expr.get());
+
       // 简单处理，就找等值查询
-      if (comparison_expr->comp() != EQUAL_TO /* && comparison_expr->comp() != NOT_EQUAL */) {
+      if (comparison_expr->comp() != EQUAL_TO) {
         continue;
       }
 
@@ -177,12 +193,12 @@ RC PhysicalPlanGenerator::create_plan(
       FieldExpr *field_expr = nullptr;
       if (left_expr->type() == ExprType::FIELD) {
         ASSERT(right_expr->type() == ExprType::VALUE, "right expr should be a value expr while left is field expr");
-        field_expr = static_cast<FieldExpr *>(left_expr.get());
-        value_expr = static_cast<ValueExpr *>(right_expr.get());
+        field_expr = dynamic_cast<FieldExpr *>(left_expr.get());
+        value_expr = dynamic_cast<ValueExpr *>(right_expr.get());
       } else if (right_expr->type() == ExprType::FIELD) {
         ASSERT(left_expr->type() == ExprType::VALUE, "left expr should be a value expr while right is a field expr");
-        field_expr = static_cast<FieldExpr *>(right_expr.get());
-        value_expr = static_cast<ValueExpr *>(left_expr.get());
+        field_expr = dynamic_cast<FieldExpr *>(right_expr.get());
+        value_expr = dynamic_cast<ValueExpr *>(left_expr.get());
       }
 
       if (field_expr == nullptr) {
@@ -202,6 +218,7 @@ RC PhysicalPlanGenerator::create_plan(
 
     const Value               &value           = value_expr->get_value();
     IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(table,
+        std::move(table_get_oper.table_alias()),
         index,
         table_get_oper.read_write_mode(),
         &value,
@@ -211,12 +228,13 @@ RC PhysicalPlanGenerator::create_plan(
 
     index_scan_oper->set_predicates(std::move(predicates));
     oper = unique_ptr<PhysicalOperator>(index_scan_oper);
-    LOG_TRACE("use index scan");
+    LOG_TRACE("Index scan used on table: {}", table->name());
   } else {
-    auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.read_write_mode());
+    auto table_scan_oper = std::make_unique<TableScanPhysicalOperator>(
+        table, std::move(table_get_oper.table_alias()), table_get_oper.read_write_mode());
     table_scan_oper->set_predicates(std::move(predicates));
-    oper = unique_ptr<PhysicalOperator>(table_scan_oper);
-    LOG_TRACE("use table scan");
+    oper = std::move(table_scan_oper);
+    LOG_TRACE("Table scan used on table: {}", table->name());
   }
 
   return RC::SUCCESS;
@@ -241,30 +259,6 @@ RC PhysicalPlanGenerator::create_plan(
   ASSERT(expressions.size() == 1, "predicate logical operator's children should be 1");
 
   unique_ptr<Expression> expression = std::move(expressions.front());
-
-  // 取出子查询的逻辑算子，创建物理算子
-  if (expression->type() == ExprType::CONJUNCTION) {
-    auto                            conjunction_expr = static_cast<ConjunctionExpr *>(expression.get());
-    vector<unique_ptr<Expression>> &children         = conjunction_expr->children();
-    for (auto &child_expr : children) {
-      if (child_expr->type() == ExprType::COMPARISON) {
-        auto comparison_expr = static_cast<ComparisonExpr *>(child_expr.get());
-        if (comparison_expr->left()->type() == ExprType::SUBQUERY) {
-          auto                         sub_query_expr    = static_cast<SubqueryExpr *>(comparison_expr->left().get());
-          unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
-          rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper, session);
-          sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        }
-        if (comparison_expr->right()->type() == ExprType::SUBQUERY) {
-          auto                         sub_query_expr    = static_cast<SubqueryExpr *>(comparison_expr->right().get());
-          unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
-          rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper, session);
-          sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        }
-      }
-    }
-  }
-
   oper = unique_ptr<PhysicalOperator>(new PredicatePhysicalOperator(std::move(expression)));
   oper->add_child(std::move(child_phy_oper));
   return rc;
@@ -325,9 +319,7 @@ RC PhysicalPlanGenerator::create_plan(
 RC PhysicalPlanGenerator::create_plan(
     InsertLogicalOperator &insert_oper, unique_ptr<PhysicalOperator> &oper, Session *session)
 {
-  Table                  *table           = insert_oper.table();
-  vector<Value>          &values          = insert_oper.values();
-  InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
+  auto insert_phy_oper = new InsertPhysicalOperator(insert_oper.table(), insert_oper.values_list());
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;
 }
@@ -376,24 +368,8 @@ RC PhysicalPlanGenerator::create_plan(
     }
   }
 
-  auto exprs       = std::move(update_oper.exprs());
-  auto field_metas = update_oper.field_metas();
-  // 取出可能的sub query创建物理计划
-  for (auto &expr : exprs) {
-    if (expr->type() == ExprType::SUBQUERY) {
-      auto                         sub_query_expr    = static_cast<SubqueryExpr *>(expr.get());
-      unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
-      rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper, session);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("failed to create subquery physical operator. rc=%s", strrc(rc));
-        return rc;
-      }
-      sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-    }
-  }
-
-  oper = unique_ptr<PhysicalOperator>(
-      new UpdatePhysicalOperator(update_oper.table(), std::move(exprs), std::move(field_metas)));
+  oper = std::make_unique<UpdatePhysicalOperator>(
+      update_oper.table(), std::move(update_oper.values()), update_oper.field_metas());
 
   if (child_physical_oper) {
     oper->add_child(std::move(child_physical_oper));
@@ -517,7 +493,7 @@ RC PhysicalPlanGenerator::create_plan(
   }
 
   OrderByPhysicalOperator *orderby_operator =
-      new OrderByPhysicalOperator(std::move(logical_oper.order_by()), std::move(logical_oper.exprs()));
+      new OrderByPhysicalOperator(std::move(logical_oper.order_by()), std::move(logical_oper.exprs()), logical_oper.limit());
   if (child_phy_oper) {
     orderby_operator->add_child(std::move(child_phy_oper));
   }

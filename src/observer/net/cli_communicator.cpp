@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "session/session.h"
 #include "common/linereader/line_reader.h"
 
-#define MAX_MEM_BUFFER_SIZE 8192
+#define MAX_MEM_BUFFER_SIZE 8192 * 1024
 #define PORT_DEFAULT 6789
 
 using common::MiniobLineReader;

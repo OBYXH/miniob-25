@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field_meta.h"
 #include "storage/table/table_meta.h"
 #include "storage/common/chunk.h"
+#include "sql/builtin/builtin.h"
 #include <vector>
 
 struct RID;
@@ -51,6 +52,7 @@ public:
 
   virtual RC create_index(
       Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name, bool unique) = 0;
+  virtual RC create_vector_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name) = 0;
   virtual RC     drop_index(const char *index_name)                                                             = 0;
   virtual RC     add_column(const AttrInfoSqlNode &attr_info, Trx *trx)                                         = 0;
   virtual RC     drop_column(const AttrInfoSqlNode &attr_info, Trx *trx)                                        = 0;
@@ -62,6 +64,7 @@ public:
   virtual RC     sync()                                                                                         = 0;
   virtual Index *find_index(const char *index_name) const                                                       = 0;
   virtual Index *find_index_by_field(const char *field_name) const                                              = 0;
+  virtual Index *find_vector_index(NormalFunctionType distance_fn, const char *field_name) const = 0;
   virtual RC     open()                                                                                         = 0;
   virtual RC     drop()                                                                                         = 0;
   // TODO: remove this function

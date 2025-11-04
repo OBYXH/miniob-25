@@ -28,122 +28,42 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <vector>
 
-FilterStmt::~FilterStmt() { conditions_.clear(); }
+FilterStmt::~FilterStmt() = default;
 
-RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table *> *tables, string relation_name,
-    string attribute_name, Table *&table, const FieldMeta *&field)
+RC FilterStmt::create(Db *db, Table *default_table, std::vector<std::string> tables_alias,
+      std::unordered_map<std::string, Table *> *tables, std::unique_ptr<Expression> &condition, FilterStmt *&stmt)
 {
-  if (common::is_blank(relation_name.c_str())) {
-    table = default_table;
-  } else if (nullptr != tables) {
-    auto iter = tables->find(relation_name);
-    if (iter != tables->end()) {
-      table = iter->second;
-    }
-  } else {
-    table = db->find_table(relation_name.c_str());
-  }
-  if (nullptr == table) {
-    LOG_WARN("No such table: attr.relation_name: %s", relation_name.c_str());
-    return RC::SCHEMA_TABLE_NOT_EXIST;
-  }
-
-  field = table->table_meta().field(attribute_name.c_str());
-  if (nullptr == field) {
-    LOG_WARN("no such field in table: table %s, field %s", table->name(), attribute_name.c_str());
-    table = nullptr;
-    return RC::SCHEMA_FIELD_NOT_EXIST;
-  }
-
-  return RC::SUCCESS;
-}
-RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table *> *tables,
-    std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt, Type type)
-{
-  for (auto &table_pair : *tables) {
-    LOG_DEBUG("filter stmt: table map: (%s, %s)", table_pair.first.c_str(), table_pair.second->name());
-  }
-
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
-
-  vector<unique_ptr<Expression>> cond_exprs;
-  for (auto &condition : conditions) {
-    if ((type == Type::WHERE) && (condition.left->type() == ExprType::UNBOUND_AGGREGATION ||
-                                     condition.right->type() == ExprType::UNBOUND_AGGREGATION)) {
-      // 聚合函数不在这里处理
-      LOG_WARN("unexpected aggregation expression in where condition");
-      return RC::INVALID_ARGUMENT;
-    }
-    switch (condition.comp) {
-      case EQUAL_TO:
-      case LESS_EQUAL:
-      case NOT_EQUAL:
-      case LESS_THAN:
-      case GREAT_EQUAL:
-      case GREAT_THAN:
-      case LIKE_OP:
-      case NOT_LIKE_OP:
-      case IS_OP:
-      case IS_NOT_OP:
-      case EXISTS_OP:
-      case NOT_EXISTS_OP:
-      case IN_OP:
-      case NOT_IN_OP: {
-        // 暂时进行Chars到Date的神秘特判, 搞不懂为什么MYSQL会这样设计
-        //  date_field comp value 这种情况居然只在 value = CHARS 时才报 Date类型值非法
-        //  INTS甚至FLOATS均不会报错???
-        if (condition.left->type() == ExprType::UNBOUND_FIELD && condition.right->value_type() == AttrType::CHARS) {
-          UnboundFieldExpr *unbound_fild_expr = static_cast<UnboundFieldExpr *>(condition.left.get());
-          Table            *table             = nullptr;
-          const FieldMeta  *field_meta        = nullptr;
-          RC                rc                = get_table_and_field(db,
-              default_table,
-              tables,
-              unbound_fild_expr->table_name(),
-              unbound_fild_expr->field_name(),
-              table,
-              field_meta);
-          if (rc != RC::SUCCESS) {
-            delete unbound_fild_expr;
-            return rc;
-          }
-          if (field_meta->type() == AttrType::DATES) {
-            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-          }
-        }
-        cond_exprs.emplace_back(
-            new ComparisonExpr(condition.comp, std::move(condition.left), std::move(condition.right)));
-      } break;
-      default: {
-        LOG_WARN("unsupported condition comparison type: %d", condition.comp);
-        return RC::UNIMPLEMENTED;
-      }
-    }
+  // 1、 没有条件直接返回
+  if (nullptr == condition) {
+    return rc;
   }
 
-  // 使用下面的绑定逻辑替代原本极其有限的过滤表达式处理
-  BinderContext context;
-  for (auto &table : *tables) {
-    context.add_table(table.second);
-  }
-  context.set_table_map(tables);
+  // 2、 检查条件的合法性
+  vector<unique_ptr<Expression>> cond_expressions;
+  BinderContext                  binder_context;
 
-  vector<unique_ptr<Expression>> bound_expressions;
-  ExpressionBinder               expr_binder(context);
-
-  FilterStmt *final_stmt = new FilterStmt();
-  for (size_t i = 0; i < conditions.size(); i++) {
-    final_stmt->conjunction_types_.push_back(conditions[i].conjunction_type);
-    RC rc = expr_binder.bind_expression(cond_exprs[i], bound_expressions);
-    if (rc != RC::SUCCESS) {
-      delete final_stmt;
-      LOG_WARN("failed to bind expression in condition %d", i);
-      return rc;
+  if (tables != nullptr) {
+    for (const auto &i : *tables) {
+      binder_context.add_table(i.second);
     }
   }
+  binder_context.add_db(db);
+  binder_context.set_alias(std::move(tables_alias));
+  binder_context.set_table_map(tables);
+  binder_context.set_default_table(default_table);
+  ExpressionBinder expression_binder(binder_context);
 
-  final_stmt->conditions_.swap(bound_expressions);
-  stmt = final_stmt;
+  rc = expression_binder.bind_expression(condition, cond_expressions);
+
+  if (OB_FAIL(rc)) {
+    LOG_WARN("CAN NOT PASS CONDITION CHECK!");
+    return rc;
+  }
+  FilterStmt *tmp_stmt = new FilterStmt();
+  tmp_stmt->condition_ = std::move(cond_expressions[0]);
+
+  stmt = tmp_stmt;
   return rc;
 }

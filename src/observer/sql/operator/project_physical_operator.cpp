@@ -57,7 +57,7 @@ RC ProjectPhysicalOperator::next()
     int cell_num = tuple_.cell_num();
     for (int i = 0; i < cell_num; i++) {
       // 过滤掉非计算的select
-      ExprType expr_type;
+      ExprType expr_type = ExprType::NONE;
       rc = tuple_.cell_type_at(i, expr_type);
       if (OB_FAIL(rc)) {
         return rc;
@@ -99,8 +99,8 @@ Tuple *ProjectPhysicalOperator::current_tuple()
 RC ProjectPhysicalOperator::tuple_schema(TupleSchema &schema) const
 {
   for (const unique_ptr<Expression> &expression : expressions_) {
-    if (*(expression->field_alias()) != '\0') {
-      schema.append_cell(expression->field_alias());
+    if (*(expression->alias()) != '\0') {
+      schema.append_cell(expression->alias());
       continue;
     }
     schema.append_cell(expression->name());

@@ -40,6 +40,7 @@ public:
 
   RC create_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name,
       bool unique) override;
+  RC create_vector_index(Trx *trx, IndexType index_type, const vector<FieldMeta> &field_meta, const char *index_name) override;
   RC drop_index(const char *index_name) override;
   RC add_column(const AttrInfoSqlNode &attr_info, Trx *trx) override;
   RC drop_column(const AttrInfoSqlNode &attr_info, Trx *trx) override;
@@ -52,6 +53,7 @@ public:
 
   Index *find_index(const char *index_name) const override;
   Index *find_index_by_field(const char *field_name) const override;
+  Index *find_vector_index(NormalFunctionType distance_fn, const char *field_name) const override;
   RC     open() override;
   RC     drop() override;
   // init_record_handler

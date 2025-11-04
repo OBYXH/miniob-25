@@ -31,6 +31,11 @@ class TableScanPhysicalOperator : public PhysicalOperator
 public:
   TableScanPhysicalOperator(Table *table, ReadWriteMode mode) : table_(table), mode_(mode) {}
 
+  TableScanPhysicalOperator(Table *table, std::string alias, ReadWriteMode mode) : table_(table), mode_(mode)
+  {
+    tuple_.set_table_alias(alias);
+  }
+
   virtual ~TableScanPhysicalOperator() = default;
 
   string param() const override;

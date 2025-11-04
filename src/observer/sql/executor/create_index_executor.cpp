@@ -41,6 +41,12 @@ RC CreateIndexExecutor::execute(SQLStageEvent *sql_event)
           create_index_stmt->index_name().c_str(),
           create_index_stmt->unique());
     }
+    case IndexType::VectorIVFFlatIndex: {
+      return table->create_vector_index(trx,
+        create_index_stmt->index_type(),
+        create_index_stmt->field_meta(),
+        create_index_stmt->index_name().c_str());
+    }
     default:;
   }
   return RC::UNSUPPORTED;

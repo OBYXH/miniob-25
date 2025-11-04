@@ -45,10 +45,10 @@ void CountState<T>::update(const T *values, int size)
   value += size;
 }
 
-void *create_aggregate_state(AggregateExpr::Type aggr_type, AttrType attr_type)
+void *create_aggregate_state(AggregateFunctionType aggr_type, AttrType attr_type)
 {
   void *state_ptr = nullptr;
-  if (aggr_type == AggregateExpr::Type::SUM) {
+  if (aggr_type == AggregateFunctionType::SUM) {
     if (attr_type == AttrType::INTS) {
       state_ptr = malloc(sizeof(SumState<int>));
       new (state_ptr) SumState<int>();
@@ -58,10 +58,10 @@ void *create_aggregate_state(AggregateExpr::Type aggr_type, AttrType attr_type)
     } else {
       LOG_WARN("unsupported aggregate value type");
     }
-  } else if (aggr_type == AggregateExpr::Type::COUNT) {
+  } else if (aggr_type == AggregateFunctionType::COUNT) {
     state_ptr = malloc(sizeof(CountState<int>));
     new (state_ptr) CountState<int>();
-  } else if (aggr_type == AggregateExpr::Type::AVG) {
+  } else if (aggr_type == AggregateFunctionType::AVG) {
     if (attr_type == AttrType::INTS) {
       state_ptr = malloc(sizeof(AvgState<int>));
       new (state_ptr) AvgState<int>();
@@ -77,10 +77,10 @@ void *create_aggregate_state(AggregateExpr::Type aggr_type, AttrType attr_type)
   return state_ptr;
 }
 
-RC aggregate_state_update_by_value(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, const Value &val)
+RC aggregate_state_update_by_value(void *state, AggregateFunctionType aggr_type, AttrType attr_type, const Value &val)
 {
   RC rc = RC::SUCCESS;
-  if (aggr_type == AggregateExpr::Type::SUM) {
+  if (aggr_type == AggregateFunctionType::SUM) {
     if (attr_type == AttrType::INTS) {
       static_cast<SumState<int> *>(state)->update(val.get_int());
     } else if (attr_type == AttrType::FLOATS) {
@@ -89,9 +89,9 @@ RC aggregate_state_update_by_value(void *state, AggregateExpr::Type aggr_type, A
       LOG_WARN("unsupported aggregate value type");
       return RC::UNIMPLEMENTED;
     }
-  } else if (aggr_type == AggregateExpr::Type::COUNT) {
+  } else if (aggr_type == AggregateFunctionType::COUNT) {
     static_cast<CountState<int> *>(state)->update(1);
-  } else if (aggr_type == AggregateExpr::Type::AVG) {
+  } else if (aggr_type == AggregateFunctionType::AVG) {
     if (attr_type == AttrType::INTS) {
       static_cast<AvgState<int> *>(state)->update(val.get_int());
     } else if (attr_type == AttrType::FLOATS) {
@@ -115,10 +115,10 @@ void append_to_column(void *state, Column &column)
   column.append_one((char *)&res);
 }
 
-RC finialize_aggregate_state(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, Column &col)
+RC finialize_aggregate_state(void *state, AggregateFunctionType aggr_type, AttrType attr_type, Column &col)
 {
   RC rc = RC::SUCCESS;
-  if (aggr_type == AggregateExpr::Type::SUM) {
+  if (aggr_type == AggregateFunctionType::SUM) {
     if (attr_type == AttrType::INTS) {
       append_to_column<SumState<int>, int>(state, col);
     } else if (attr_type == AttrType::FLOATS) {
@@ -127,9 +127,9 @@ RC finialize_aggregate_state(void *state, AggregateExpr::Type aggr_type, AttrTyp
       rc = RC::UNIMPLEMENTED;
       LOG_WARN("unsupported aggregate value type");
     }
-  } else if (aggr_type == AggregateExpr::Type::COUNT) {
+  } else if (aggr_type == AggregateFunctionType::COUNT) {
     append_to_column<CountState<int>, int>(state, col);
-  } else if (aggr_type == AggregateExpr::Type::AVG) {
+  } else if (aggr_type == AggregateFunctionType::AVG) {
     if (attr_type == AttrType::INTS) {
       append_to_column<AvgState<int>, float>(state, col);
     } else if (attr_type == AttrType::FLOATS) {
@@ -153,10 +153,10 @@ void update_aggregate_state(void *state, const Column &column)
   state_ptr->update(data, column.count());
 }
 
-RC aggregate_state_update_by_column(void *state, AggregateExpr::Type aggr_type, AttrType attr_type, Column &col)
+RC aggregate_state_update_by_column(void *state, AggregateFunctionType aggr_type, AttrType attr_type, Column &col)
 {
   RC rc = RC::SUCCESS;
-  if (aggr_type == AggregateExpr::Type::SUM) {
+  if (aggr_type == AggregateFunctionType::SUM) {
     if (attr_type == AttrType::INTS) {
       update_aggregate_state<SumState<int>, int>(state, col);
     } else if (attr_type == AttrType::FLOATS) {
@@ -165,9 +165,9 @@ RC aggregate_state_update_by_column(void *state, AggregateExpr::Type aggr_type, 
       LOG_WARN("unsupported aggregate value type");
       rc = RC::UNIMPLEMENTED;
     }
-  } else if (aggr_type == AggregateExpr::Type::COUNT) {
+  } else if (aggr_type == AggregateFunctionType::COUNT) {
     update_aggregate_state<CountState<int>, int>(state, col);
-  } else if (aggr_type == AggregateExpr::Type::AVG) {
+  } else if (aggr_type == AggregateFunctionType::AVG) {
     if (attr_type == AttrType::INTS) {
       update_aggregate_state<AvgState<int>, int>(state, col);
     } else if (attr_type == AttrType::FLOATS) {

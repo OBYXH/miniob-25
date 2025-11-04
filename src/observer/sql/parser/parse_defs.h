@@ -57,8 +57,10 @@ struct RelAttrSqlNode
  */
 struct RelationNode
 {
+  RelationNode(std::string relation, std::string alias) : relation_name(std::move(relation)), relation_alias(std::move(alias)) {}
+  explicit RelationNode(std::string relation) : relation_name(std::move(relation)) {}
   string relation_name;   ///< relation name (may be NULL) 表名
-  string ralation_alias;  ///< ralation alias              表别名
+  string relation_alias;  ///< ralation alias              表别名
 };
 
 /**
@@ -68,7 +70,7 @@ struct RelationNode
  */
 struct LimitSqlNode
 {
-  int limit_count;  ///< limit count
+  int limit;  ///< limit count
 };
 
 /**
@@ -102,6 +104,14 @@ enum class IndexType
 {
   BPlusTreeIndex,
   FullTextIndex,
+  VectorIVFFlatIndex
+};
+
+enum class VectorDistanceType
+{
+  L2,
+  COSINE,
+  INNER,
 };
 
 /**
@@ -125,8 +135,8 @@ struct ConditionSqlNode
  */
 struct JoinSqlNode
 {
-  RelationNode      relation;   ///< 查询的表
-  vector<ConditionSqlNode> conditions;  ///< 查询条件(可多个，用连接词连接)
+  vector<RelationNode>      relations;   ///< 查询的表
+  unique_ptr<Expression> conditions;  ///< 查询条件(可多个，用连接词连接)
 };
 
 /**
@@ -153,11 +163,11 @@ struct SelectSqlNode
 {
   vector<unique_ptr<Expression>> expressions;  ///< 查询的表达式
   vector<RelationNode>           relations;    ///< 查询的表
-  vector<ConditionSqlNode>       conditions;   ///< 查询条件，使用AND串联起来多个条件
+  unique_ptr<Expression>       conditions;   ///< 查询条件，使用AND串联起来多个条件
   vector<unique_ptr<Expression>> group_by;     ///< group by clause
   std::vector<OrderBySqlNode>    order_by;
-  int                            limit = -1;         ///< limit count, -1 means no limit
-  vector<ConditionSqlNode>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
+  std::unique_ptr<Expression>       having_conditions;  ///< having 条件，使用AND串联起来多个条件
+  unique_ptr<LimitSqlNode>            limit;         ///< limit count, -1 means no limit
 };
 
 
@@ -203,7 +213,7 @@ struct CalcSqlNode
 struct InsertSqlNode
 {
   string        relation_name;  ///< Relation to insert into
-  vector<Value> values;         ///< 要插入的值
+  std::vector<std::vector<Value>> values_list;    ///< 要插入的值列表
 };
 
 /**
@@ -213,13 +223,17 @@ struct InsertSqlNode
 struct DeleteSqlNode
 {
   string                   relation_name;  ///< Relation to delete from
-  vector<ConditionSqlNode> conditions;
+  unique_ptr<Expression>   condition;
 };
 
+/**
+ * @brief 描述一个set语句
+ * @ingroup SQLParser
+ */
 struct UpdateField
 {
-  string      attribute_name;  ///< 更新的字段，仅支持一个字段
-  Expression *expr;            ///< 更新的值，仅支持一个字段
+  std::string                 field_name;  ///< 更新的字段
+  std::unique_ptr<Expression> value;       ///< 更新的值
 };
 
 /**
@@ -228,9 +242,9 @@ struct UpdateField
  */
 struct UpdateSqlNode
 {
-  string                   relation_name;  ///< Relation to update
-  vector<UpdateField>      update_list;    ///< 更新列表，支持多个字段更新
-  vector<ConditionSqlNode> conditions;
+  std::string                   relation_name;  ///< Relation to update
+  std::vector<UpdateField>      update_list;    ///< 更新的set语句，支持多个字段和值
+  std::unique_ptr<Expression>   conditions;     ///< 谓词条件
 };
 
 /**
@@ -309,6 +323,7 @@ struct CreateIndexSqlNode
   string         index_name;      ///< Index name
   string         relation_name;   ///< Relation name
   vector<string> attribute_name;  ///< Attribute name
+  IndexType      index_type = IndexType::BPlusTreeIndex;  ///< Index type
 };
 
 /**

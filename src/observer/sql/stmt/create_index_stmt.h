@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/stmt.h"
 #include "storage/table/table_meta.h"
+#include "sql/expr/expression.h"
 
 struct CreateIndexSqlNode;
 class Table;
@@ -30,6 +31,15 @@ public:
   CreateIndexStmt(
       Table *table, IndexType index_type, const vector<FieldMeta> &field_meta, const string &index_name, bool unique)
       : table_(table), index_type_(index_type), field_meta_(field_meta), index_name_(index_name), unique_(unique)
+  {}
+
+  // 向量索引
+  CreateIndexStmt(Table *table, IndexType index_type, const vector<FieldMeta> &field_meta,
+      const std::string &index_name, NormalFunctionType distance_type, std::vector<int> options = {})
+      : table_(table),
+        index_type_(index_type),
+        field_meta_(field_meta),
+        index_name_(index_name)
   {}
 
   ~CreateIndexStmt() override = default;

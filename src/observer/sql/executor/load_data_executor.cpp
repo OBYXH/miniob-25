@@ -131,7 +131,13 @@ void LoadDataExecutor::load_data(
     } else if (table->table_meta().storage_format() == StorageFormat::PAX_FORMAT) {
       // your code here
       // Todo: 参照insert_record_from_file实现
-      rc = RC::UNIMPLEMENTED;
+      rc = insert_record_from_file(table, file_values, record_values, errmsg);
+      if (rc != RC::SUCCESS) {
+        result_string << "Line:" << line_num << " insert record failed:" << errmsg.str() << ". error:" << strrc(rc)
+                      << endl;
+      } else {
+        insertion_count++;
+      }
     } else {
       rc = RC::UNSUPPORTED;
       result_string << "Unsupported storage format: " << strrc(rc) << endl;
