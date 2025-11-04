@@ -1202,21 +1202,21 @@ condition_list:
     }
     | condition {
       $$ = new vector<ConditionSqlNode>;
-      $$->emplace_back(std::move(*$1)); // 由于Condition中有不可Copy的unique_ptr成员，所以这里必须用move语义
       $1->conjunction_type = 0;
-      delete $1;
+      $$->emplace_back(std::move(*$1)); // 由于Condition中有不可Copy的unique_ptr成员，所以这里必须用move语义
+      // delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
       $1->conjunction_type = 1;
       $$->push_back(std::move(*$1));
-      delete $1;
+      // delete $1;
     }
     | condition OR condition_list {
       $$ = $3;
       $1->conjunction_type = 2;
       $$->push_back(std::move(*$1));
-      delete $1;
+      // delete $1;
     }
     ;
 condition:
