@@ -58,9 +58,9 @@ UPDATE v3 SET id=1, age=1;
 SUCCESS
 SELECT * FROM table1;
 1 | 1
+100 | 100
 114 | 12
 114 | 4
-100 | 100
 id | age
 SELECT * FROM v3;
 1 | 1 | A
