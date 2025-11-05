@@ -51,12 +51,24 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   const int        value_num  = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
-    LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
-    return RC::SCHEMA_FIELD_MISSING;
+
+  if (!table->is_view() || (table->is_view() && inserts.attrs_name.empty())) {
+    // 不是视图，或者是没有指定 field list 的视图插入操作。
+    if (field_num != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+  } else {
+    // 指定了 field list 的视图的视图插入操作，需要检查 attrs_name 是否和 value_num 匹配
+    if (inserts.attrs_name.size() != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
   }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  auto insert_stmt = new InsertStmt(table, values, value_num);
+  insert_stmt->set_attrs_name(inserts.attrs_name);
+  stmt = insert_stmt;
   return RC::SUCCESS;
 }

@@ -18,6 +18,7 @@ class View : public Table {
   
   const std::string &view_name() const { return view_name_; }
   const std::string &view_definition() const { return view_definition_; }
+  const std::vector<std::string> &attrs_name() const { return attrs_name_; }
   const bool is_updatable() const { return is_updatable_; }
 
   void init_table_meta(const vector<FieldMeta> &fields);
@@ -37,6 +38,13 @@ class View : public Table {
     return "";
   }
 
+  std::string find_base_table_field_name(const std::string &attr_name) {
+    if (attr_name_2_base_table_field_name.find(attr_name) != attr_name_2_base_table_field_name.end()) {
+      return attr_name_2_base_table_field_name[attr_name];
+    }
+    return "";
+  }
+
  private:
   std::string view_name_;
   std::string view_definition_;
@@ -49,4 +57,6 @@ class View : public Table {
   std::vector<Table *> base_tables_;
   // 维护某个视图的普通字段对应的基表名称
   std::unordered_map<std::string, std::string> field_base_table_name;
+  // 维护视图的字段名和基表的字段名的映射关系
+  std::unordered_map<std::string, std::string> attr_name_2_base_table_field_name;
 };

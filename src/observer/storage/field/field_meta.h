@@ -59,6 +59,7 @@ public:
   // view 中，需要识别到某个 Field 属于哪个表
   std::string table_name_;
   void set_name(const char *name) { name_ = name; }
+  void set_basetable_name(const char *table_name) { table_name_ = table_name; }
 
 protected:
   string   name_;

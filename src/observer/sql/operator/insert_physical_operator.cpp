@@ -43,11 +43,28 @@ RC InsertPhysicalOperator::open(Trx *trx)
         bool found = false;
         Value value;
         size_t idx = 0;
+        string view_field_name;
         for (auto &view_field : *view->table_meta().field_metas()) {
           // 遍历视图的所有 field
-          // if (field.name() == view_field.name()) { // 犯错误了
-          if (strcmp(field.name(), view_field.name()) == 0) {
-            // 如果找到一个视图的 field 和 base table 的 field 名字相同
+          if (view->attrs_name().empty()) {
+            view_field_name = view_field.name();
+          } else {
+            view_field_name = view->find_base_table_field_name(view_field.name());
+          }
+
+          // 检查这个视图当中的 field_name 在不在 insert 用户指定的 attrs_name 里面
+          if (!attrs_name_.empty()) {
+            if (find(attrs_name_.begin(), attrs_name_.end(), view_field.name()) == attrs_name_.end()) {
+              // 如果不在 attrs_name 里面，就不用插入了
+              continue;
+            }
+          }
+          // 如果找到一个视图的 field 和 base table 的 field 名字相同, 且基表一致
+          if (strcmp(field.name(), view_field.name()) == 0 && view_field.table_name_ == base_table->name()) {
+            if (idx >= values_.size()) {
+              LOG_DEBUG("Partial values insert triggered");
+              break;
+            }
             found = true;
             value = values_[idx];
             break;
@@ -65,16 +82,42 @@ RC InsertPhysicalOperator::open(Trx *trx)
         base_table_value.push_back(value);
       }
       base_table_map[base_table->name()] = base_table;
-      base_table_values[base_table->name()] = base_table_value;
+
+      // 过滤掉完全为NULL的values
+      bool all_null = true;
+      for (auto &val : base_table_value) {
+        if (!val.is_null()) {
+          all_null = false;
+          break;
+        }
+      }
+      if (!all_null) {
+        base_table_values[base_table->name()] = base_table_value;
+      }
+
+      LOG_DEBUG("try inserting into base table %s:", base_table->name());
+      for (auto &val : base_table_value) {
+        LOG_DEBUG("base table %s value: %s", base_table->name(), val.to_string().c_str());
+      }
     }
+
+
     LOG_DEBUG("values from %d base tables", base_table_values.size());
     // values 来自多个基表，拒绝更新
     if (base_table_values.size() > 1) {
       return RC::MULTIPLE_BASE_TABLES;
     }
+
+    auto select_talbe_name = base_table_values.begin()->first;
     
     // 插入
     for (auto &base_table : base_tables) {
+      
+      // 只更新被选中的表
+      if (strcmp(base_table->name(), select_talbe_name.c_str()) != 0) {
+        continue;
+      }
+
       auto &values = base_table_values[base_table->name()];
       Record record;
       rc = base_table->make_record(static_cast<int>(values.size()), values.data(), record);

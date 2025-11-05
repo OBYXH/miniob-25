@@ -89,12 +89,6 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     const char *view_name = create_view_stmt->view_name().c_str();
     const char *view_definition = create_view_stmt->view_definition().c_str();
 
-    // // 解析到 is_updatable
-    // // 不可更新的判断条件为：
-    // // 1. 聚合函数、Join
-    // auto select_stmt = create_view_stmt->select_stmt();
-    // bool is_updatable = check_is_updatable(select_stmt);
-
     // 检查名字重复性
     if (session->get_current_db()->find_view(view_name) != nullptr || 
        session->get_current_db()->find_table(view_name) != nullptr) {

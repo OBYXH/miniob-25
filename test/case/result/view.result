@@ -46,9 +46,9 @@ INSERT INTO v3(id, age) VALUES(100, 100);
 SUCCESS
 SELECT * FROM table1;
 1 | 2
+100 | 100
 114 | 12
 114 | 4
-100 | 100
 id | age
 SELECT * FROM v3;
 1 | 2 | A
