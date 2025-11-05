@@ -136,9 +136,9 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
   for (size_t i = 0; i < conditions.size(); i++) {
     final_stmt->conjunction_types_.push_back(conditions[i].conjunction_type);
     RC rc = expr_binder.bind_expression(cond_exprs[i], bound_expressions);
-    if (i == 2 && conditions.size() == 4 && conditions[0].comp == CompOp::GREAT_THAN && conditions[1].comp == CompOp::EQUAL_TO && conditions[2].comp == CompOp::GREAT_EQUAL && conditions[3].comp == CompOp::EQUAL_TO) {
-      return RC::INVALID_ARGUMENT;
-    }
+    // if (i == 2 && conditions.size() == 4 && conditions[0].comp == CompOp::GREAT_THAN && conditions[1].comp == CompOp::EQUAL_TO && conditions[2].comp == CompOp::GREAT_EQUAL && conditions[3].comp == CompOp::EQUAL_TO) {
+    //   return RC::INVALID_ARGUMENT;
+    // }
     if (rc != RC::SUCCESS) {
       delete final_stmt;
       LOG_WARN("failed to bind expression in condition %d", i);
