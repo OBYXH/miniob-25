@@ -1209,13 +1209,13 @@ condition_list:
     | condition AND condition_list {
       $$ = $3;
       $1->conjunction_type = 1;
-      $$->push_back(std::move(*$1));
+      $$->emplace_back(std::move(*$1));
       // delete $1;
     }
     | condition OR condition_list {
       $$ = $3;
       $1->conjunction_type = 2;
-      $$->push_back(std::move(*$1));
+      $$->emplace_back(std::move(*$1));
       // delete $1;
     }
     ;
