@@ -72,11 +72,11 @@ public:
       } else {
         FieldMeta field_meta;
         std::string field_name;
-        if (!expr->alias_std_string().empty()) {
+        if (!string(expr->field_alias()).empty()) {
           // 别名覆盖字段名
-          field_name = expr->alias_std_string();
+          field_name = expr->field_alias();
         } else {
-          field_name = expr->name();
+          field_name = expr ->name();
         }
         field_meta.init(field_name.c_str(), expr->value_type(), 0, expr->value_length(), true, 0);
         query_fields.push_back(field_meta);

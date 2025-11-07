@@ -72,3 +72,10 @@ INSERT INTO v3(id, name) VALUES(100, 'Z');
 FAILURE
 UPDATE v3 SET id=1,name='100';
 FAILURE
+
+5. expression alias
+create view v5 as select id, age, id+age as data from table1;
+SUCCESS
+select sum(data) from v5;
+446
+sum(data)

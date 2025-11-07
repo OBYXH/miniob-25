@@ -28,3 +28,7 @@ UPDATE v3 SET id=1, age=1;
 -- echo 4. error
 INSERT INTO v3(id, name) VALUES(100, 'Z');
 UPDATE v3 SET id=1,name='100';
+
+-- echo 5. expression alias
+create view v5 as select id, age, id+age as data from table1;
+-- sort select sum(data) from v5;
