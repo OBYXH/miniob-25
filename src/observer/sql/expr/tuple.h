@@ -157,6 +157,7 @@ public:
   void set_table_name(const std::string &table_name) { table_name_ = table_name; }
   RID  raw_rid() const { return rid_; }
   const std::string &raw_table_name() const { return table_name_; }
+  virtual bool is_valid() const { return true; }  // 默认返回 true
 
 protected:
   RID rid_;
@@ -222,6 +223,7 @@ public:
     } else {
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
+    cell.view_set_info(raw_rid().page_num, raw_rid().slot_num, raw_table_name());
     return RC::SUCCESS;
   }
 
@@ -252,7 +254,7 @@ public:
     return RC::SUCCESS;
   }
 
-  bool is_valid() const { return record_ != nullptr && table_ != nullptr; }
+  bool is_valid() const override { return record_ != nullptr && table_ != nullptr; }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
@@ -287,6 +289,14 @@ public:
   Record &record() { return *record_; }
 
   const Record &record() const { return *record_; }
+
+public:
+  // view 多表
+  // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
+  // 这里需要记录这种信息，用于多表下的 view 的字段update
+  // 在 tablescan 中，这三个字段会被更新。
+  std::vector<RID> rid_list_;
+  std::vector<std::string> table_name_list_;
 
 private:
   Record             *record_ = nullptr;

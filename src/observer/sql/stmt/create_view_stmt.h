@@ -41,6 +41,7 @@ public:
   const std::vector<std::string> &attrs_name() const { return attrs_name_; }
 
   static RC            create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt);
+  bool has_duplicate_column_name();
 
 private:
   std::string view_name_;

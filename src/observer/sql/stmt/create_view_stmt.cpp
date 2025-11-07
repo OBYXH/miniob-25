@@ -27,7 +27,7 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
 
   RC rc = Stmt::create_stmt(db, *create_view.sub_select, stmt_);
   if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to create stmt. rc=%d:%s", rc, strrc(rc));
+    LOG_WARN("failed to create stmt. rc=%d:%s", rc.to_int(), strrc(rc));
     return rc;
   }
   // cast to SelectStmt
@@ -49,9 +49,25 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   create_view_stmt->set_view_updatable(check_is_updatable(select_stmt));
   create_view_stmt->set_select_stmt(select_stmt);
   create_view_stmt->set_query_fields(query_fields);
+  // 检查 duplicate column name
+  if (create_view_stmt->has_duplicate_column_name()) {
+    LOG_WARN("duplicate column name in view definition(ERROR 1060)");
+    return RC::INVALID_ARGUMENT;
+  }
   create_view_stmt->set_view_definition(create_view.description);
 
   sql_debug("create view statement: view name %s", create_view.view_name.c_str());
   
   return RC::SUCCESS;
+}
+
+bool CreateViewStmt::has_duplicate_column_name() {
+    std::unordered_map<std::string, int> column_name_map;
+    for (auto &field : query_fields_meta_) {
+        if (column_name_map.find(field.name()) != column_name_map.end()) {
+            return true;
+        }
+        column_name_map[field.name()] = 1;
+    }
+    return false;
 }

@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
 #include "storage/table/view.h"
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -40,6 +41,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
   }
 
   unordered_map<string, Table *> base_table_map;
+  // 收集视图各基表的更新字段索引
   if (table_->is_view()) {
     auto *view = static_cast<View *>(table_);
     auto base_tables = view->base_tables();
@@ -52,7 +54,6 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         auto table_name_in_view = view->find_base_table_name(field_meta.name());
         if (table_name_in_view == base_table->name()) {
           update_field_idx.push_back(i);
-          break;
         }
         i++;
       }
@@ -81,29 +82,41 @@ RC UpdatePhysicalOperator::open(Trx *trx)
 
   trx_ = trx;
 
-  // 收集需要更新的记录
+  // 统一收集所有需要更新的记录
   while (OB_SUCC(rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
       LOG_WARN("failed to get current record: %s", strrc(rc));
       return rc;
     }
-
+ 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    
-    // 保存原始表信息和RID
-    string raw_table_name = tuple->raw_table_name();
-    RID raw_rid = tuple->raw_rid();
-    
-    // 如果是普通表，使用record的rid
-    if (!table_->is_view()) {
-      raw_rid = row_tuple->record().rid();
-      raw_table_name = table_->name();
+    if (table_->is_view()) {
+      
+      if (row_tuple->cell_num() != row_tuple->rid_list_.size()) {
+        LOG_PANIC("update view: cell num is not equal to rid num");
+        return RC_WITH_LOCATION(RC::INTERNAL," ");
+      }   
+      // 在视图场景下，由于引入多表，需要使用tuple中的rid和table_name
+      for (size_t i = 0; i < row_tuple->rid_list_.size(); i++) {
+          // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
+          auto base_table_name = row_tuple->table_name_list_[i];
+          auto update_rid       = row_tuple->rid_list_[i];
+  
+          LOG_DEBUG("we are updating base table of view: %s, rid: %s", base_table_name.c_str(), update_rid.to_string().c_str());
+          records_.push_back(row_tuple->record());
+          record_table_names_.push_back(base_table_name);
+          record_rids_.push_back(update_rid);
+      }
+    } else {
+      // 保存原始表信息和RID
+      string raw_table_name = tuple->raw_table_name();
+      RID raw_rid = tuple->raw_rid();
+
+      records_.push_back(row_tuple->record());
+      record_table_names_.push_back(raw_table_name);
+      record_rids_.push_back(raw_rid);      
     }
-    
-    records_.push_back(row_tuple->record());
-    record_table_names_.push_back(raw_table_name);
-    record_rids_.push_back(raw_rid);
   }
   
   // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
