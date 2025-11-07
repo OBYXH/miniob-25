@@ -194,7 +194,6 @@ RC ExpressionBinder::bind_unbound_field_expression(
   const char *table_name  = unbound_field_expr->table_name();
   const char *field_name  = unbound_field_expr->field_name();
   const char *field_alias = unbound_field_expr->field_alias();
-  const char *alias       = unbound_field_expr->alias();
 
   // 在顶层，table_name 已经被解析为真实的表名
   // 在顶层，field_name 已经被解析为真实的字段名
@@ -242,7 +241,6 @@ RC ExpressionBinder::bind_unbound_field_expression(
     Field      field(table, field_meta);
     FieldExpr *field_expr = new FieldExpr(field);
     field_expr->set_name(field_name);
-    field_expr->set_alias(alias);
     if (!is_blank(table_name)) {
       string name_with_prefix = string(table_name) + "." + string(field_name);
       field_expr->set_name(name_with_prefix);

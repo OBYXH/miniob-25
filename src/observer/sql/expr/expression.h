@@ -143,10 +143,6 @@ public:
    */
   virtual RC eval(Chunk &chunk, vector<uint8_t> &select) { return RC::UNIMPLEMENTED; }
 
-  void set_alias(const std::string &alias) { alias_ = alias; }
-  const char *alias() const { return alias_.c_str(); }
-  const std::string alias_std_string() const { return alias_; }
-
   void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
   const char *table_alias() const { return table_alias_.c_str(); }
   const std::string table_alias_std_string() const { return table_alias_; }
@@ -162,8 +158,7 @@ protected:
 
 private:
   string name_;
-  string filed_alias_;
-  string alias_;
+  string filed_alias_; // 实际上就是表达式别名
   std::string table_alias_;
   
 };

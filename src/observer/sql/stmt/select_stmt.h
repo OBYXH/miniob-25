@@ -64,9 +64,9 @@ public:
         auto field_expr = static_cast<FieldExpr *>(expr.get());
         FieldMeta field_meta(*field_expr->field().meta());
         field_meta.table_name_ = (*field_expr).table_name(); // 记录表名
-        if (!expr->alias_std_string().empty()) {
+        if (!string(expr->field_alias()).empty()) {
           // 别名覆盖字段名
-          field_meta.set_name(expr->alias_std_string().c_str());
+          field_meta.set_name(expr->field_alias());
         }
         query_fields.push_back(field_meta);
       } else {
