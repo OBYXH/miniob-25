@@ -102,7 +102,7 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
 {
   if (!json_value.isObject()) {
     LOG_ERROR("Failed to deserialize field. json is not an object. json value=%s", json_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   const Json::Value &name_value     = json_value[FIELD_NAME];
@@ -115,38 +115,38 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
 
   if (!name_value.isString()) {
     LOG_ERROR("Field name is not a string. json value=%s", name_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (!type_value.isString()) {
     LOG_ERROR("Field type is not a string. json value=%s", type_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   if (!offset_value.isInt()) {
     LOG_ERROR("Offset is not an integer. json value=%s", offset_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (!len_value.isInt()) {
     LOG_ERROR("Len is not an integer. json value=%s", len_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (!visible_value.isBool()) {
     LOG_ERROR("Visible field is not a bool value. json value=%s", visible_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (!field_id_value.isInt()) {
     LOG_ERROR("Field id is not an integer. json value=%s", field_id_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (!nullable_value.isBool()) {
     LOG_ERROR("Nullable field is not a bool value. json value=%s", nullable_value.toStyledString().c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   AttrType type = attr_type_from_string(type_value.asCString());
   if (AttrType::UNDEFINED == type) {
     LOG_ERROR("Got invalid field type. type=%d", type);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   const char *name     = name_value.asCString();

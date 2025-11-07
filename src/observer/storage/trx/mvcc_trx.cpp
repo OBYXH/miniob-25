@@ -575,7 +575,7 @@ RC MvccTrx::redo(Db *db, const LogEntry &log_entry)
 
     default: {
       ASSERT(false, "unsupported redo log. log_record=%s", log_entry.to_string().c_str());
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     } break;
   }
 

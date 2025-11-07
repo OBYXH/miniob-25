@@ -127,11 +127,11 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     if (table_->is_view()) {
       if (raw_table_name.empty()) {
         LOG_PANIC("update view: raw table name is empty, we might got failed");
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       if (base_table_map.find(raw_table_name) == base_table_map.end()) {
         LOG_PANIC("update view: cannot find base table: %s", raw_table_name.c_str());
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       update_table = base_table_map[raw_table_name];
       update_field_idx = selected_update_field_idx_[raw_table_name];

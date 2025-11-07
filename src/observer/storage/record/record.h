@@ -237,7 +237,7 @@ public:
   {
     if (!owner_) {
       LOG_ERROR("cannot set field when record does not own the memory");
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (field_offset + field_len > len_) {
       LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_len, len_);
@@ -294,7 +294,7 @@ public:
   {
     if (!owner_) {
       LOG_ERROR("cannot set field when record does not own the memory");
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (field_offset + field_len > len_) {
       LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_len, len_);

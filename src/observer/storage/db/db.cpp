@@ -283,7 +283,7 @@ RC Db::open_all_tables()
           table->name(), filename.c_str());
       // 在这里原本先删除table后调用table->name()方法，犯了use-after-free的错误
       delete table;
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     if (table->table_id() >= next_table_id_) {
@@ -428,7 +428,7 @@ RC Db::recover()
   LogReplayer *trx_log_replayer = trx_kit_->create_log_replayer(*this, *log_handler_);
   if (trx_log_replayer == nullptr) {
     LOG_ERROR("Failed to create trx log replayer.");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   IntegratedLogReplayer log_replayer(*buffer_pool_manager_, unique_ptr<LogReplayer>(trx_log_replayer));

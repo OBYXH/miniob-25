@@ -83,7 +83,7 @@ RC BufferPoolLogReplayer::replay(const LogEntry &entry)
     case BufferPoolOperation::Type::DEALLOCATE: return buffer_pool->redo_deallocate_page(entry.lsn(), log->page_num);
     default:
       LOG_ERROR("unknown buffer pool operation. operation=%s", operation.to_string().c_str());
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return RC::SUCCESS;
 }

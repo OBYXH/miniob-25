@@ -51,7 +51,7 @@ RC SqlTaskHandler::handle_event(Communicator *communicator)
   delete event;
 
   if (need_disconnect) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return RC::SUCCESS;
 }
@@ -76,7 +76,7 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     sql_event->sql_node()->flag == SCF_INSERT ||
     sql_event->sql_node()->flag == SCF_UPDATE) {
     auto *db = sql_event->session_event()->session()->get_current_db();
-    if (db == nullptr) return RC::INTERNAL;
+    if (db == nullptr) return RC_WITH_LOCATION(RC::INTERNAL, "");
 
     std::vector<std::string> view_names;
     switch (sql_event->sql_node()->flag)

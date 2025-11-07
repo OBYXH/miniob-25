@@ -61,7 +61,7 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
   if (sql_event->session_event()->session()->use_cascade()) {
     physical_operator = optimizer.optimize(logical_operator.get());
     if (!physical_operator) {
-      rc = RC::INTERNAL;
+      rc = RC_WITH_LOCATION(RC::INTERNAL, "");
       LOG_WARN("failed to optimize logical plan. rc=%s", strrc(rc));
       return rc;
     }

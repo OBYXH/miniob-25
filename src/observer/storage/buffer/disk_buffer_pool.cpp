@@ -52,7 +52,7 @@ RC BPFrameManager::init(int pool_num)
 RC BPFrameManager::cleanup()
 {
   if (frames_.count() > 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   frames_.destroy();
@@ -441,7 +441,7 @@ RC DiskBufferPool::dispose_page(PageNum page_num)
 {
   if (page_num == 0) {
     LOG_ERROR("Failed to dispose page %d, because it is the first page. filename=%s", page_num, file_name_.c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   scoped_lock lock_guard(lock_);
@@ -640,14 +640,14 @@ RC DiskBufferPool::redo_allocate_page(LSN lsn, PageNum page_num)
   if (page_num > file_header_->page_count) {
     LOG_WARN("page %d is not continuous. file=%s, page_count=%d",
              page_num, file_name_.c_str(), file_header_->page_count);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // page_num == file_header_->page_count
   if (file_header_->page_count >= BPFileHeader::MAX_PAGE_NUM) {
     LOG_WARN("file buffer pool is full. page count %d, max page count %d",
         file_header_->page_count, BPFileHeader::MAX_PAGE_NUM);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   file_header_->allocated_pages++;
@@ -671,13 +671,13 @@ RC DiskBufferPool::redo_deallocate_page(LSN lsn, PageNum page_num)
 
   if (page_num >= file_header_->page_count) {
     LOG_WARN("page %d is not exist. file=%s", page_num, file_name_.c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   Bitmap bitmap(file_header_->bitmap, file_header_->page_count);
   if (!bitmap.get_bit(page_num)) {
     LOG_WARN("page %d has been deallocated. file=%s", page_num, file_name_.c_str());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   bitmap.clear_bit(page_num);
@@ -880,7 +880,7 @@ RC BufferPoolManager::close_file(const char *_file_name)
   if (iter == buffer_pools_.end()) {
     LOG_TRACE("file has not opened: %s", _file_name);
     lock_.unlock();
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   id_to_buffer_pools_.erase(iter->second->id());
@@ -901,7 +901,7 @@ RC BufferPoolManager::flush_page(Frame &frame)
   auto        iter = id_to_buffer_pools_.find(buffer_pool_id);
   if (iter == id_to_buffer_pools_.end()) {
     LOG_WARN("unknown buffer pool of id %d", buffer_pool_id);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   DiskBufferPool *bp = iter->second;
@@ -917,7 +917,7 @@ RC BufferPoolManager::get_buffer_pool(int32_t id, DiskBufferPool *&bp)
   auto iter = id_to_buffer_pools_.find(id);
   if (iter == id_to_buffer_pools_.end()) {
     LOG_WARN("unknown buffer pool of id %d", id);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   bp = iter->second;

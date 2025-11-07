@@ -23,7 +23,7 @@ RC try_to_get_bool_constant(unique_ptr<Expression> &expr, bool &constant_value)
     constant_value  = value_expr->get_value().get_boolean();
     return RC::SUCCESS;
   }
-  return RC::INTERNAL;
+  return RC_WITH_LOCATION(RC::INTERNAL, "");
 }
 RC ConjunctionSimplificationRule::rewrite(unique_ptr<Expression> &expr, bool &change_made)
 {

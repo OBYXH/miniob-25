@@ -50,7 +50,7 @@ RC ObFileReader::open_file()
   fd_   = ::open(filename_.c_str(), O_RDONLY);
   if (fd_ < 0) {
     LOG_WARN("Failed to open file %s", filename_.c_str());
-    rc = RC::INTERNAL;
+    rc = RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return rc;
 }

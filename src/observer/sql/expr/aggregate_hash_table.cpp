@@ -33,7 +33,7 @@ RC StandardAggregateHashTable::add_chunk(Chunk &groups_chunk, Chunk &aggrs_chunk
         void *state_ptr = create_aggregate_state(aggr_types_[j], aggr_child_types_[j]);
         if (state_ptr == nullptr) {
           LOG_WARN("create aggregate state failed");
-          return RC::INTERNAL;
+          return RC_WITH_LOCATION(RC::INTERNAL, "");
         }
         aggr_values.emplace_back(state_ptr);
       }

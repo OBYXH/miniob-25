@@ -28,7 +28,7 @@ RC PredicatePhysicalOperator::open(Trx *trx)
 {
   if (children_.size() != 1) {
     LOG_WARN("predicate operator must has one child");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   trx_ = trx;
@@ -44,7 +44,7 @@ RC PredicatePhysicalOperator::next()
   while (RC::SUCCESS == (rc = oper->next())) {
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
-      rc = RC::INTERNAL;
+      rc = RC_WITH_LOCATION(RC::INTERNAL, "");
       LOG_WARN("failed to get tuple from operator");
       break;
     }

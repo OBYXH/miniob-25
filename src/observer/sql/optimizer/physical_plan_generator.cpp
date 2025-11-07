@@ -433,7 +433,7 @@ RC PhysicalPlanGenerator::create_plan(
   vector<unique_ptr<LogicalOperator>> &child_opers = join_oper.children();
   if (child_opers.size() != 2) {
     LOG_WARN("join operator should have 2 children, but have %d", child_opers.size());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (session->hash_join_on() && can_use_hash_join(join_oper)) {
     // your code here

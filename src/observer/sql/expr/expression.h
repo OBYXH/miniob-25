@@ -326,7 +326,7 @@ public:
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
@@ -608,7 +608,7 @@ public:
 
   unique_ptr<Expression> &child() { return child_; }
 
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
   AttrType value_type() const override { return child_->value_type(); }
 
 private:
@@ -761,6 +761,6 @@ public:
 
   ExprType type() const override { return ExprType::SPECIAL; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
   unique_ptr<Expression> copy() const override { return make_unique<SpecialPlaceholderExpr>(); }
 };

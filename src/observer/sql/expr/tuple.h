@@ -317,10 +317,10 @@ public:
   RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= cell_num()) {
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (tuple_ == nullptr) {
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     Expression *expr = expressions_[index].get();
@@ -522,7 +522,7 @@ public:
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
     assert(false);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   RC init(const std::vector<Expression *> &exprs)
@@ -534,7 +534,7 @@ public:
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
     assert(false);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   std::vector<Expression *> &exprs() { return exprs_; }

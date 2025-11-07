@@ -69,7 +69,7 @@ RC ExternalSorter::add_row(const vector<Value> &order_values, const vector<Value
 {
   if (finished_add_) {
     LOG_WARN("Cannot add row after finish_add() is called");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   Row row;
@@ -345,7 +345,7 @@ RC ExternalSorter::next(vector<Value> &result_values)
 {
   if (!finished_add_) {
     LOG_WARN("Must call finish_add() before next()");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   if (merge_heap_.empty()) {

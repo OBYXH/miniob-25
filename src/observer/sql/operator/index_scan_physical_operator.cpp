@@ -31,7 +31,7 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
 RC IndexScanPhysicalOperator::open(Trx *trx)
 {
   if (nullptr == table_ || nullptr == index_) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   IndexScanner *index_scanner = index_->create_scanner(left_value_.data(),
@@ -42,7 +42,7 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
       right_inclusive_);
   if (nullptr == index_scanner) {
     LOG_WARN("failed to create index scanner");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   index_scanner_ = index_scanner;
 

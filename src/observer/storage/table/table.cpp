@@ -189,7 +189,7 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   if (table_meta_.deserialize(fs) < 0) {
     LOG_ERROR("Failed to deserialize table meta. file name=%s", meta_file_path.c_str());
     fs.close();
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   fs.close();
 

@@ -174,7 +174,7 @@ RC ObLsmImpl::try_freeze_memtable()
   auto bg_task = [this, background_compaction_ctx]() { this->background_compaction(background_compaction_ctx); };
   int  ret     = executor_.execute(bg_task);
   if (ret != 0) {
-    rc = RC::INTERNAL;
+    rc = RC_WITH_LOCATION(RC::INTERNAL, "");
     LOG_WARN("fail to execute background compaction task");
   }
   return rc;

@@ -122,10 +122,10 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
 
     default: {
       LOG_WARN("unknown expression type: %d", static_cast<int>(expr->type()));
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
   }
-  return RC::INTERNAL;
+  return RC_WITH_LOCATION(RC::INTERNAL, "");
 }
 
 RC ExpressionBinder::bind_subquery_expression(

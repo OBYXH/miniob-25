@@ -13,7 +13,7 @@ public:
   RC open_scan() {
     // should not be called
     assert(false);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   RC open_oper(Trx *trx);
   RC close_scan();

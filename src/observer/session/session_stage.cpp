@@ -96,7 +96,7 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
   // 逻辑暂时放在这里，做可行性验证
   if (sql_event->sql_node()->flag == SCF_SELECT) {
     auto *db = sql_event->session_event()->session()->get_current_db();
-    if (db == nullptr) return RC::INTERNAL;
+    if (db == nullptr) return RC_WITH_LOCATION(RC::INTERNAL, "");
     for (auto &relation : sql_event->sql_node()->selection.relations) {
       View *view = db->find_view(relation.relation_name.c_str());
       if (view == nullptr) continue;

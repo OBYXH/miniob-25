@@ -20,7 +20,7 @@ RC NestedLoopJoinPhysicalOperator::open(Trx *trx)
 {
   if (children_.size() != 2) {
     LOG_WARN("nlj operator should have 2 children");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   RC rc         = RC::SUCCESS;
