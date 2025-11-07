@@ -14,22 +14,39 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/sys/rc.h"
 
-const char *strrc(RC rc)
+const char *strrc(RCCode rc)
 {
-#define DEFINE_RC(name) \
-  case RC::name: {      \
-    return #name;       \
-  } break;
-
   switch (rc) {
-    DEFINE_RCS;
-    default: {
-      return "unknown";
-    }
-  }
+#define DEFINE_RC(name) \
+  case RCCode::name:    \
+    return #name;
+    DEFINE_RCS
 #undef DEFINE_RC
+    default: return "UNKNOWN";
+  }
 }
 
-bool OB_SUCC(RC rc) { return rc == RC::SUCCESS; }
+const char *strrc(RC rc)
+{
+  return strrc(rc.code());
+}
 
-bool OB_FAIL(RC rc) { return rc != RC::SUCCESS; }
+bool OB_SUCC(RCCode rc)
+{
+  return rc == RCCode::SUCCESS;
+}
+
+bool OB_FAIL(RCCode rc)
+{
+  return rc != RCCode::SUCCESS;
+}
+
+bool OB_SUCC(RC rc)
+{
+  return rc.code() == RCCode::SUCCESS;
+}
+
+bool OB_FAIL(RC rc)
+{
+  return rc.code() != RCCode::SUCCESS;
+}

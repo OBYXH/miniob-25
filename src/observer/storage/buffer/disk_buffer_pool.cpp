@@ -690,7 +690,7 @@ RC DiskBufferPool::redo_deallocate_page(LSN lsn, PageNum page_num)
 
 RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
 {
-  auto purger = [this](Frame *frame) {
+  auto purger = [this](Frame *frame) -> RC {
     if (!frame->dirty()) {
       return RC::SUCCESS;
     }

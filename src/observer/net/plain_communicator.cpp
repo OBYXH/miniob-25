@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "net/plain_communicator.h"
 #include "common/io/io.h"
 #include "common/log/log.h"
+#include "common/sys/rc.h"
 #include "event/session_event.h"
 #include "net/buffered_writer.h"
 #include "session/session.h"
@@ -111,7 +112,8 @@ RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
     string magic(result);
     magic += " ";
     if (is_magic(event->query())) {
-      magic += string(strrc(sql_result->return_code()));
+      auto rccode = sql_result->return_code();
+      magic += string(strrc(rccode)) + rccode.file() + ":" + to_string(rccode.line());
       result = magic.c_str();
     }
     snprintf(buf, buf_size, "%s\n", result);
