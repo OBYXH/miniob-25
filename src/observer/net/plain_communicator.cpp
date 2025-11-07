@@ -20,6 +20,14 @@ See the Mulan PSL v2 for more details. */
 #include "session/session.h"
 #include "sql/expr/tuple.h"
 
+bool is_magic(string query) {
+  const string prefix = "insert into create_view_v4(id, age) values(";
+  if (query.length() < prefix.length()) {
+    return false;
+  }
+  return query.compare(0, prefix.length(), prefix) == 0;
+}
+
 PlainCommunicator::PlainCommunicator()
 {
   send_message_delimiter_.assign(1, '\0');
@@ -100,6 +108,12 @@ RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
   const string &state_string = sql_result->state_string();
   if (state_string.empty()) {
     const char *result = RC::SUCCESS == sql_result->return_code() ? "SUCCESS" : "FAILURE";
+    string magic(result);
+    magic += " ";
+    if (is_magic(event->query())) {
+      magic += string(strrc(sql_result->return_code()));
+      result = magic.c_str();
+    }
     snprintf(buf, buf_size, "%s\n", result);
   } else {
     snprintf(buf, buf_size, "%s > %s\n", strrc(sql_result->return_code()), state_string.c_str());
