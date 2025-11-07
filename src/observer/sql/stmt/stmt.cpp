@@ -164,7 +164,7 @@ RC Stmt::check_sub_select_legal(Db *db, ParsedSqlNode *sub_select)
     if (field_expr != nullptr) {
       // 当左子查询的属性不止一个时，报错
       LOG_WARN("invalid subquery attributes. It should be only one");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     if (expr->type() == ExprType::FIELD) {
       field_expr = static_cast<FieldExpr *>(expr.get());
@@ -174,7 +174,7 @@ RC Stmt::check_sub_select_legal(Db *db, ParsedSqlNode *sub_select)
   }
   if (field_expr != nullptr && star_expr != nullptr) {
     LOG_WARN("star_expr and field_expr cannot be used together in subquery");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (star_expr != nullptr) {
@@ -184,18 +184,18 @@ RC Stmt::check_sub_select_legal(Db *db, ParsedSqlNode *sub_select)
       const char *table_name = sub_select->selection.relations[j].relation_name.c_str();
       if (nullptr == table_name) {
         LOG_WARN("invalid argument. relation name is null. index=%d", j);
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
       Table *table = db->find_table(table_name);
       if (nullptr == table) {
         LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-        return RC::SCHEMA_TABLE_NOT_EXIST;
+        return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
       }
       fields_num += table->table_meta().field_num();
     }
     if (fields_num != 1) {
       LOG_WARN("invalid subquery attributes");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
   return RC::SUCCESS;

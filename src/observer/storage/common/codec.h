@@ -122,7 +122,7 @@ public:
     RC rc = RC::SUCCESS;
     if (std::isnan(x)) {
       LOG_WARN("append: NaN");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     uint64_t b;
     memcpy(&b, &x, sizeof(x));
@@ -176,7 +176,7 @@ public:
     if (x.inf) {
       if (!x.s.empty()) {
         LOG_WARN("orderedcode: string_or_infinity has non-zero string and non-zero infinity");
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
       if (OB_FAIL(append(s, infinity{}))) {
         LOG_WARN("orderedcode: append infinity failed");
@@ -195,7 +195,7 @@ public:
   {
     if (s.empty()) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     byte_t c = s[0] ^ dir;
     if (c >= 0x40 && c < 0xc0) {
@@ -212,13 +212,13 @@ public:
     if (c == 0xff) {
       if (s.size() == 1) {
         LOG_WARN("orderedcode: corrupt input");
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
       s = s.subspan(1);
       c = s[0] ^ dir;
       if (c > 0xc0) {
         LOG_WARN("orderedcode: corrupt input");
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
       n = 7;
     }
@@ -228,7 +228,7 @@ public:
     }
     if (s.size() < n) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     int64_t x = c;
     for (size_t i = 1; i < n; i++) {
@@ -248,12 +248,12 @@ public:
     RC rc = RC::SUCCESS;
     if (s.empty()) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     byte_t n = s[0] ^ dir;
     if (n > 8 || (int)s.size() < (1 + n)) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     uint64_t x = 0;
     for (size_t i = 0; i < n; i++) {
@@ -269,11 +269,11 @@ public:
     RC rc = RC::SUCCESS;
     if (s.size() < 2) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     if ((s[0] ^ dir) != inf[0] || (s[1] ^ dir) != inf[1]) {
       LOG_WARN("orderedcode: corrupt input");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     s = s.subspan(2);
     return rc;
@@ -287,7 +287,7 @@ public:
         case 0x00:
           if (i + 1 >= (int)s.size()) {
             LOG_WARN("orderedcode: corrupt input");
-            return RC::INVALID_ARGUMENT;
+            return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           }
           switch (s[i + 1] ^ dir) {
             case 0x01:
@@ -311,13 +311,13 @@ public:
               i += 2;
               l = i;
               break;
-            default: LOG_WARN("orderedcode: corrupt input"); return RC::INVALID_ARGUMENT;
+            default: LOG_WARN("orderedcode: corrupt input"); return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           }
           break;
         case 0xff:
           if (i + 1 >= (int)s.size() || ((s[i + 1] ^ dir) != 0x00)) {
             LOG_WARN("orderedcode: corrupt input");
-            return RC::INVALID_ARGUMENT;
+            return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           }
           buf.insert(buf.end(), s.begin() + l, s.begin() + i);
           buf.insert(buf.end(), static_cast<byte_t>(0xff ^ dir));
@@ -328,7 +328,7 @@ public:
       }
     }
     LOG_WARN("orderedcode: corrupt input");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   static RC parse(span<byte_t> &s, byte_t dir, float64_t &dst)
@@ -341,7 +341,7 @@ public:
     }
     memcpy(&dst, &i, sizeof(i));
     if (std::isnan(dst)) {
-      rc = RC::INVALID_ARGUMENT;
+      rc = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     return rc;
   }
@@ -433,7 +433,7 @@ public:
           LOG_WARN("append failed");
         }
         break;
-      default: return RC::INVALID_ARGUMENT;
+      default: return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     return rc;
   }

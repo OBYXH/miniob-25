@@ -178,13 +178,13 @@ RC RecordLogReplayer::replay(const LogEntry &entry)
   LOG_TRACE("replaying record manager log: %s", entry.to_string().c_str());
 
   if (entry.module().id() != LogModule::Id::RECORD_MANAGER) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (entry.payload_size() < RecordLogHeader::SIZE) {
     LOG_WARN("invalid log entry. payload size: %d is less than record log header size %d", 
              entry.payload_size(), RecordLogHeader::SIZE);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   auto log_header = reinterpret_cast<const RecordLogHeader *>(entry.data());
@@ -228,7 +228,7 @@ RC RecordLogReplayer::replay(const LogEntry &entry)
     } break;
     default: {
       LOG_WARN("unknown record operation type: %d", log_header->operation_type);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
 

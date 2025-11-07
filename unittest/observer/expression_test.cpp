@@ -337,7 +337,7 @@ TEST(AggregateExpr, aggregate_expr_test)
   ASSERT_EQ(aggr_type, AggregateExpr::Type::MAX);
   ASSERT_EQ(RC::SUCCESS, AggregateExpr::type_from_string("min", aggr_type));
   ASSERT_EQ(aggr_type, AggregateExpr::Type::MIN);
-  ASSERT_EQ(RC::INVALID_ARGUMENT, AggregateExpr::type_from_string("invalid type", aggr_type));
+  ASSERT_EQ(RC_WITH_LOCATION(RC::INVALID_ARGUMENT, ""), AggregateExpr::type_from_string("invalid type", aggr_type));
 }
 
 int main(int argc, char **argv)

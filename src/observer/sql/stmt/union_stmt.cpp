@@ -9,7 +9,7 @@ RC UnionStmt::create(Db *db, UnionSqlNode &union_sql, Stmt *&stmt) {
   if (union_sql.unions.empty()) {
     LOG_WARN("union must have at least one select statement");
     delete union_stmt;
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   for (auto &union_unit : union_sql.unions) {

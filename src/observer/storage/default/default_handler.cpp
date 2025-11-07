@@ -83,7 +83,7 @@ RC DefaultHandler::create_db(const char *dbname)
 {
   if (nullptr == dbname || common::is_blank(dbname)) {
     LOG_WARN("Invalid db name");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 如果对应名录已经存在，返回错误
@@ -107,7 +107,7 @@ RC DefaultHandler::open_db(const char *dbname)
 {
   if (nullptr == dbname || common::is_blank(dbname)) {
     LOG_WARN("Invalid db name");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (opened_dbs_.find(dbname) != opened_dbs_.end()) {

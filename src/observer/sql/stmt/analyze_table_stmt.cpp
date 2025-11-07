@@ -14,7 +14,7 @@ See the Mulan PSL v2 for more details. */
 RC AnalyzeTableStmt::create(Db *db, const AnalyzeTableSqlNode &analyze_table, Stmt *&stmt)
 {
   if (db->find_table(analyze_table.relation_name.c_str()) == nullptr) {
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
   stmt = new AnalyzeTableStmt(analyze_table.relation_name);
   return RC::SUCCESS;

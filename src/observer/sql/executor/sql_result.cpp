@@ -25,7 +25,7 @@ void SqlResult::set_tuple_schema(const TupleSchema &schema) { tuple_schema_ = sc
 RC SqlResult::open()
 {
   if (nullptr == operator_) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   Trx *trx = session_->current_trx();
@@ -36,7 +36,7 @@ RC SqlResult::open()
 RC SqlResult::close()
 {
   if (nullptr == operator_) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   RC rc = operator_->close();
   if (rc != RC::SUCCESS) {

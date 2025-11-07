@@ -75,7 +75,7 @@ RC InsertPhysicalOperator::open(Trx *trx)
           // 如果没有找到，判断可不可为null
           if (!field.nullable()) {
             LOG_WARN("when handing view insert, field %s is not nullable, so we cannot insert", field.name()); 
-            return RC::INVALID_ARGUMENT;
+            return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           }
           value.set_null();
         }

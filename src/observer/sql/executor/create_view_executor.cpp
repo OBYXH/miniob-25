@@ -70,7 +70,7 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     
     if (create_view_stmt->physical_operator() == nullptr) {
         LOG_PANIC("create view: select physical operator is null");
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     RC rc = RC::SUCCESS;
@@ -93,7 +93,7 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     if (session->get_current_db()->find_view(view_name) != nullptr || 
        session->get_current_db()->find_table(view_name) != nullptr) {
         LOG_WARN("create view: view name already exists. view_name=%s", view_name);
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     // 检查 __miniob_views__ 表是否存在

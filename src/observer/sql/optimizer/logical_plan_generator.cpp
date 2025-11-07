@@ -495,7 +495,7 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 
   if (found_unbound_column) {
     LOG_WARN("column must appear in the GROUP BY clause or must be part of an aggregate function");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 如果只需要聚合，但是没有group by 语句，需要生成一个空的group by 语句

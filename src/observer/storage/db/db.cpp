@@ -59,12 +59,12 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
 
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init DB, name cannot be empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (!filesystem::is_directory(dbpath)) {
     LOG_ERROR("Failed to init DB, path is not a directory: %s", dbpath);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   oceanbase::ObLsmOptions options;
@@ -80,7 +80,7 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
   TrxKit *trx_kit = TrxKit::create(trx_kit_name, this);
   if (trx_kit == nullptr) {
     LOG_ERROR("Failed to create trx kit: %s", trx_kit_name);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   trx_kit_.reset(trx_kit);
@@ -200,7 +200,7 @@ RC Db::drop_table(const char *table_name)
   Table *table = find_table(table_name);
   if (table == nullptr) {
     LOG_WARN("No such table: %s", table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
   rc = table->drop();
   if (rc != RC::SUCCESS) {
@@ -219,7 +219,7 @@ RC Db::rename_table(const char *old_table_name, const char *new_table_name)
     Table *table = iter->second;
     if (table == nullptr) {
       LOG_WARN("No such table: %s", old_table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
     table->set_table_name(new_table_name);
     opened_tables_.erase(iter);
@@ -359,7 +359,7 @@ RC Db::add_view(const char *view_name, const vector<string> attrs_name, const ch
 {
   if (common::is_blank(view_name)) {
     LOG_ERROR("Failed to add view, view name cannot be empty.");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (opened_views_.count(view_name) != 0) {

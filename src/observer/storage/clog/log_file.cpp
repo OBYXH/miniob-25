@@ -187,7 +187,7 @@ RC LogFileWriter::write(LogEntry &entry)
   if (entry.lsn() <= last_lsn_) {
     LOG_WARN("write log entry failed. lsn is too small. filename=%s, last_lsn=%ld, entry=%s", 
              filename_.c_str(), last_lsn_, entry.to_string().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   /// WARNING 这里需要处理日志写一半的情况
@@ -268,7 +268,7 @@ RC LogFileManager::init(const char *directory, int max_entry_number_per_file)
 RC LogFileManager::get_lsn_from_filename(const string &filename, LSN &lsn)
 {
   if (!filename.starts_with(file_prefix_) || !filename.ends_with(file_suffix_)) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   string_view lsn_str(
@@ -277,7 +277,7 @@ RC LogFileManager::get_lsn_from_filename(const string &filename, LSN &lsn)
   if (result.ec != errc()) {
     LOG_TRACE("invalid log file name: cannot calc lsn. filename=%s, error=%s", 
               filename.c_str(), strerror(static_cast<int>(result.ec)));
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   return RC::SUCCESS;

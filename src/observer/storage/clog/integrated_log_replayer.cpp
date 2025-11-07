@@ -36,7 +36,7 @@ RC IntegratedLogReplayer::replay(const LogEntry &entry)
     case LogModule::Id::RECORD_MANAGER: return record_log_replayer_.replay(entry);
     case LogModule::Id::BPLUS_TREE: return bplus_tree_log_replayer_.replay(entry);
     case LogModule::Id::TRANSACTION: return trx_log_replayer_->replay(entry);
-    default: return RC::INVALID_ARGUMENT;
+    default: return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 }
 

@@ -59,7 +59,7 @@ RC DescTableExecutor::execute(SQLStageEvent *sql_event)
     sql_result->set_operator(unique_ptr<PhysicalOperator>(oper));
   } else {
 
-    sql_result->set_return_code(RC::SCHEMA_TABLE_NOT_EXIST);
+    sql_result->set_return_code(RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, ""));
     sql_result->set_state_string("Table not exists");
   }
   return rc;

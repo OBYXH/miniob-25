@@ -734,7 +734,7 @@ TEST(test_bplus_tree, test_scanner)
   begin = 300;
   end   = 201;
   rc    = scanner.open((const char *)&begin, 4, true, (const char *)&end, 4, true /*inclusive*/);
-  ASSERT_EQ(RC::INVALID_ARGUMENT, rc);
+  ASSERT_EQ(RC_WITH_LOCATION(RC::INVALID_ARGUMENT, ""), rc);
 
   scanner.close();
 

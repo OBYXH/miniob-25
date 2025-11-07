@@ -57,7 +57,7 @@ RC AnalyzeTableExecutor::execute(SQLStageEvent *sql_event)
     TableStats stats(row_nums);
     Catalog::get_instance().update_table_stats(table_id, stats);
   } else {
-    sql_result->set_return_code(RC::SCHEMA_TABLE_NOT_EXIST);
+    sql_result->set_return_code(RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, ""));
     sql_result->set_state_string("Table not exists");
   }
   return rc;

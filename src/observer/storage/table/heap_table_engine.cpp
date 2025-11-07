@@ -164,7 +164,7 @@ RC HeapTableEngine::create_index(
 {
   if (common::is_blank(index_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", table_meta_->name());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   IndexMeta new_index_meta;
@@ -273,7 +273,7 @@ RC HeapTableEngine::drop_index(const char *index_name)
   RC rc = RC::SUCCESS;
   if (common::is_blank(index_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", table_meta_->name());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   auto index = find_index(index_name);
   if (index == nullptr) {

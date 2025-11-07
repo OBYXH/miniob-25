@@ -54,12 +54,12 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
 {
   if (common::is_blank(name)) {
     LOG_ERROR("Name cannot be empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (attributes.size() == 0) {
     LOG_ERROR("Invalid argument. name=%s, field_num=%d", name, attributes.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = RC::SUCCESS;

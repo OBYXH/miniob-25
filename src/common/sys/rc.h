@@ -129,7 +129,7 @@ struct RCDetail
 class RC
 {
 public:
-  // 静态常量成员,保持 RC::INVALID_ARGUMENT 的兼容性
+  // 静态常量成员,保持 RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "") 的兼容性
 #define DEFINE_RC(name) static constexpr RCCode name = RCCode::name;
   DEFINE_RCS
 #undef DEFINE_RC

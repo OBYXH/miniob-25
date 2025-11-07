@@ -47,14 +47,14 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
   if (nullptr == db || nullptr == table_name || update.update_list.size() == 0) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, value_num=%d",
         db, table_name, static_cast<int>(update.update_list.size()));
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // check whether the table exists
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
   unordered_map<std::string, Table *> table_map;

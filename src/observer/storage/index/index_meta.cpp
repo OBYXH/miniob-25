@@ -33,7 +33,7 @@ RC IndexMeta::init(const char *name, IndexType index_type, const vector<FieldMet
 {
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init index, name is empty.");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   name_             = name;
   index_type_       = index_type;
@@ -89,7 +89,7 @@ RC IndexMeta::from_json(const Json::Value &json_value, IndexMeta &index)
       !json_value.isMember(FIELD_FIELDS) || !json_value.isMember(FIELD_IS_UNIQUE) ||
       !json_value.isMember(FIELD_OFFSETS) || !json_value.isMember(FIELD_TOTAL_LEN)) {
     LOG_DEBUG("Invalid index json value: %s", json_value.toStyledString().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   index.name_             = json_value[FIELD_NAME].asString();
@@ -100,7 +100,7 @@ RC IndexMeta::from_json(const Json::Value &json_value, IndexMeta &index)
   const Json::Value &fields_json = json_value[FIELD_FIELDS];
   if (!fields_json.isArray()) {
     LOG_ERROR("Invalid index json value: %s", json_value.toStyledString().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   for (const auto &field_json : fields_json) {
     FieldMeta field_meta;
@@ -116,12 +116,12 @@ RC IndexMeta::from_json(const Json::Value &json_value, IndexMeta &index)
   const Json::Value &offsets_json = json_value[FIELD_OFFSETS];
   if (!offsets_json.isArray()) {
     LOG_ERROR("Invalid index json value: %s", json_value.toStyledString().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   for (const auto &offset_json : offsets_json) {
     if (!offset_json.isInt()) {
       LOG_ERROR("Invalid index json value: %s", json_value.toStyledString().c_str());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     index.fields_offset_.push_back(offset_json.asInt());
   }

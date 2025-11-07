@@ -43,12 +43,12 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (select_sql.expressions.empty()) {
     LOG_WARN("invalid argument. select expr is empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   if (loaded_relation_names == nullptr)
     loaded_relation_names = std::make_shared<std::vector<string>>();
@@ -74,7 +74,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     Table *table = db->find_table(rel_name.c_str());
     if (nullptr == table) {
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
     table->set_is_outer_table(true);
     table_map.insert({rel_name, table});
@@ -85,13 +85,13 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     const char *table_name = select_sql.relations[i].relation_name.c_str();
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     Table *table = db->find_table(table_name);
     if (nullptr == table) {
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
 
     binder_context.add_table(table);
@@ -104,7 +104,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
         continue;
       if (select_sql.relations[i].ralation_alias == select_sql.relations[j].ralation_alias) {
         LOG_WARN("duplicate alias: %s", select_sql.relations[i].ralation_alias.c_str());
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
     }
 
@@ -135,7 +135,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       StarExpr *star_expr = static_cast<StarExpr *>(expression.get());
       if (!is_blank(star_expr->field_alias())) {
         LOG_WARN("alias found in star expression");
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
     }
 

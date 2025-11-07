@@ -10,17 +10,17 @@ RC AlterTableStmt::create(Db *db, AlterSqlNode &alter_sql, Stmt *&stmt)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   const char *table_name = alter_sql.relation_name.c_str();
   if (nullptr == table_name) {
     LOG_WARN("invalid argument. table_name is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
   if (alter_sql.alter_type == AlterType::ALTER_RENAME) {
     Table *new_table = db->find_table(alter_sql.new_relation_name.c_str());

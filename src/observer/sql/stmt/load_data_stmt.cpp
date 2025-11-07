@@ -28,14 +28,14 @@ RC LoadDataStmt::create(Db *db, const LoadDataSqlNode &load_data, Stmt *&stmt)
   if (is_blank(table_name) || is_blank(load_data.file_name.c_str())) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, file name=%s",
         db, table_name, load_data.file_name.c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // check whether the table exists
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
   if (0 != access(load_data.file_name.c_str(), R_OK)) {
@@ -45,11 +45,11 @@ RC LoadDataStmt::create(Db *db, const LoadDataSqlNode &load_data, Stmt *&stmt)
 
   if (load_data.enclosed.size() != 3) {
     LOG_WARN("load data invalid enclosed. enclosed=%s", load_data.enclosed.c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   if (load_data.terminated.size() != 3) {
     LOG_WARN("load data invalid terminated. terminated=%s", load_data.terminated.c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   stmt = new LoadDataStmt(table, load_data.file_name.c_str(), load_data.terminated[1], load_data.enclosed[1]);

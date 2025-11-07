@@ -118,7 +118,7 @@ RC PhysicalPlanGenerator::create(
 
     default: {
       ASSERT(false, "unknown logical operator type");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
   return rc;
@@ -144,7 +144,7 @@ RC PhysicalPlanGenerator::create_vec(
     } break;
     default: {
       LOG_WARN("unknown logical operator type: %d", logical_operator.type());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
   return rc;

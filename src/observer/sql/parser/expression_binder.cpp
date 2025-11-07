@@ -166,7 +166,7 @@ RC ExpressionBinder::bind_star_expression(
     Table *table = context_.find_table(table_name);
     if (nullptr == table) {
       LOG_INFO("no such table in from list: %s", table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
 
     tables_to_wildcard.push_back(table);
@@ -203,7 +203,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
   if (is_blank(table_name)) {
     // if (context_.query_tables().size() != 1) {
     //   LOG_INFO("cannot determine table for field: %s", field_name);
-    //   return RC::SCHEMA_TABLE_NOT_EXIST;
+    //   return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     // }
     // table = context_.query_tables()[0];
     bool found = false;
@@ -211,7 +211,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
       if (table_->table_meta().field(field_name) != nullptr) {
         if (found) {
           LOG_INFO("ambiguous field name: %s, cannot determine table for this field.", field_name);
-          return RC::INVALID_ARGUMENT;
+          return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
         }
         found = true;
         table = table_;
@@ -221,7 +221,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
     table = context_.find_table(table_name);
     if (nullptr == table) {
       LOG_INFO("no such table in from list: %s", table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
   }
 
@@ -230,7 +230,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
   } else {
     if (table == nullptr) {
       LOG_INFO("cannot determine table for field: %s.%s", table_name, field_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
     const FieldMeta *field_meta = table->table_meta().field(field_name);
     if (nullptr == field_meta) {
@@ -293,7 +293,7 @@ RC ExpressionBinder::bind_cast_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid children number of cast expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &child = child_bound_expressions[0];
@@ -326,7 +326,7 @@ RC ExpressionBinder::bind_comparison_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &left = child_bound_expressions[0];
@@ -342,7 +342,7 @@ RC ExpressionBinder::bind_comparison_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid right children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &right = child_bound_expressions[0];
@@ -376,7 +376,7 @@ RC ExpressionBinder::bind_conjunction_expression(
 
     if (child_bound_expressions.size() != 1) {
       LOG_WARN("invalid children number of conjunction expression: %d", child_bound_expressions.size());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     unique_ptr<Expression> &child = child_bound_expressions[0];
@@ -414,7 +414,7 @@ RC ExpressionBinder::bind_arithmetic_expression(
 
     if (child_bound_expressions.size() != 1) {
       LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     unique_ptr<Expression> &left = child_bound_expressions[0];
@@ -431,7 +431,7 @@ RC ExpressionBinder::bind_arithmetic_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid right children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &right = child_bound_expressions[0];
@@ -449,7 +449,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
   Expression *child_expression = expression.child().get();
   if (nullptr == child_expression) {
     LOG_WARN("child expression of aggregate expression is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 校验数据类型与聚合类型是否匹配
@@ -461,7 +461,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
       // 仅支持数值类型
       if (!is_numerical_type(child_value_type)) {
         LOG_WARN("invalid child value type for aggregate expression: %d", static_cast<int>(child_value_type));
-        return RC::INVALID_ARGUMENT;
+        return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
       }
     } break;
 
@@ -477,7 +477,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       LOG_WARN("aggregate expression cannot be nested");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     rc = ExpressionIterator::iterate_child_expr(*expr, check_aggregate_expr);
     return rc;
@@ -519,7 +519,7 @@ RC ExpressionBinder::bind_aggregate_expression(
 
     if (child_bound_expressions.size() != 1) {
       LOG_WARN("invalid children number of aggregate expression: %d", child_bound_expressions.size());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     if (child_bound_expressions[0].get() != child_expr.get()) {
@@ -561,7 +561,7 @@ RC ExpressionBinder::bind_vector_distance_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &leftBoundedExpr = child_bound_expressions[0];
@@ -577,7 +577,7 @@ RC ExpressionBinder::bind_vector_distance_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid right children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &rightBoundedExpr = child_bound_expressions[0];
@@ -608,7 +608,7 @@ RC ExpressionBinder::bind_function_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &childBoundedExpr = child_bound_expressions[0];
@@ -641,7 +641,7 @@ RC ExpressionBinder::bind_vecstr_expression(
 
   if (child_bound_expressions.size() != 1) {
     LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   unique_ptr<Expression> &childBoundedExpr = child_bound_expressions[0];

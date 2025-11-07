@@ -33,7 +33,7 @@ RC SetVariableExecutor::execute(SQLStageEvent *sql_event)
     if (rc == RC::SUCCESS && execution_mode != ExecutionMode::UNKNOWN_MODE) {
       session->set_execution_mode(execution_mode);
     } else {
-      rc = RC::INVALID_ARGUMENT;
+      rc = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   } else if (strcasecmp(var_name, "hash_join") == 0) {  // TODO: remove this configuration
     bool bool_value = false;

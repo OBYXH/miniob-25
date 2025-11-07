@@ -5,7 +5,7 @@ RC RecordPhysicalOperatorScanner::open_oper(Trx *trx) {
   RC rc = RC::SUCCESS;
   if (oper_ == nullptr) {
     LOG_PANIC("RecordPhysicalOperatorScanner: physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   rc = oper_->open(trx);
   if (rc != RC::SUCCESS) {

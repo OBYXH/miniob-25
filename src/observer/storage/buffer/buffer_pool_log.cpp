@@ -61,7 +61,7 @@ RC BufferPoolLogReplayer::replay(const LogEntry &entry)
   if (entry.payload_size() != sizeof(BufferPoolLogEntry)) {
     LOG_ERROR("invalid buffer pool log entry. payload size=%d, expected=%d, entry=%s",
               entry.payload_size(), sizeof(BufferPoolLogEntry), entry.to_string().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   auto log = reinterpret_cast<const BufferPoolLogEntry *>(entry.data());

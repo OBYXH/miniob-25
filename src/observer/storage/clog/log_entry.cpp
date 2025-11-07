@@ -69,7 +69,7 @@ RC LogEntry::init(LSN lsn, LogModule module, vector<char> &&data)
 {
   if (static_cast<int32_t>(data.size()) > max_payload_size()) {
     LOG_DEBUG("log entry size is too large. size=%d, max_payload_size=%d", data.size(), max_payload_size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   header_.lsn       = lsn;

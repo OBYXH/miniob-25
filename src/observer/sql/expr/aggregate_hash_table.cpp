@@ -17,7 +17,7 @@ RC StandardAggregateHashTable::add_chunk(Chunk &groups_chunk, Chunk &aggrs_chunk
 {
   if (groups_chunk.rows() != aggrs_chunk.rows()) {
     LOG_WARN("groups_chunk and aggrs_chunk have different rows: %d, %d", groups_chunk.rows(), aggrs_chunk.rows());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   for (int i = 0; i < groups_chunk.rows(); i++) {
     vector<Value>  group_by_values;
@@ -124,11 +124,11 @@ RC LinearProbingAggregateHashTable<V>::add_chunk(Chunk &group_chunk, Chunk &aggr
 {
   if (group_chunk.column_num() != 1 || aggr_chunk.column_num() != 1) {
     LOG_WARN("group_chunk and aggr_chunk size must be 1.");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   if (group_chunk.rows() != aggr_chunk.rows()) {
     LOG_WARN("group_chunk and aggr _chunk rows must be equal.");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   add_batch((int *)group_chunk.column(0).data(), (V *)aggr_chunk.column(0).data(), group_chunk.rows());
   return RC::SUCCESS;

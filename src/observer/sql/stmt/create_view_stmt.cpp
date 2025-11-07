@@ -22,7 +22,7 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
 
   if (create_view.sub_select == nullptr) {
     LOG_WARN("create view must have a sub select");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = Stmt::create_stmt(db, *create_view.sub_select, stmt_);
@@ -37,7 +37,7 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
 
   if (!create_view.attrs_name.empty() && query_fields.size() != create_view.attrs_name.size()) {
     LOG_WARN("select query expr num count doesn't match attr count");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   stmt = new CreateViewStmt(create_view.view_name, create_view.attrs_name);

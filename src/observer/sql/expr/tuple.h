@@ -203,7 +203,7 @@ public:
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     FieldExpr       *field_expr = speces_[index];
@@ -229,7 +229,7 @@ public:
   // {
   //   if (index < 0 || index >= static_cast<int>(speces_.size())) {
   //     LOG_WARN("invalid argument. index=%d", index);
-  //     return RC::INVALID_ARGUMENT;
+  //     return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   //   }
   //   auto field_expr = speces_[index];
   //   auto field_meta = field_expr->field().meta();
@@ -277,7 +277,7 @@ public:
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     spec = speces_[index];
     return RC::SUCCESS;

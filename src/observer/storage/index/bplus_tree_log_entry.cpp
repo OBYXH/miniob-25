@@ -113,16 +113,16 @@ RC LogEntryHandler::from_buffer(
   PageNum page_num = -1;
   int     ret      = buffer.read_int32(type);
   if (ret != 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (type < 0 || type >= static_cast<int32_t>(LogOperation::Type::MAX_TYPE)) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   ret = buffer.read_int32(page_num);
   if (ret != 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   Frame *frame = nullptr;

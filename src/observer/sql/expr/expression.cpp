@@ -681,7 +681,7 @@ RC ComparisonExpr::try_get_value(Value &cell) const
     return rc;
   }
 
-  return RC::INVALID_ARGUMENT;
+  return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
 }
 
 RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
@@ -779,7 +779,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
     }
 
-    if (rc == RC::INVALID_ARGUMENT || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
+    if (rc == RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "") || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
       if (subquery_expr->close_physical_operator() != RC::SUCCESS) {
         LOG_WARN("failed to close physical operator.");
       }
@@ -851,7 +851,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       } else if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
         if (has_sub_queried_) {
           has_sub_queried_ = false;
-          rc               = RC::INVALID_ARGUMENT;
+          rc               = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           break;
         } else {
           has_sub_queried_ = true;
@@ -869,7 +869,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
     }
 
-    // if (rc == RC::INVALID_ARGUMENT)
+    // if (rc == RC_WITH_LOCATION(RC::INVALID_ARGUMENT, ""))
     //   return rc;
 
     // EOF判断
@@ -895,7 +895,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     // exists 和 not exists 不应该走到这里，TA们是用于子查询的。
     if (comp_ == EXISTS_OP || comp_ == NOT_EXISTS_OP) {
       LOG_WARN("exists and not exists should be used in subquery");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     rc = left_->get_value(tuple, left_value, trx);
@@ -1363,7 +1363,7 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   } else if (0 == strcasecmp(type_str, "min")) {
     type = Type::MIN;
   } else {
-    rc = RC::INVALID_ARGUMENT;
+    rc = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   return rc;
 }
@@ -1376,7 +1376,7 @@ RC SubqueryExpr::open_physical_operator(Tuple *outer_tuple) const
 {
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   // 将外层的 tuple 传递给子查询算子，以达到查外层表的目的
   // proj -> orderby -> predicate 普通
@@ -1394,7 +1394,7 @@ RC SubqueryExpr::close_physical_operator() const
 {
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   RC rc = physical_operator_->close();
   if (rc != RC::SUCCESS) {
@@ -1416,7 +1416,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
 
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   trx_ = trx;
@@ -1451,7 +1451,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
   // if (tuple_->cell_num() > 1) {
   //   LOG_WARN("tuple cell count is not 1");
   //   close_physical_operator();  // 关闭子查询算子
-  //   return RC::INVALID_ARGUMENT;
+  //   return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   // }
 
   if (tuple_->cell_num() == 0) {
