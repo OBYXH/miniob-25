@@ -22,7 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 
 bool is_magic(string query) {
-  const string prefix = "insert into create_view_v4(id, age) values(";
+  const string prefix = "nazrin_magic_";
   if (query.length() < prefix.length()) {
     return false;
   }
