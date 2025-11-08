@@ -36,3 +36,5 @@ update v5 set age=184 where id=100;
 -- sort select sum(data) from v5;
 update v5 set data=184 where id=100;
 insert into v5(id,age) values(114,514);
+delete from v5 where id = 114;
+-- sort select sum(data) from v5;

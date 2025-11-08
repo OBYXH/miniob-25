@@ -74,7 +74,8 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
   // 逻辑暂时放在这里，做可行性验证
   if (sql_event->sql_node()->flag == SCF_SELECT || 
     sql_event->sql_node()->flag == SCF_INSERT ||
-    sql_event->sql_node()->flag == SCF_UPDATE) {
+    sql_event->sql_node()->flag == SCF_UPDATE ||
+    sql_event->sql_node()->flag == SCF_DELETE){
     auto *db = sql_event->session_event()->session()->get_current_db();
     if (db == nullptr) return RC_WITH_LOCATION(RC::INTERNAL, "");
 
@@ -89,6 +90,9 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
       break;
     case SCF_UPDATE:
       view_names.push_back(sql_event->sql_node()->update.relation_name);
+    case SCF_DELETE:
+      view_names.push_back(sql_event->sql_node()->deletion.relation_name);
+      break;
     default:
       break;
     }
