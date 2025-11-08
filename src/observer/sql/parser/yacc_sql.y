@@ -260,6 +260,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 // %destructor { delete $$; } <rel_attr_list>
 %destructor { delete $$; } <relation_list>
 %destructor { delete $$; } <key_list>
+%destructor { delete $$; } <join_clause>
+%destructor { delete $$; } <join_clauses>
 
 %token <number> NUMBER
 %token <floats> FLOAT
@@ -933,18 +935,25 @@ select_stmt:        /*  select 语句的语法解析树*/
 join_clause:
     INNER JOIN relation ON condition_list
     {
-      auto rel_node = new RelationNode;
-      rel_node->relation_name = $3;
       $$ = new JoinSqlNode;
-      $$->relation = *rel_node;
+      $$->relation.relation_name = $3;
+      if( $5 != nullptr ) {
       $$->conditions.swap(*$5);
       delete $5;
+      }
     }
     | COMMA relation {
-      auto rel_node = new RelationNode;
-      rel_node->relation_name = $2;
       $$ = new JoinSqlNode;
-      $$->relation = *rel_node;
+      $$->relation.relation_name = $2;
+    }
+    | JOIN relation ON condition_list
+    {
+      $$ = new JoinSqlNode;
+      $$->relation.relation_name = $2;
+      if( $4 != nullptr ) {
+      $$->conditions.swap(*$4);
+      delete $4;
+      }
     }
     ;
 join_clauses:
@@ -952,12 +961,12 @@ join_clauses:
     {
       $$ = new vector<JoinSqlNode>;
       $$->emplace_back(std::move(*$1));
-      delete $1;
+      // delete $1;
     }
     | join_clauses join_clause  {
       $$ = $1;
       $$->emplace_back(std::move(*$2));
-      delete $2;
+      // delete $2;
     }
     ;
 calc_stmt:
