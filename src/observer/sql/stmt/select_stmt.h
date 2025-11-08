@@ -108,4 +108,5 @@ private:
   vector<unique_ptr<Expression>> group_by_;
   std::vector<OrderBySqlNode>    order_by_;
   int                            limit_ = -1;
+  vector<string>       table_alias_;
 };

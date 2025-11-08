@@ -79,3 +79,12 @@ SUCCESS
 select sum(data) from v5;
 446
 sum(data)
+update v5 set age=184 where id=100;
+SUCCESS
+select sum(data) from v5;
+530
+sum(data)
+update v5 set data=184 where id=100;
+FAILURE
+insert into v5(id,age) values(114,514);
+FAILURE

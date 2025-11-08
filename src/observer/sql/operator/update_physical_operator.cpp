@@ -28,6 +28,8 @@ See the Mulan PSL v2 for more details. */
 
 RC UpdatePhysicalOperator::open(Trx *trx)
 {
+  trx_ = trx;
+
   if (children_.empty()) {
     return RC::SUCCESS;
   }
@@ -40,8 +42,50 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     return rc;
   }
 
+  // 1. 先统一收集所有需要更新的记录
+  while (OB_SUCC(rc = child->next())) {
+    Tuple *tuple = child->current_tuple();
+    if (nullptr == tuple) {
+      LOG_WARN("failed to get current record: %s", strrc(rc));
+      return rc;
+    }
+ 
+    RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
+    if (table_->is_view()) {
+      if (row_tuple->cell_num() != row_tuple->rid_list_.size()) {
+        LOG_PANIC("update view: cell num is not equal to rid num");
+        return RC_WITH_LOCATION(RC::INTERNAL," ");
+      }   
+      // 在视图场景下，由于引入多表，需要使用tuple中的rid和table_name
+      for (size_t i = 0; i < row_tuple->rid_list_.size(); i++) {
+          // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
+          auto base_table_name = row_tuple->table_name_list_[i];
+          auto update_rid       = row_tuple->rid_list_[i];
+          LOG_DEBUG("we are updating base table of view: %s, rid: %s", base_table_name.c_str(), update_rid.to_string().c_str());
+          records_.push_back(row_tuple->record());
+          record_table_names_.push_back(base_table_name);
+          record_rids_.push_back(update_rid);
+      }
+    } else {
+      // 保存原始表信息和RID
+      string raw_table_name = tuple->raw_table_name();
+      RID raw_rid = tuple->raw_rid();
+
+      records_.push_back(row_tuple->record());
+      record_table_names_.push_back(raw_table_name);
+      record_rids_.push_back(raw_rid);      
+    }
+  }
+  
+  // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
+  child->close();
+  if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
+    LOG_WARN("record is invisible");
+    return rc;
+  }
+
+  // 2. 收集视图各基表的更新字段索引
   unordered_map<string, Table *> base_table_map;
-  // 收集视图各基表的更新字段索引
   if (table_->is_view()) {
     auto *view = static_cast<View *>(table_);
     auto base_tables = view->base_tables();
@@ -52,6 +96,11 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       size_t i = 0;
       for (const auto &field_meta : field_metas_) { // UPDATE 中更新的字段
         auto table_name_in_view = view->find_base_table_name(field_meta.name());
+        if (table_name_in_view.empty()) { // 对表达式列的情况，找不到基表，无法更新
+          LOG_WARN("Cannot find base table for field: %s in view: %s, we cannot proceed the update",  
+                  field_meta.name(), view->name());
+          return RC::EXPRESSION_FIELD_NOT_UPDATABLE;
+        }
         if (table_name_in_view == base_table->name()) {
           update_field_idx.push_back(i);
         }
@@ -80,54 +129,14 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     selected_update_field_idx_[table_->name()] = update_field_idx;
   }
 
-  trx_ = trx;
-
-  // 统一收集所有需要更新的记录
-  while (OB_SUCC(rc = child->next())) {
-    Tuple *tuple = child->current_tuple();
-    if (nullptr == tuple) {
-      LOG_WARN("failed to get current record: %s", strrc(rc));
-      return rc;
-    }
- 
-    RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    if (table_->is_view()) {
-      
-      if (row_tuple->cell_num() != row_tuple->rid_list_.size()) {
-        LOG_PANIC("update view: cell num is not equal to rid num");
-        return RC_WITH_LOCATION(RC::INTERNAL," ");
-      }   
-      // 在视图场景下，由于引入多表，需要使用tuple中的rid和table_name
-      for (size_t i = 0; i < row_tuple->rid_list_.size(); i++) {
-          // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
-          auto base_table_name = row_tuple->table_name_list_[i];
-          auto update_rid       = row_tuple->rid_list_[i];
-  
-          LOG_DEBUG("we are updating base table of view: %s, rid: %s", base_table_name.c_str(), update_rid.to_string().c_str());
-          records_.push_back(row_tuple->record());
-          record_table_names_.push_back(base_table_name);
-          record_rids_.push_back(update_rid);
-      }
-    } else {
-      // 保存原始表信息和RID
-      string raw_table_name = tuple->raw_table_name();
-      RID raw_rid = tuple->raw_rid();
-
-      records_.push_back(row_tuple->record());
-      record_table_names_.push_back(raw_table_name);
-      record_rids_.push_back(raw_rid);      
+  for (const auto &pair : selected_update_field_idx_) {
+    LOG_DEBUG("update physical operator: table %s, update field idx:", pair.first.c_str());
+    for (const auto &idx : pair.second) {
+      LOG_DEBUG("  field idx: %zu", idx);
     }
   }
-  
-  // 这里需要注意，要先释放孩子节点，确保index scan获取索引页面的锁释放，否则有死锁风险
-  child->close();
-  
-  if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
-    LOG_WARN("record is invisible");
-    return rc;
-  }
 
-  // 执行更新操作
+  // 3. 执行更新操作
   for (size_t idx = 0; idx < records_.size(); idx++) {
     auto &old_record = records_[idx];
     auto &raw_table_name = record_table_names_[idx];
@@ -139,12 +148,12 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     // 选择更新的表
     if (table_->is_view()) {
       if (raw_table_name.empty()) {
-        LOG_PANIC("update view: raw table name is empty, we might got failed");
-        return RC_WITH_LOCATION(RC::INTERNAL, "");
+        LOG_WARN("update view: raw table name is empty, we might got failed");
+        continue;
       }
       if (base_table_map.find(raw_table_name) == base_table_map.end()) {
-        LOG_PANIC("update view: cannot find base table: %s", raw_table_name.c_str());
-        return RC_WITH_LOCATION(RC::INTERNAL, "");
+        LOG_WARN("update view: cannot find base table: %s", raw_table_name.c_str());
+        continue;
       }
       update_table = base_table_map[raw_table_name];
       update_field_idx = selected_update_field_idx_[raw_table_name];

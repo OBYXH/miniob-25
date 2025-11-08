@@ -46,6 +46,11 @@ struct RID
     return ss.str();
   }
 
+  static bool is_valid(const RID &rid)
+  {
+    return rid.page_num >= 0 && rid.slot_num >= 0;
+  }
+
   static RID from_string(const string &str)
   {
     RID rid;
