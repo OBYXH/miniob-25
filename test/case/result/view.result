@@ -95,3 +95,24 @@ SUCCESS
 select sum(data) from v5;
 286
 sum(data)
+
+5. aggregation
+create view v7 as select count(t1.id) as num, sum(t1.age)+sum(t2.age) as data from table1 t1, table1 t2 where t1.id=t2.id;
+SUCCESS
+select * from table1;
+1 | 1
+100 | 184
+id | age
+select * from v7;
+2 | 370
+num | data
+select count(*) from v7;
+1
+count(*)
+select sum(data) from v7;
+7
+sum(data)
+update v7 set num = 11;
+FAILURE
+insert into v7 values(1,4);
+FAILURE

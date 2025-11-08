@@ -38,3 +38,12 @@ update v5 set data=184 where id=100;
 insert into v5(id,age) values(114,514);
 delete from v5 where id = 114;
 -- sort select sum(data) from v5;
+
+-- echo 5. aggregation
+create view v7 as select count(t1.id) as num, sum(t1.age)+sum(t2.age) as data from table1 t1, table1 t2 where t1.id=t2.id;
+-- sort select * from table1;
+-- sort select * from v7;
+-- sort select count(*) from v7;
+-- sort select sum(data) from v7;
+update v7 set num = 11;
+insert into v7 values(1,4);
