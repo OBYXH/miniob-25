@@ -37,10 +37,9 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
     return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
-  // 带聚合等的 View 不可插入
   if (table->is_view()) {
     auto *view = static_cast<View *>(table);
-    if (!view->is_updatable()) {
+    if (!view->is_insert_allowed()) {
       LOG_WARN("the target table(view) of the INSERT is not insertable-into");
       return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }

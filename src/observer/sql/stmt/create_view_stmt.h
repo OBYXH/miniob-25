@@ -31,10 +31,8 @@ public:
   void set_select_stmt(SelectStmt *select_stmt) { select_stmt_ = select_stmt; }
   void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator) { physical_operator_ = std::move(physical_operator); }
   void set_view_definition(const std::string &view_definition) { view_definition_ = view_definition; }
-  void set_view_updatable(bool is_view_updatable) { is_view_updatable_ = is_view_updatable; }
   SelectStmt *select_stmt() const { return select_stmt_; }
   PhysicalOperator *physical_operator() const { return physical_operator_.get(); }
-  bool is_view_updatable() const { return is_view_updatable_; }
 
   const std::vector<FieldMeta> &query_fields_meta() const { return query_fields_meta_; }
   void set_query_fields(const std::vector<FieldMeta> &query_fields_meta) { query_fields_meta_ = query_fields_meta; }
@@ -43,6 +41,13 @@ public:
   static RC            create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt);
   bool has_duplicate_column_name();
 
+  void set_is_update_allowed(bool is_update_allowed) { is_update_allowed_ = is_update_allowed; }
+  bool is_update_allowed() const { return is_update_allowed_; }
+  void set_is_insert_allowed(bool is_insert_allowed) { is_insert_allowed_ = is_insert_allowed; }
+  bool is_insert_allowed() const { return is_insert_allowed_; }
+  void set_is_delete_allowed(bool is_delete_allowed) { is_delete_allowed_ = is_delete_allowed; }
+  bool is_delete_allowed() const { return is_delete_allowed_; }
+
 private:
   std::string view_name_;
   std::string view_definition_;
@@ -50,6 +55,8 @@ private:
   SelectStmt *select_stmt_ = nullptr;
   std::unique_ptr<PhysicalOperator> physical_operator_ = nullptr;
   std::vector<FieldMeta> query_fields_meta_;
-  bool is_view_updatable_ = false;
+  bool is_update_allowed_;
+  bool is_insert_allowed_;
+  bool is_delete_allowed_;
   std::vector<std::string> attrs_name_;
 };

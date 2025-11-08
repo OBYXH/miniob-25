@@ -57,6 +57,15 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
     return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
+  if (table->is_view()) {
+    auto *view = static_cast<View *>(table);
+    // 带聚合的 View 不可更新
+    if (!view->is_update_allowed()){
+      LOG_WARN("the target table(view) of the UPDATE is not allowed");
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
+    }
+  }
+
   unordered_map<std::string, Table *> table_map;
   table_map.insert(pair<string, Table *>(string(table_name), table));
 

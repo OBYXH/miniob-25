@@ -24,21 +24,34 @@ void CreateViewExecutor::init_sys_view_table_attr_infos(std::vector<AttrInfoSqlN
     attr_info.nullable = false;
     attr_infos.push_back(attr_info);
 
-    attr_info.name = "is_updatable";
-    attr_info.type = AttrType::BOOLEANS;
-    attr_info.length = 1;
-    attr_info.nullable = false;
-    attr_infos.push_back(attr_info);
-
     attr_info.name = "attrs_name";
     attr_info.type = AttrType::CHARS;
     attr_info.length = 512;
     attr_info.nullable = false;
     attr_infos.push_back(attr_info);
+
+    attr_info.name = "is_update_allowed";
+    attr_info.type = AttrType::BOOLEANS;
+    attr_info.length = 1;
+    attr_info.nullable = false;
+    attr_infos.push_back(attr_info);
+
+    attr_info.name = "is_insert_allowed";
+    attr_info.type = AttrType::BOOLEANS;
+    attr_info.length = 1;
+    attr_info.nullable = false;
+    attr_infos.push_back(attr_info);
+
+    attr_info.name = "is_delete_allowed";
+    attr_info.type = AttrType::BOOLEANS;
+    attr_info.length = 1;
+    attr_info.nullable = false;
+    attr_infos.push_back(attr_info);
 }
 
 void CreateViewExecutor::make_view_values(std::vector<Value> &values, const std::vector<std::string> &attrs_name,
-    const std::string &view_name, const std::string &view_definition, bool is_updatable) {
+    const std::string &view_name, const std::string &view_definition, bool is_update_allowed, bool is_insert_allowed,
+    bool is_delete_allowed) {
     Value value;
     value.set_string(view_name.c_str());
     values.push_back(value);
@@ -46,15 +59,22 @@ void CreateViewExecutor::make_view_values(std::vector<Value> &values, const std:
     value.set_string(view_definition.c_str());
     values.push_back(value);
 
-    value.set_boolean(is_updatable);
-    values.push_back(value);
-
+    
     std::string attrs_name_str;
     for (const auto &attr : attrs_name) {
         attrs_name_str += attr;
         attrs_name_str += ",";
     }
     value.set_string(attrs_name_str.c_str());
+    values.push_back(value);
+
+    value.set_boolean(is_update_allowed);
+    values.push_back(value);
+
+    value.set_boolean(is_insert_allowed);
+    values.push_back(value);
+
+    value.set_boolean(is_delete_allowed);
     values.push_back(value);
 }
 
@@ -75,7 +95,10 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
 
     RC rc = RC::SUCCESS;
 
-    bool is_updatable = create_view_stmt->is_view_updatable();
+    bool is_update_allowed = create_view_stmt->is_update_allowed();
+    bool is_insert_allowed = create_view_stmt->is_insert_allowed();
+    bool is_delete_allowed = create_view_stmt->is_delete_allowed();
+
 
     // 走一遍 select 的物理算子，确保 select 语句没问题才能创建视图
     rc = create_view_stmt->physical_operator()->open(session->current_trx());
@@ -113,7 +136,7 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     Trx *trx = session->current_trx();
     Record record;
     std::vector<Value> values;
-    make_view_values(values,create_view_stmt->attrs_name(), view_name, view_definition, is_updatable);
+    make_view_values(values,create_view_stmt->attrs_name(), view_name, view_definition, is_update_allowed, is_insert_allowed, is_delete_allowed);
     rc = table->make_record(values.size(), values.data(), record);
     if (rc != RC::SUCCESS) {
         LOG_WARN("failed to make record. rc=%s", strrc(rc));
@@ -124,7 +147,7 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
         LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
     }
 
-    rc = session->get_current_db()->add_view(view_name, create_view_stmt->attrs_name(), view_definition, is_updatable);
+    rc = session->get_current_db()->add_view(view_name, create_view_stmt->attrs_name(), view_definition, is_update_allowed, is_insert_allowed, is_delete_allowed);
 
     if (rc != RC::SUCCESS) {
         LOG_WARN("failed to add view. rc=%d", rc);

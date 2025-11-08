@@ -86,10 +86,18 @@ public:
     return query_fields;
   }
 
-  bool has_special_queries() {
+  bool has_aggr() {
     for (auto &expr : query_expressions_) {
-      if (expr->type() == ExprType::AGGREGATION ||
-          expr->type() == ExprType::ARITHMETIC) {
+      if (expr->type() == ExprType::AGGREGATION){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool has_arithmatic() {
+    for (auto &expr : query_expressions_) {
+      if (expr->type() == ExprType::ARITHMETIC) {
         return true;
       }
     }

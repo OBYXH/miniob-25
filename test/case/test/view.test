@@ -7,7 +7,7 @@ INSERT INTO table1 VALUES(3,4);
 INSERT INTO table2 VALUES(5,'A');
 INSERT INTO table2 VALUES(7,'B');
 
--- echo 2. basic
+-- echo 2. single
 CREATE VIEW v1(id, age) AS select id, age from table1;
 -- sort SELECT * FROM v1;
 INSERT INTO v1(id, age) VALUES(11,12);
@@ -15,21 +15,21 @@ INSERT INTO v1(id, age) VALUES(11,12);
 UPDATE v1 SET id = 114 where age > 3;
 -- sort SELECT * FROM v1;
 
--- echo 3. complex
+-- echo 3. multiple
 CREATE VIEW v3 AS select t1.id AS id, t1.age AS age, t2.name AS name FROM table1 t1, table2 t2 WHERE t1.id < t2.id;
 -- sort SELECT * FROM v3;
 INSERT INTO v3(id, age) VALUES(100, 100);
+delete from v3 where id = 0;
+delete from v3 where id = 1;
 -- sort SELECT * FROM table1;
 -- sort SELECT * FROM v3;
 UPDATE v3 SET id=1, age=1;
 -- sort SELECT * FROM table1;
 -- sort SELECT * FROM v3;
-
--- echo 4. error
 INSERT INTO v3(id, name) VALUES(100, 'Z');
 UPDATE v3 SET id=1,name='100';
 
--- echo 5. expression alias
+-- echo 4. expression
 create view v5 as select id, age, id+age as data from table1;
 -- sort select sum(data) from v5;
 update v5 set age=184 where id=100;

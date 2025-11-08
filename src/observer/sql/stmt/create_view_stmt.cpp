@@ -6,12 +6,37 @@
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/select_stmt.h"
 
-bool check_is_updatable(SelectStmt *select_stmt) {
-    // 检查是否有聚合函数, 算数表达式
-    if (select_stmt->has_special_queries()) {
+bool check_is_update_allowed(SelectStmt *select_stmt) {
+    // 检查是否有聚合函数
+    if (select_stmt->has_aggr()) {
         return false;
     }
     
+    return true;
+}
+
+bool check_is_insert_allowed(SelectStmt *select_stmt) {
+    // 检查是否有聚合函数
+    if (select_stmt->has_aggr()) {
+        return false;
+    }
+    // 检查是否有算术表达式
+    if (select_stmt->has_arithmatic()) {
+        return false;
+    }
+    return true;
+}
+
+bool check_is_delete_allowed(SelectStmt *select_stmt) {
+    // 检查是否有聚合函数
+    if (select_stmt->has_aggr()) {
+        return false;
+    }
+    
+    // 检查是否有join
+    if (select_stmt->has_join()) {
+        return false;
+    }
     return true;
 }
 
@@ -43,10 +68,11 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   stmt = new CreateViewStmt(create_view.view_name, create_view.attrs_name);
   
   auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
-  // 解析到 is_updatable
-  // 不可更新的判断条件为：
-  // 1. 聚合函数、Join
-  create_view_stmt->set_view_updatable(check_is_updatable(select_stmt));
+  // 预判断 view 的各操作下可变性
+  create_view_stmt->set_is_update_allowed(check_is_update_allowed(select_stmt));
+  create_view_stmt->set_is_insert_allowed(check_is_insert_allowed(select_stmt));
+  create_view_stmt->set_is_delete_allowed(check_is_delete_allowed(select_stmt));
+  
   create_view_stmt->set_select_stmt(select_stmt);
   create_view_stmt->set_query_fields(query_fields);
   // 检查 duplicate column name

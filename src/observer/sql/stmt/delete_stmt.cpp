@@ -43,6 +43,14 @@ RC DeleteStmt::create(Db *db, DeleteSqlNode &delete_sql, Stmt *&stmt)
     return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
+  if (table->is_view()) {
+    auto *view = static_cast<View *>(table);
+    if (!view->is_delete_allowed()) {
+      LOG_WARN("the target table(view) of the DELETE is not allowed");
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
+    }
+  }
+
   unordered_map<string, Table *> table_map;
   table_map.insert(pair<string, Table *>(string(table_name), table));
 

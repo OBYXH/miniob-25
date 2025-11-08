@@ -13,7 +13,7 @@ SUCCESS
 INSERT INTO table2 VALUES(7,'B');
 SUCCESS
 
-2. basic
+2. single
 CREATE VIEW v1(id, age) AS select id, age from table1;
 SUCCESS
 SELECT * FROM v1;
@@ -35,7 +35,7 @@ SELECT * FROM v1;
 114 | 4
 id | age
 
-3. complex
+3. multiple
 CREATE VIEW v3 AS select t1.id AS id, t1.age AS age, t2.name AS name FROM table1 t1, table2 t2 WHERE t1.id < t2.id;
 SUCCESS
 SELECT * FROM v3;
@@ -44,6 +44,10 @@ SELECT * FROM v3;
 id | age | name
 INSERT INTO v3(id, age) VALUES(100, 100);
 SUCCESS
+delete from v3 where id = 0;
+FAILURE
+delete from v3 where id = 1;
+FAILURE
 SELECT * FROM table1;
 1 | 2
 100 | 100
@@ -66,14 +70,12 @@ SELECT * FROM v3;
 1 | 1 | A
 1 | 1 | B
 id | age | name
-
-4. error
 INSERT INTO v3(id, name) VALUES(100, 'Z');
 FAILURE
 UPDATE v3 SET id=1,name='100';
 FAILURE
 
-5. expression alias
+4. expression
 create view v5 as select id, age, id+age as data from table1;
 SUCCESS
 select sum(data) from v5;
