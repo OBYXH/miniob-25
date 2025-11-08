@@ -56,7 +56,11 @@ RC TableScanPhysicalOperator::next()
       tuple_.set_rid(RID(t_tuple->raw_rid()));
       tuple_.set_table_name(t_tuple->raw_table_name());
       // 重新创建 Record，为了转换成 RowTuple
-      table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
+      rc = table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to make record from value list tuple. rc=%s", strrc(rc));
+        return rc;
+      }
       tuple_.set_record(&current_record_);
 
       LOG_DEBUG("view record raw rid %s, raw table %s",tuple_.raw_rid().to_string().c_str(), tuple_.raw_table_name().c_str());      

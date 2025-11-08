@@ -647,9 +647,9 @@ public:
   int value_length() const override
   {
     if (aggregate_type_ == Type::COUNT) {
-      return sizeof(int);
+      return sizeof(int) + 1; // 暂时先这样?
     } else if (aggregate_type_ == Type::AVG) {
-      return sizeof(float);
+      return sizeof(float) + 1; // 暂时先这样?
     } else {
       return child_->value_length();
     }
