@@ -76,10 +76,10 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   create_view_stmt->set_select_stmt(select_stmt);
   create_view_stmt->set_query_fields(query_fields);
   // 检查 duplicate column name
-  if (create_view_stmt->has_duplicate_column_name()) {
-    LOG_WARN("duplicate column name in view definition(ERROR 1060)");
-    return RC::INVALID_ARGUMENT;
-  }
+//   if (create_view_stmt->has_duplicate_column_name()) {
+//     LOG_WARN("duplicate column name in view definition(ERROR 1060)");
+//     return RC::INVALID_ARGUMENT;
+//   }
   create_view_stmt->set_view_definition(create_view.description);
 
   sql_debug("create view statement: view name %s", create_view.view_name.c_str());

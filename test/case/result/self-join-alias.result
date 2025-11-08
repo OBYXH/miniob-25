@@ -1,0 +1,11 @@
+CREATE TABLE table1(id INT);
+SUCCESS
+INSERT INTO table1 VALUES(1);
+SUCCESS
+INSERT INTO table1 VALUES(11);
+SUCCESS
+
+sort select * from table1 t1, table1 t2 where t1.id = t2.id;
+1 | 1
+11 | 11
+id | id 
