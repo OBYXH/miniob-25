@@ -494,7 +494,15 @@ RC VecDistanceExpr::try_get_value(Value &value) const
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
-  return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  auto spec = TupleCellSpec(table_name(), field_name());
+  LOG_DEBUG("expr name: %s", name());
+  // if (!string(this->name()).empty()) { // 暂时先这样
+  //   spec.set_table_alias(name());
+  // }
+  if (!table_alias_std_string().empty()) {
+    spec.set_table_alias(table_alias_std_string());
+  }
+  return tuple.find_cell(spec, value);
 }
 
 bool FieldExpr::equal(const Expression &other) const

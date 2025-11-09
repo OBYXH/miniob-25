@@ -59,6 +59,48 @@ enum class ExprType
   SPECIAL,      ///< 特殊表达式，先留着
 };
 
+inline const char* expr_type_to_string(ExprType type)
+{
+  switch (type) {
+    case ExprType::NONE:
+      return "NONE";
+    case ExprType::STAR:
+      return "STAR";
+    case ExprType::UNBOUND_FIELD:
+      return "UNBOUND_FIELD";
+    case ExprType::UNBOUND_AGGREGATION:
+      return "UNBOUND_AGGREGATION";
+    case ExprType::FIELD:
+      return "FIELD";
+    case ExprType::VALUE:
+      return "VALUE";
+    case ExprType::CAST:
+      return "CAST";
+    case ExprType::COMPARISON:
+      return "COMPARISON";
+    case ExprType::CONJUNCTION:
+      return "CONJUNCTION";
+    case ExprType::ARITHMETIC:
+      return "ARITHMETIC";
+    case ExprType::AGGREGATION:
+      return "AGGREGATION";
+    case ExprType::DISTANCE:
+      return "DISTANCE";
+    case ExprType::FUNCTION:
+      return "FUNCTION";
+    case ExprType::VECTOSTRING:
+      return "VECTOSTRING";
+    case ExprType::SUBQUERY:
+      return "SUBQUERY";
+    case ExprType::VALUES:
+      return "VALUES";
+    case ExprType::SPECIAL:
+      return "SPECIAL";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 /**
  * @brief 表达式的抽象描述
  * @ingroup Expression

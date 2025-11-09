@@ -69,6 +69,8 @@ public:
   int table_id() const { return table_->table_id(); }
 
   void set_predicates(vector<unique_ptr<Expression>> &&exprs);
+  void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
+  const std::string &table_alias() const { return table_alias_; }
 
 private:
   RC filter(Tuple &tuple, bool &result);
@@ -84,5 +86,5 @@ private:
 
   // FOR view
   RecordPhysicalOperatorScanner            record_scanner_view_;
-
+  std::string table_alias_;
 };

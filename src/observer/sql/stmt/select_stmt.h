@@ -107,7 +107,8 @@ public:
   bool has_join() {
     return tables_.size() > 1;
   }
-  
+public:
+  vector<string>       table_alias_;
 private:
   vector<unique_ptr<Expression>> query_expressions_;
   vector<Table *>                tables_;
@@ -116,5 +117,5 @@ private:
   vector<unique_ptr<Expression>> group_by_;
   std::vector<OrderBySqlNode>    order_by_;
   int                            limit_ = -1;
-  vector<string>       table_alias_;
+  
 };

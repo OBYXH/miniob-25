@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/optimizer/logical_plan_generator.h"
 
+#include "common/lang/vector.h"
 #include "common/log/log.h"
 
 #include "common/sys/rc.h"
@@ -44,6 +45,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/create_view_stmt.h"
 
 #include "sql/expr/expression_iterator.h"
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -159,9 +161,12 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   const vector<Table *> &tables = select_stmt->tables();
+  const vector<string> &table_aliases = select_stmt->table_alias_;
+  size_t i = 0;
   for (Table *table : tables) {
-
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+    auto table_get_oper_raw(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+    table_get_oper_raw->set_table_alias(table_aliases[i]);
+    unique_ptr<LogicalOperator> table_get_oper(table_get_oper_raw);
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -170,6 +175,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       join_oper->add_child(std::move(table_get_oper));
       table_oper = unique_ptr<LogicalOperator>(join_oper);
     }
+    i++;
   }
 
   if (predicate_oper) {

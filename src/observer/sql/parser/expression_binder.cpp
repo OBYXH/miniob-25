@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/expression_iterator.h"
+#include <vector>
 
 using namespace common;
 
@@ -249,6 +250,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
     if (field_alias != nullptr && *field_alias != '\0') {
       field_expr->set_field_alias(field_alias);
     }
+    field_expr->set_table_alias(unbound_field_expr->table_alias());
     bound_expressions.emplace_back(field_expr);
   }
 

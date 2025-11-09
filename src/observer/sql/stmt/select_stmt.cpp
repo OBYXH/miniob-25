@@ -15,16 +15,51 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "sql/expr/expression.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include "sql/parser/expression_binder.h"
+#include <cstddef>
 #include <memory>
 
 using namespace std;
 using namespace common;
+
+// 专门为条件表达式递归绑定别名而设的函数，用来把别名从转移到Experssion上
+// 不太优雅，但暂时没更好办法
+void bind_table_alias_to_condition_expr(const vector<string> &table_aliases, unique_ptr<Expression> &expr)
+{
+  LOG_DEBUG("try to bind expr,name = %s, type =%s, alias = %s ", expr->name(), expr_type_to_string(expr->type()),expr->field_alias());
+  ExprType type = expr->type();
+  switch (type) {
+    case ExprType::CONJUNCTION: {
+      ConjunctionExpr *conj_expr = static_cast<ConjunctionExpr *>(expr.get());
+      for (auto &child_expr : conj_expr->children()) {
+        bind_table_alias_to_condition_expr(table_aliases, child_expr);
+      }
+    }
+    break;
+    case ExprType::COMPARISON: {
+      ComparisonExpr *cmp_expr = static_cast<ComparisonExpr *>(expr.get());
+      bind_table_alias_to_condition_expr(table_aliases, cmp_expr->left());
+      bind_table_alias_to_condition_expr(table_aliases, cmp_expr->right());
+    }
+    case ExprType::UNBOUND_FIELD: {
+      UnboundFieldExpr *ub_field_expr = static_cast<UnboundFieldExpr *>(expr.get());
+      // 如果 unbound_field_expr 的 table_alias 在 table_aliases 中, 说明是别名, 绑定到Expression上
+      if (find(table_aliases.begin(), table_aliases.end(), ub_field_expr->table_name()) != table_aliases.end()) {
+        ub_field_expr->set_table_alias(ub_field_expr->table_name());
+      }
+    }
+    break;
+    default: 
+    break;
+  }
+}
+
 
 SelectStmt::~SelectStmt()
 {
@@ -70,7 +105,6 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select
   // 会额外拥有外层扫到的 table，而外层不会。
   for (auto &rel_name : *loaded_relation_names) {
-    // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。
     Table *table = db->find_table(rel_name.c_str());
     if (nullptr == table) {
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
@@ -81,6 +115,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   }
 
   // 然后才是处理 select 语句中的 from 语句
+  std::vector<std::string> tables_alias; // 记录所有表的别名，顺序和 tables 保持一致
+  map<string, string> table_alias_map; // 记录表别名到表名的映射
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation_name.c_str();
     if (nullptr == table_name) {
@@ -97,6 +133,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     binder_context.add_table(table);
     tables.emplace_back(table);
     loaded_relation_names->push_back(table_name);
+    tables_alias.push_back(select_sql.relations[i].ralation_alias);
+    table_alias_map[select_sql.relations[i].ralation_alias] = table_name;
 
     // 检查 alias 重复
     for (size_t j = i + 1; j < select_sql.relations.size(); j++) {
@@ -111,10 +149,6 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     auto table_alias = select_sql.relations[i].ralation_alias;
     if (!table_alias.empty()) {
       table_map[table_alias] = table;
-      // if (!success.second) {
-      //   LOG_WARN("duplicate table alias %s", table_alias.c_str());
-      //   return RC::INVALID_ALIAS;
-      // }
     } else {
       table_map[table_name] = table;
     }
@@ -129,7 +163,6 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   ExpressionBinder               expression_binder(binder_context);
 
   for (unique_ptr<Expression> &expression : select_sql.expressions) {
-
     // 如果是 StarExpr，检查是否有别名，如果有报错
     if (expression->type() == ExprType::STAR) {
       StarExpr *star_expr = static_cast<StarExpr *>(expression.get());
@@ -193,6 +226,9 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
     }
+
+    bind_table_alias_to_condition_expr(tables_alias, condition.left);
+    bind_table_alias_to_condition_expr(tables_alias, condition.right);
   }
 
   vector<unique_ptr<Expression>> order_by_expressions;
@@ -241,6 +277,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   SelectStmt *select_stmt = new SelectStmt();
 
   select_stmt->tables_.swap(tables);
+  select_stmt->table_alias_.swap(tables_alias);
   select_stmt->query_expressions_.swap(bound_expressions);
   select_stmt->filter_stmt_        = filter_stmt;
   select_stmt->having_filter_stmt_ = having_filter_stmt;

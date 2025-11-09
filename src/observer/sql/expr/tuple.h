@@ -158,6 +158,7 @@ public:
   RID  raw_rid() const { return rid_; }
   const std::string &raw_table_name() const { return table_name_; }
   virtual bool is_valid() const { return true; }  // 默认返回 true
+  std::string table_alias_;
 
 protected:
   RID rid_;
@@ -264,6 +265,12 @@ public:
       return RC::NOTFOUND;
     }
 
+    auto spec_table_alias = spec.table_alias();
+    auto table_alias = table_alias_;
+    if (!spec_table_alias.empty() && !table_alias.empty() && table_alias != spec_table_alias) {
+      return RC::NOTFOUND;
+    }
+    
     for (size_t i = 0; i < speces_.size(); ++i) {
       const FieldExpr *field_expr = speces_[i];
       const Field     &field      = field_expr->field();

@@ -110,7 +110,7 @@ select count(*) from v7;
 1
 count(*)
 select sum(data) from v7;
-7
+370
 sum(data)
 update v7 set num = 11;
 FAILURE
