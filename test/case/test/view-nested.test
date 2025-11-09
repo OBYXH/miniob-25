@@ -1,0 +1,21 @@
+CREATE TABLE table1(id INT, age INT);
+CREATE TABLE table2(id INT, name CHAR);
+
+INSERT INTO table1 VALUES(1,2);
+INSERT INTO table1 VALUES(3,4);
+INSERT INTO table2 VALUES(1,'A');
+INSERT INTO table2 VALUES(3,'B');
+
+create view v6 as select id, age, id+age as data from table1 where id in (select id from table2);
+-- sort select count(*) from v6;
+-- sort select count(id) from v6;
+-- sort select sum(data) from v6;
+-- sort select count(name) from v6;
+
+create view v8 as select id, data from v6;
+-- sort select * from v8;
+insert into v8(id) values(9);
+update v8 set data = 1;
+update v8 set id = 1;
+-- sort select * from v8;
+delete from v8 where data = 7;
