@@ -46,7 +46,7 @@ RC BufferedWriter::close()
 RC BufferedWriter::write(const char *data, int32_t size, int32_t &write_size)
 {
   if (fd_ < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (buffer_.remain() == 0) {
@@ -62,7 +62,7 @@ RC BufferedWriter::write(const char *data, int32_t size, int32_t &write_size)
 RC BufferedWriter::writen(const char *data, int32_t size)
 {
   if (fd_ < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   int32_t write_size = 0;
@@ -83,7 +83,7 @@ RC BufferedWriter::writen(const char *data, int32_t size)
 RC BufferedWriter::flush()
 {
   if (fd_ < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = RC::SUCCESS;
@@ -96,7 +96,7 @@ RC BufferedWriter::flush()
 RC BufferedWriter::flush_internal(int32_t size)
 {
   if (fd_ < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = RC::SUCCESS;

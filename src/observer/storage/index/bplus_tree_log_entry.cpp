@@ -72,11 +72,11 @@ RC LogEntryHandler::serialize_header(Serializer &buffer) const
 
   int ret = buffer.write_int32(type);
   if (ret < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   ret = buffer.write_int32(page_num);
   if (ret < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return RC::SUCCESS;
 }
@@ -113,16 +113,16 @@ RC LogEntryHandler::from_buffer(
   PageNum page_num = -1;
   int     ret      = buffer.read_int32(type);
   if (ret != 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (type < 0 || type >= static_cast<int32_t>(LogOperation::Type::MAX_TYPE)) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   ret = buffer.read_int32(page_num);
   if (ret != 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   Frame *frame = nullptr;
@@ -174,7 +174,7 @@ RC LogEntryHandler::from_buffer(
 
     default: {
       LOG_ERROR("unknown log operation. operation=%d:%s", operation.index(), operation.to_string().c_str());
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
   }
 
@@ -208,7 +208,7 @@ RC InitHeaderPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffer
   IndexFileHeader header;
   int             ret = buffer.read(span<char>(reinterpret_cast<char *>(&header), sizeof(header)));
   if (ret != 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<InitHeaderPageLogEntryHandler>(frame, header);
@@ -238,7 +238,7 @@ SetParentPageLogEntryHandler::SetParentPageLogEntryHandler(
 RC SetParentPageLogEntryHandler::serialize_body(Serializer &buffer) const
 {
   int ret = buffer.write_int32(parent_page_num_);
-  return ret == 0 ? RC::SUCCESS : RC::INTERNAL;
+  return ret == 0 ? RC(RC::SUCCESS) : RC_WITH_LOCATION(RC::INTERNAL, "");
 }
 
 string SetParentPageLogEntryHandler::to_string() const
@@ -253,7 +253,7 @@ RC SetParentPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffer,
   int     ret             = 0;
   int32_t parent_page_num = -1;
   if ((ret = buffer.read_int32(parent_page_num)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<SetParentPageLogEntryHandler>(frame, parent_page_num, -1 /*old_parent_page_num*/);
@@ -263,7 +263,7 @@ RC SetParentPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffer,
 RC SetParentPageLogEntryHandler::rollback(BplusTreeMiniTransaction &mtr, BplusTreeHandler &tree_handler)
 {
   if (nullptr == frame()) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   IndexNodeHandler node_handler(mtr, tree_handler.file_header(), frame());
   return node_handler.set_parent_page_num(old_parent_page_num_);
@@ -288,7 +288,7 @@ RC NormalOperationLogEntryHandler::serialize_body(Serializer &buffer) const
   int32_t item_bytes = static_cast<int32_t>(items_.size());
   if ((ret = buffer.write_int32(index_)) < 0 || (ret = buffer.write_int32(item_num_) < 0) ||
       (ret = buffer.write_int32(item_bytes) < 0) || (ret = buffer.write(items_) < 0)) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   return RC::SUCCESS;
@@ -311,12 +311,12 @@ RC NormalOperationLogEntryHandler::deserialize(
   int32_t item_bytes = -1;
   if ((ret = buffer.read_int32(index)) < 0 || (ret = buffer.read_int32(item_num)) < 0 ||
       (ret = buffer.read_int32(item_bytes)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   vector<char> items(item_bytes);
   if ((ret = buffer.read(items)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<NormalOperationLogEntryHandler>(frame, operation.type(), index, items, item_num);
@@ -326,7 +326,7 @@ RC NormalOperationLogEntryHandler::deserialize(
 RC NormalOperationLogEntryHandler::rollback(BplusTreeMiniTransaction &mtr, BplusTreeHandler &tree_handler)
 {
   if (nullptr == frame()) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   IndexNodeHandler node_handler(mtr, tree_handler.file_header(), frame());
   if (operation_type().type() == LogOperation::Type::NODE_INSERT) {
@@ -399,7 +399,7 @@ RC LeafSetNextPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffe
   int     ret      = 0;
   int32_t page_num = -1;
   if ((ret = buffer.read_int32(page_num)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<LeafSetNextPageLogEntryHandler>(frame, page_num, -1 /*old_page_num*/);
@@ -409,7 +409,7 @@ RC LeafSetNextPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffe
 RC LeafSetNextPageLogEntryHandler::rollback(BplusTreeMiniTransaction &mtr, BplusTreeHandler &tree_handler)
 {
   if (nullptr == frame()) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   LeafIndexNodeHandler leaf_handler(mtr, tree_handler.file_header(), frame());
   leaf_handler.set_next_page(old_page_num_);
@@ -479,12 +479,12 @@ RC InternalCreateNewRootLogEntryHandler::deserialize(
   int32_t key_size       = -1;
   if ((ret = buffer.read_int32(first_page_num)) < 0 || (ret = buffer.read_int32(page_num)) < 0 ||
       (ret = buffer.read_int32(key_size)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   vector<char> key(key_size);
   if ((ret = buffer.read(key)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<InternalCreateNewRootLogEntryHandler>(frame, first_page_num, key, page_num);
@@ -531,12 +531,12 @@ RC InternalUpdateKeyLogEntryHandler::deserialize(
   int32_t index    = -1;
   int32_t key_size = -1;
   if ((ret = buffer.read_int32(index)) < 0 || (ret = buffer.read_int32(key_size)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   vector<char> key(key_size);
   if ((ret = buffer.read(key)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   vector<char> old_key(0);
@@ -547,7 +547,7 @@ RC InternalUpdateKeyLogEntryHandler::deserialize(
 RC InternalUpdateKeyLogEntryHandler::rollback(BplusTreeMiniTransaction &mtr, BplusTreeHandler &tree_handler)
 {
   if (nullptr == frame()) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   InternalIndexNodeHandler node_handler(mtr, tree_handler.file_header(), frame());
   node_handler.set_key_at(index_, old_key_.data());
@@ -588,7 +588,7 @@ RC UpdateRootPageLogEntryHandler::deserialize(Frame *frame, Deserializer &buffer
   int     ret           = 0;
   int32_t root_page_num = -1;
   if ((ret = buffer.read_int32(root_page_num)) < 0) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   handler = make_unique<UpdateRootPageLogEntryHandler>(frame, root_page_num, -1 /*old_page_num*/);

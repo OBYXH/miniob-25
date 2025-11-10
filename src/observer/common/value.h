@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
 #include "common/type/string_t.h"
+#include "common/types.h"
 #include <cstdint>
 
 /**
@@ -40,6 +41,7 @@ public:
   friend class VectorType;
   friend class NullType;
   friend class TextType;
+  friend class BoolType;
 
   Value() = default;
 
@@ -141,6 +143,15 @@ public:
   void          set_vector(const char *s);
   static Value *string_to_vector(const char *s);
   void          set_string_from_other(const Value &other);
+  void view_set_info(PageNum page_num, SlotNum slot_num, const string &table_name)
+  {
+    page_num_   = page_num;
+    slot_num_   = slot_num;
+    table_name_ = table_name;
+  }
+  PageNum page_num() const { return page_num_; }
+  SlotNum slot_num() const { return slot_num_; }
+  const string &table_name() const { return table_name_; }
 
 private:
   AttrType attr_type_       = AttrType::UNDEFINED;
@@ -160,4 +171,8 @@ private:
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false
   bool own_data_ = false;
   bool is_null_  = false;
+
+  PageNum page_num_ = -1;
+  SlotNum slot_num_ = -1;
+  std::string table_name_;
 };

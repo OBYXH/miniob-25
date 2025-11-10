@@ -30,12 +30,14 @@ public:
 
   void set_tuple(const Tuple *tuple) { child_tuple_ = tuple; }
 
+  const Tuple *child_tuple() const { return child_tuple_; }
+
   int cell_num() const override { return static_cast<int>(expressions_.size()); }
 
   RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= cell_num()) {
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     const ExprPointerType &expression = expressions_[index];
@@ -45,7 +47,7 @@ public:
   RC cell_type_at(int index, ExprType &expr_type) const
   {
     if (index < 0 || index >= cell_num()) {
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     const ExprPointerType &expression = expressions_[index];
@@ -56,7 +58,7 @@ public:
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
     if (index < 0 || index >= cell_num()) {
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     const ExprPointerType &expression = expressions_[index];

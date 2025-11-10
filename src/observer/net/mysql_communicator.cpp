@@ -715,7 +715,7 @@ RC MysqlCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
   } else {
     ErrPacket err_packet;
     err_packet.packet_header.sequence_id = sequence_id_++;
-    err_packet.error_code                = static_cast<int>(sql_result->return_code());
+    err_packet.error_code                = sql_result->return_code().to_int();
     err_packet.error_message             = buf;
     rc                                   = send_packet(err_packet);
   }

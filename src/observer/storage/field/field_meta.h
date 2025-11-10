@@ -30,10 +30,11 @@ class FieldMeta
 {
 public:
   FieldMeta();
+  // 默认复制构造函数
+  FieldMeta(const FieldMeta &other) = default;
   FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
       bool nullable = true);
   ~FieldMeta() = default;
-
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
       bool nullable = true);
 
@@ -54,6 +55,11 @@ public:
 public:
   void      to_json(Json::Value &json_value) const;
   static RC from_json(const Json::Value &json_value, FieldMeta &field);
+  
+  // view 中，需要识别到某个 Field 属于哪个表
+  std::string table_name_;
+  void set_name(const char *name) { name_ = name; }
+  void set_basetable_name(const char *table_name) { table_name_ = table_name; }
 
 protected:
   string   name_;

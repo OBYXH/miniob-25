@@ -27,27 +27,47 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   if (nullptr == db || nullptr == table_name || inserts.values.empty()) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, value_num=%d",
         db, table_name, static_cast<int>(inserts.values.size()));
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // check whether the table exists
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
+  if (table->is_view()) {
+    auto *view = static_cast<View *>(table);
+    if (!view->is_insert_allowed()) {
+      LOG_WARN("the target table(view) of the INSERT is not insertable-into");
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
+    }
+  }
+  
   // check the fields number
   const Value     *values     = inserts.values.data();
   const int        value_num  = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
-    LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
-    return RC::SCHEMA_FIELD_MISSING;
+
+  if (!table->is_view() || (table->is_view() && inserts.attrs_name.empty())) {
+    // 不是视图，或者是没有指定 field list 的视图插入操作。
+    if (field_num != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+  } else {
+    // 指定了 field list 的视图的视图插入操作，需要检查 attrs_name 是否和 value_num 匹配
+    if (inserts.attrs_name.size() != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
   }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  auto insert_stmt = new InsertStmt(table, values, value_num);
+  insert_stmt->set_attrs_name(inserts.attrs_name);
+  stmt = insert_stmt;
   return RC::SUCCESS;
 }

@@ -39,8 +39,9 @@ public:
   RC close() override;
 
   Tuple *current_tuple() override { return nullptr; }
-
+   void set_attrs_name(const std::vector<std::string> &attrs_name) { attrs_name_ = attrs_name; }
 private:
   Table        *table_ = nullptr;
   vector<Value> values_;
+  std::vector<std::string> attrs_name_;
 };

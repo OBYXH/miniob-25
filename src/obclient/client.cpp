@@ -130,7 +130,8 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  char send_buf[MAX_MEM_BUFFER_SIZE];
+  // char send_buf[MAX_MEM_BUFFER_SIZE];
+  std::vector<char> send_buf(MAX_MEM_BUFFER_SIZE);
 
   std::string input_command = "";
   MiniobLineReader::instance().init(LINE_HISTORY_FILE);
@@ -151,10 +152,10 @@ int main(int argc, char *argv[])
       exit(1);
     }
 
-    memset(send_buf, 0, sizeof(send_buf));
+    memset(send_buf.data(), 0, sizeof(send_buf));
 
     int len = 0;
-    while ((len = recv(sockfd, send_buf, MAX_MEM_BUFFER_SIZE, 0)) > 0) {
+    while ((len = recv(sockfd, send_buf.data(), MAX_MEM_BUFFER_SIZE, 0)) > 0) {
       bool msg_end = false;
       for (int i = 0; i < len; i++) {
         if (0 == send_buf[i]) {
@@ -166,7 +167,7 @@ int main(int argc, char *argv[])
       if (msg_end) {
         break;
       }
-      memset(send_buf, 0, MAX_MEM_BUFFER_SIZE);
+      memset(send_buf.data(), 0, MAX_MEM_BUFFER_SIZE);
     }
 
     if (len < 0) {

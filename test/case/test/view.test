@@ -1,0 +1,49 @@
+-- echo 1. init
+CREATE TABLE table1(id INT, age INT);
+CREATE TABLE table2(id INT, name CHAR);
+
+INSERT INTO table1 VALUES(1,2);
+INSERT INTO table1 VALUES(3,4);
+INSERT INTO table2 VALUES(5,'A');
+INSERT INTO table2 VALUES(7,'B');
+
+-- echo 2. single
+CREATE VIEW v1(id, age) AS select id, age from table1;
+-- sort SELECT * FROM v1;
+INSERT INTO v1(id, age) VALUES(11,12);
+-- sort SELECT * FROM v1;
+UPDATE v1 SET id = 114 where age > 3;
+-- sort SELECT * FROM v1;
+
+-- echo 3. multiple
+CREATE VIEW v3 AS select t1.id AS id, t1.age AS age, t2.name AS name FROM table1 t1, table2 t2 WHERE t1.id < t2.id;
+-- sort SELECT * FROM v3;
+INSERT INTO v3(id, age) VALUES(100, 100);
+delete from v3 where id = 0;
+delete from v3 where id = 1;
+-- sort SELECT * FROM table1;
+-- sort SELECT * FROM v3;
+UPDATE v3 SET id=1, age=1;
+-- sort SELECT * FROM table1;
+-- sort SELECT * FROM v3;
+INSERT INTO v3(id, name) VALUES(100, 'Z');
+UPDATE v3 SET id=1,name='100';
+
+-- echo 4. expression
+create view v5 as select id, age, id+age as data from table1;
+-- sort select sum(data) from v5;
+update v5 set age=184 where id=100;
+-- sort select sum(data) from v5;
+update v5 set data=184 where id=100;
+insert into v5(id,age) values(114,514);
+delete from v5 where id = 114;
+-- sort select sum(data) from v5;
+
+-- echo 5. aggregation
+create view v7 as select count(t1.id) as num, sum(t1.age)+sum(t2.age) as data from table1 t1, table1 t2 where t1.id=t2.id;
+-- sort select * from table1;
+-- sort select * from v7;
+-- sort select count(*) from v7;
+-- sort select sum(data) from v7;
+update v7 set num = 11;
+insert into v7 values(1,4);

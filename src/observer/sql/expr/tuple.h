@@ -153,6 +153,16 @@ public:
     result = 0;
     return rc;
   }
+  void set_rid(const RID &rid) { rid_ = rid; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
+  RID  raw_rid() const { return rid_; }
+  const std::string &raw_table_name() const { return table_name_; }
+  virtual bool is_valid() const { return true; }  // 默认返回 true
+  std::string table_alias_;
+
+protected:
+  RID rid_;
+  std::string table_name_;
 };
 
 /**
@@ -195,7 +205,7 @@ public:
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     FieldExpr       *field_expr = speces_[index];
@@ -214,6 +224,7 @@ public:
     } else {
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
+    cell.view_set_info(raw_rid().page_num, raw_rid().slot_num, raw_table_name());
     return RC::SUCCESS;
   }
 
@@ -221,7 +232,7 @@ public:
   // {
   //   if (index < 0 || index >= static_cast<int>(speces_.size())) {
   //     LOG_WARN("invalid argument. index=%d", index);
-  //     return RC::INVALID_ARGUMENT;
+  //     return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   //   }
   //   auto field_expr = speces_[index];
   //   auto field_meta = field_expr->field().meta();
@@ -244,7 +255,7 @@ public:
     return RC::SUCCESS;
   }
 
-  bool is_valid() const { return record_ != nullptr && table_ != nullptr; }
+  bool is_valid() const override { return record_ != nullptr && table_ != nullptr; }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
@@ -254,6 +265,12 @@ public:
       return RC::NOTFOUND;
     }
 
+    auto spec_table_alias = spec.table_alias();
+    auto table_alias = table_alias_;
+    if (!spec_table_alias.empty() && !table_alias.empty() && table_alias != spec_table_alias) {
+      return RC::NOTFOUND;
+    }
+    
     for (size_t i = 0; i < speces_.size(); ++i) {
       const FieldExpr *field_expr = speces_[i];
       const Field     &field      = field_expr->field();
@@ -269,7 +286,7 @@ public:
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     spec = speces_[index];
     return RC::SUCCESS;
@@ -279,6 +296,14 @@ public:
   Record &record() { return *record_; }
 
   const Record &record() const { return *record_; }
+
+public:
+  // view 多表
+  // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
+  // 这里需要记录这种信息，用于多表下的 view 的字段update
+  // 在 tablescan 中，这三个字段会被更新。
+  std::vector<RID> rid_list_;
+  std::vector<std::string> table_name_list_;
 
 private:
   Record             *record_ = nullptr;
@@ -309,10 +334,10 @@ public:
   RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= cell_num()) {
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (tuple_ == nullptr) {
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     Expression *expr = expressions_[index].get();
@@ -357,7 +382,8 @@ public:
   void set_cells(const vector<Value> &cells) { cells_ = cells; }
 
   virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
-
+  std::vector<Value> cells() const { return cells_; }
+  
   virtual RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= cell_num()) {
@@ -392,7 +418,7 @@ public:
     return RC::NOTFOUND;
   }
 
-  static RC make(const Tuple &tuple, ValueListTuple &value_list)
+  static RC make(const Tuple &tuple, ValueListTuple &value_list, std::string table_name = "")
   {
     const int cell_num = tuple.cell_num();
     for (int i = 0; i < cell_num; i++) {
@@ -408,6 +434,13 @@ public:
         return rc;
       }
 
+      if (!table_name.empty()) {
+        spec.set_table_name(table_name.c_str());
+        spec.set_field_name(spec.alias());
+        std::string alias = table_name + "." + spec.alias();
+        spec.set_alias(alias.c_str());
+      }
+      
       value_list.cells_.push_back(cell);
       value_list.specs_.push_back(spec);
     }
@@ -506,7 +539,7 @@ public:
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override
   {
     assert(false);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   RC init(const std::vector<Expression *> &exprs)
@@ -518,7 +551,7 @@ public:
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
     assert(false);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   std::vector<Expression *> &exprs() { return exprs_; }

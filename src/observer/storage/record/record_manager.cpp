@@ -403,7 +403,7 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
   if (rid.slot_num >= page_header_->record_capacity) {
     LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, frame=%s, page_header=%s",
               rid.slot_num, frame_->to_string().c_str(), page_header_->to_string().c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   Bitmap bitmap(bitmap_, page_header_->record_capacity);

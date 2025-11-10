@@ -27,7 +27,7 @@ RingBuffer::~RingBuffer() {}
 RC RingBuffer::read(char *buf, int32_t size, int32_t &read_size)
 {
   if (size < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc     = RC::SUCCESS;
@@ -70,12 +70,12 @@ RC RingBuffer::buffer(const char *&buf, int32_t &read_size)
 RC RingBuffer::forward(int32_t size)
 {
   if (size <= 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (size > this->size()) {
     LOG_DEBUG("forward size is too large.size=%d, size=%d", size, this->size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   data_size_ -= size;
@@ -85,7 +85,7 @@ RC RingBuffer::forward(int32_t size)
 RC RingBuffer::write(const char *data, int32_t size, int32_t &write_size)
 {
   if (size < 0) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc      = RC::SUCCESS;

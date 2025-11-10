@@ -49,4 +49,9 @@ private:
   vector<unique_ptr<Expression>> exprs_;
   vector<FieldMeta>              field_metas_;
   vector<Record>                 records_;
+
+  unordered_map<string, vector<size_t>> selected_update_field_idx_;
+  Table *update_table = nullptr;
+  vector<string> record_table_names_; 
+  vector<RID> record_rids_;
 };

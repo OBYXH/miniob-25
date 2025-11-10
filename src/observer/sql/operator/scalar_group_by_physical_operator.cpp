@@ -51,7 +51,7 @@ RC ScalarGroupByPhysicalOperator::open(Trx *trx)
     Tuple *child_tuple = child.current_tuple();
     if (nullptr == child_tuple) {
       LOG_WARN("failed to get tuple from child operator. rc=%s", strrc(rc));
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     // 计算需要做聚合的值

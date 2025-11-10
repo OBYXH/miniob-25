@@ -20,7 +20,7 @@ RC LobFileHandler::open_file(const char *file_name)
   } else {
     return RC::FILE_NOT_EXIST;
   }
-  return RC::INTERNAL;
+  return RC_WITH_LOCATION(RC::INTERNAL, "");
 }
 
 RC LobFileHandler::insert_data(int64_t &offset, int64_t length, const char *data)

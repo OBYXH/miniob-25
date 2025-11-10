@@ -41,7 +41,7 @@ RC LogHandler::create(const char *name, LogHandler *&log_handler)
   } else if (strcasecmp(name, "vacuous") == 0) {
     log_handler = new VacuousLogHandler();
   } else {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   return RC::SUCCESS;
 }

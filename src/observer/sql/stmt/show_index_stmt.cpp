@@ -20,7 +20,7 @@ RC ShowIndexStmt::create(Db *db, const ShowIndexSqlNode &show_index, Stmt *&stmt
 {
   if (db->find_table(show_index.relation_name.c_str()) == nullptr) {
     sql_debug("table %s not found", show_index.relation_name.c_str());
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
   stmt = new ShowIndexStmt(show_index.relation_name);
   return RC::SUCCESS;

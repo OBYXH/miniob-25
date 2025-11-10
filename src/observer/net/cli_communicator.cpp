@@ -47,7 +47,7 @@ RC CliCommunicator::init(int fd, unique_ptr<Session> session, const string &addr
 
     fd_ = -1;  // 防止被父类析构函数关闭
   } else {
-    rc = RC::INVALID_ARGUMENT;
+    rc = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     LOG_WARN("only stdin supported");
   }
   return rc;

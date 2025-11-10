@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "storage/db/db.h"
+#include "storage/record/physical_op_record_scanner.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -28,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/clog/disk_log_handler.h"
 #include "storage/clog/integrated_log_replayer.h"
+#include "sql/expr/tuple.h"
 
 using namespace common;
 
@@ -57,12 +59,12 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
 
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init DB, name cannot be empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (!filesystem::is_directory(dbpath)) {
     LOG_ERROR("Failed to init DB, path is not a directory: %s", dbpath);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   oceanbase::ObLsmOptions options;
@@ -78,7 +80,7 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
   TrxKit *trx_kit = TrxKit::create(trx_kit_name, this);
   if (trx_kit == nullptr) {
     LOG_ERROR("Failed to create trx kit: %s", trx_kit_name);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   trx_kit_.reset(trx_kit);
@@ -133,6 +135,12 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
   rc = open_all_tables();
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to open all tables. dbpath=%s, rc=%s", dbpath, strrc(rc));
+    return rc;
+  }
+  // 打开所有的视图
+  rc = open_all_views();
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to open all views. dbpath=%s, rc=%s", dbpath, strrc(rc));
     return rc;
   }
 
@@ -192,7 +200,7 @@ RC Db::drop_table(const char *table_name)
   Table *table = find_table(table_name);
   if (table == nullptr) {
     LOG_WARN("No such table: %s", table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
   rc = table->drop();
   if (rc != RC::SUCCESS) {
@@ -211,7 +219,7 @@ RC Db::rename_table(const char *old_table_name, const char *new_table_name)
     Table *table = iter->second;
     if (table == nullptr) {
       LOG_WARN("No such table: %s", old_table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
     }
     table->set_table_name(new_table_name);
     opened_tables_.erase(iter);
@@ -224,6 +232,17 @@ Table *Db::find_table(const char *table_name) const
 {
   unordered_map<string, Table *>::const_iterator iter = opened_tables_.find(table_name);
   if (iter != opened_tables_.end()) {
+    return iter->second;
+  }
+
+  auto view = find_view(table_name);
+  return view;
+}
+
+View *Db::find_view(const char *view_name) const
+{
+  auto iter = opened_views_.find(view_name);
+  if (iter != opened_views_.end()) {
     return iter->second;
   }
   return nullptr;
@@ -264,7 +283,7 @@ RC Db::open_all_tables()
           table->name(), filename.c_str());
       // 在这里原本先删除table后调用table->name()方法，犯了use-after-free的错误
       delete table;
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     if (table->table_id() >= next_table_id_) {
@@ -276,6 +295,98 @@ RC Db::open_all_tables()
 
   LOG_INFO("All table have been opened. num=%d", opened_tables_.size());
   return rc;
+}
+
+RC Db::open_all_views() {
+  // 从 __miniob_views__ 表中加载视图
+  RC rc = RC::SUCCESS;
+  auto *table = find_table("__miniob_views__");
+  if (table == nullptr) {
+    return rc;
+  }
+  RecordScanner *scanner = nullptr;
+  Trx *trx = trx_kit().create_trx(log_handler()); // 此时已经加载好 log handler 了。
+  rc = table->get_record_scanner(scanner, trx, ReadWriteMode::READ_ONLY);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open scanner for table: %s, rc=%s", table->name(), strrc(rc));
+    return rc;
+  }
+
+  Record record;
+  RowTuple tuple_;
+  Value value;
+  string view_name;
+  string view_description;
+  bool is_update_allowed;
+  bool is_insert_allowed;
+  bool is_delete_allowed;
+  tuple_.set_schema(table, table->table_meta().field_metas());
+  while (OB_SUCC(scanner->next(record))) {
+    tuple_.set_record(&record);
+    rc = tuple_.cell_at(0, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    view_name = value.get_string();
+    rc = tuple_.cell_at(1, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    view_description = value.get_string();
+    rc = tuple_.cell_at(2, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    string attrs_str = value.get_string();
+    vector<string> attrs_name;
+    split_string(attrs_str, ",", attrs_name);
+    rc = tuple_.cell_at(3, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    is_update_allowed = value.get_int();
+    rc = tuple_.cell_at(4, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    is_insert_allowed = value.get_int();
+    rc = tuple_.cell_at(5, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    is_delete_allowed = value.get_int();  
+  
+    View *view = new View(view_name, attrs_name, view_description, next_view_id_++, is_update_allowed, is_insert_allowed, is_delete_allowed);
+    opened_views_[view_name] = view;
+    LOG_DEBUG("init views: view_name=%s, view_description=%s, is_update_allowed=%d, is_insert_allowed=%d, is_delete_allowed=%d",
+        view_name.c_str(), view_description.c_str(), is_update_allowed, is_insert_allowed, is_delete_allowed);
+  }
+  return rc;
+}
+
+RC Db::add_view(const char *view_name, const vector<string> attrs_name, const char *view_description, bool is_update_allowed,
+    bool is_insert_allowed, bool is_delete_allowed)
+{
+  if (common::is_blank(view_name)) {
+    LOG_ERROR("Failed to add view, view name cannot be empty.");
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
+  }
+
+  if (opened_views_.count(view_name) != 0) {
+    LOG_ERROR("Failed to add view, view name has been opened before.");
+    return RC::SCHEMA_TABLE_EXIST;
+  }
+
+  View *view = new View(view_name, attrs_name, view_description, next_view_id_++, is_update_allowed, is_insert_allowed, is_delete_allowed);
+  opened_views_[view_name] = view;
+  LOG_INFO("Successfully added a new view (%s).", view_name);
+  return RC::SUCCESS;
 }
 
 const char *Db::name() const { return name_.c_str(); }
@@ -333,7 +444,7 @@ RC Db::recover()
   LogReplayer *trx_log_replayer = trx_kit_->create_log_replayer(*this, *log_handler_);
   if (trx_log_replayer == nullptr) {
     LOG_ERROR("Failed to create trx log replayer.");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   IntegratedLogReplayer log_replayer(*buffer_pool_manager_, unique_ptr<LogReplayer>(trx_log_replayer));

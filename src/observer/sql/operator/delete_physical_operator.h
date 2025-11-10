@@ -44,4 +44,6 @@ private:
   Table         *table_ = nullptr;
   Trx           *trx_   = nullptr;
   vector<Record> records_;
+  vector<string>         record_table_names_;  // 添加：记录每条记录对应的表名
+  vector<RID>            record_rids_;         // 添加：记录每条记录对应的RID
 };

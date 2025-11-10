@@ -44,7 +44,7 @@ RC JavaThreadPoolThreadHandler::start()
 {
   if (nullptr != event_base_) {
     LOG_ERROR("event base has been initialized");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // 在多线程场景下使用libevent，先执行这个函数
@@ -53,7 +53,7 @@ RC JavaThreadPoolThreadHandler::start()
   event_base_ = event_base_new();
   if (nullptr == event_base_) {
     LOG_ERROR("failed to create event base");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // 创建线程池
@@ -65,7 +65,7 @@ RC JavaThreadPoolThreadHandler::start()
   );
   if (0 != ret) {
     LOG_ERROR("failed to init thread pool executor");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // libevent 的监测消息循环主体，要放在一个线程中执行
@@ -74,7 +74,7 @@ RC JavaThreadPoolThreadHandler::start()
   ret               = executor_.execute(event_worker);
   if (0 != ret) {
     LOG_ERROR("failed to execute event worker");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   return RC::SUCCESS;
@@ -160,7 +160,7 @@ RC JavaThreadPoolThreadHandler::new_connection(Communicator *communicator)
   struct event *ev = event_new(event_base_, fd, EV_READ, event_callback, ag);
   if (nullptr == ev) {
     LOG_ERROR("failed to create event");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   ag->ev = ev;
 
@@ -172,7 +172,7 @@ RC JavaThreadPoolThreadHandler::new_connection(Communicator *communicator)
   if (0 != ret) {
     LOG_ERROR("failed to add event. fd=%d, communicator=%p, ret=%d", fd, communicator, ret);
     event_free(ev);
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   LOG_TRACE("add event success. fd=%d, communicator=%p", fd, communicator);
 
@@ -188,7 +188,7 @@ RC JavaThreadPoolThreadHandler::close_connection(Communicator *communicator)
     auto       iter = event_map_.find(communicator);
     if (iter == event_map_.end()) {
       LOG_ERROR("cannot find event for communicator %p", communicator);
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
 
     ag = iter->second;

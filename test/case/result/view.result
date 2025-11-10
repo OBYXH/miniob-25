@@ -1,0 +1,118 @@
+1. init
+CREATE TABLE table1(id INT, age INT);
+SUCCESS
+CREATE TABLE table2(id INT, name CHAR);
+SUCCESS
+
+INSERT INTO table1 VALUES(1,2);
+SUCCESS
+INSERT INTO table1 VALUES(3,4);
+SUCCESS
+INSERT INTO table2 VALUES(5,'A');
+SUCCESS
+INSERT INTO table2 VALUES(7,'B');
+SUCCESS
+
+2. single
+CREATE VIEW v1(id, age) AS select id, age from table1;
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+3 | 4
+id | age
+INSERT INTO v1(id, age) VALUES(11,12);
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+11 | 12
+3 | 4
+id | age
+UPDATE v1 SET id = 114 where age > 3;
+SUCCESS
+SELECT * FROM v1;
+1 | 2
+114 | 12
+114 | 4
+id | age
+
+3. multiple
+CREATE VIEW v3 AS select t1.id AS id, t1.age AS age, t2.name AS name FROM table1 t1, table2 t2 WHERE t1.id < t2.id;
+SUCCESS
+SELECT * FROM v3;
+1 | 2 | A
+1 | 2 | B
+id | age | name
+INSERT INTO v3(id, age) VALUES(100, 100);
+SUCCESS
+delete from v3 where id = 0;
+FAILURE
+delete from v3 where id = 1;
+FAILURE
+SELECT * FROM table1;
+1 | 2
+100 | 100
+114 | 12
+114 | 4
+id | age
+SELECT * FROM v3;
+1 | 2 | A
+1 | 2 | B
+id | age | name
+UPDATE v3 SET id=1, age=1;
+SUCCESS
+SELECT * FROM table1;
+1 | 1
+100 | 100
+114 | 12
+114 | 4
+id | age
+SELECT * FROM v3;
+1 | 1 | A
+1 | 1 | B
+id | age | name
+INSERT INTO v3(id, name) VALUES(100, 'Z');
+FAILURE
+UPDATE v3 SET id=1,name='100';
+FAILURE
+
+4. expression
+create view v5 as select id, age, id+age as data from table1;
+SUCCESS
+select sum(data) from v5;
+446
+sum(data)
+update v5 set age=184 where id=100;
+SUCCESS
+select sum(data) from v5;
+530
+sum(data)
+update v5 set data=184 where id=100;
+FAILURE
+insert into v5(id,age) values(114,514);
+FAILURE
+delete from v5 where id = 114;
+SUCCESS
+select sum(data) from v5;
+286
+sum(data)
+
+5. aggregation
+create view v7 as select count(t1.id) as num, sum(t1.age)+sum(t2.age) as data from table1 t1, table1 t2 where t1.id=t2.id;
+SUCCESS
+select * from table1;
+1 | 1
+100 | 184
+id | age
+select * from v7;
+2 | 370
+num | data
+select count(*) from v7;
+1
+count(*)
+select sum(data) from v7;
+370
+sum(data)
+update v7 set num = 11;
+FAILURE
+insert into v7 values(1,4);
+FAILURE

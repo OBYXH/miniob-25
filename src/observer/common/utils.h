@@ -34,10 +34,10 @@ inline RC parse_date(const char *str, int &result)
 {
   int y, m, d;
   if (sscanf(str, "%d-%d-%d", &y, &m, &d) != 3) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   if (!check_date(y, m, d)) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   result = y * 10000 + m * 100 + d;
   return RC::SUCCESS;
@@ -52,7 +52,7 @@ inline RC parse_float_prefix(const char *str, float &result)
 
   // 检查1: str 和 end_ptr 指向同一位置，说明根本没有解析到数字
   if (str == end_ptr) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 检查2: 检查解析结束后，后面是否还有非空白的垃圾字符
@@ -60,12 +60,12 @@ inline RC parse_float_prefix(const char *str, float &result)
     end_ptr++;
   }
   if (*end_ptr != '\0') {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 检查3: 检查是否发生溢出
   if (errno == ERANGE) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   result = static_cast<float>(float_val);
@@ -75,12 +75,12 @@ inline RC parse_float_prefix(const char *str, float &result)
 inline RC parse_vector_from_string(const char *str, float *&array, int &length)
 {
   if (!str || *str != '[') {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   std::string s = str;
   if (s.back() != ']') {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   s = s.substr(1, s.size() - 2);  // 去掉开头和结尾的方括号
@@ -94,7 +94,7 @@ inline RC parse_vector_from_string(const char *str, float *&array, int &length)
   }
 
   if (count == 0) {
-    return RC::INVALID_ARGUMENT;  // 空数组
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");  // 空数组
   }
 
   // 分配数组内存

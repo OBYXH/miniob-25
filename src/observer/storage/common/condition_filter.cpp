@@ -40,12 +40,12 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
 {
   if (attr_type <= AttrType::UNDEFINED || attr_type >= AttrType::MAXTYPE) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (comp_op < EQUAL_TO || comp_op >= NO_OP) {
     LOG_ERROR("Invalid condition with unsupported compare operation: %d", comp_op);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   left_      = left;
@@ -182,7 +182,7 @@ RC CompositeConditionFilter::init(Table &table, const ConditionSqlNode *conditio
     return RC::SUCCESS;
   }
   if (conditions == nullptr) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC                rc                = RC::SUCCESS;

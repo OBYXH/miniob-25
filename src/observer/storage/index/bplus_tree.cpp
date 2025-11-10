@@ -851,7 +851,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
   if (header_frame->page_num() != FIRST_INDEX_PAGE) {
     LOG_WARN("header page num should be %d but got %d. is it a new file",
              FIRST_INDEX_PAGE, header_frame->page_num());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   char            *pdata       = header_frame->data();
@@ -1452,7 +1452,7 @@ RC BplusTreeHandler::create_new_tree(BplusTreeMiniTransaction &mtr, const char *
 {
   RC rc = RC::SUCCESS;
   if (file_header_.root_page != BP_INVALID_PAGE_NUM) {
-    rc = RC::INTERNAL;
+    rc = RC_WITH_LOCATION(RC::INTERNAL, "");
     LOG_WARN("cannot create new tree while root page is valid. root page id=%d", file_header_.root_page);
     return rc;
   }
@@ -1491,7 +1491,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
 {
   if (user_key == nullptr || rid == nullptr) {
     LOG_WARN("Invalid arguments, key is empty or rid is empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   MemPoolItem::item_unique_ptr pkey = make_key(user_key, *rid);
@@ -1822,7 +1822,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   RC rc = RC::SUCCESS;
   if (inited_) {
     LOG_WARN("tree scanner has been inited");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   inited_        = true;
@@ -1836,7 +1836,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     if (result > 0 ||  // left < right
                        // left == right but is (left,right)/[left,right) or (left,right]
         (result == 0 && (left_inclusive == false || right_inclusive == false))) {
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
 

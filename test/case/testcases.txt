@@ -26,3 +26,6 @@ primary-complex-sub-query
 primary-complex-sub-query-plus
 primary-alter
 union
+view
+self-join-alias
+view-aggr

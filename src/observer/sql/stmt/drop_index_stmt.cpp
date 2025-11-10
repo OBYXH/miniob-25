@@ -30,13 +30,13 @@ RC DropIndexStmt::create(Db *db, const DropIndexSqlNode &drop_index, Stmt *&stmt
   if (is_blank(table_name) || is_blank(drop_index.index_name.c_str())) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, index name=%s",
         db, table_name, drop_index.index_name.c_str());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   // check whether the table exists
   Table *table = db->find_table(table_name);
   if (nullptr == table) {
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
   Index *index = table->find_index(drop_index.index_name.c_str());

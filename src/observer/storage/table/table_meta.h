@@ -42,7 +42,7 @@ public:
 
   RC init(int32_t table_id, const char *name, const vector<FieldMeta> *trx_fields,
       span<const AttrInfoSqlNode> attributes, const vector<string> &primary_keys, StorageFormat storage_format,
-      StorageEngine storage_engine);
+      StorageEngine storage_engine = StorageEngine::HEAP);
 
   RC add_index(const IndexMeta &index);
   RC drop_index(const char *index_name);
@@ -52,6 +52,7 @@ public:
   const char         *name() const;
   const FieldMeta    *trx_field() const;
   const FieldMeta    *field(int index) const;
+  FieldMeta    *mut_field(int index) ;
   const FieldMeta    *field(const char *name) const;
   const FieldMeta    *find_field_by_offset(int offset) const;
   RC                  get_field_metas(const vector<string> &fields, vector<FieldMeta> &field_metas) const;

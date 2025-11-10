@@ -237,7 +237,7 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       auto table = field_expr->field().table();
       if (table == nullptr) {
         LOG_WARN("failed to get table from field expression");
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       const RowTuple &row_tuple = dynamic_cast<const RowTuple &>(tuple);
       RID             rid       = row_tuple.record().rid();
@@ -245,12 +245,12 @@ RC FunctionExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       Index          *index     = table->find_index_by_field(field_expr->field_name());
       if (index == nullptr) {
         LOG_WARN("failed to get index from table:%s, field:%s", table->name(), field_expr->field_name());
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       FullTextIndex *ft_index = dynamic_cast<FullTextIndex *>(index);
       if (ft_index == nullptr) {
         LOG_WARN("failed to get full text index from table:%s, field:%s", table->name(), field_expr->field_name());
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       auto result = ft_index->search(format_);
       for (const auto &res : result) {
@@ -352,7 +352,7 @@ RC FunctionExpr::try_get_value(Value &value) const
       auto table = field_expr->field().table();
       if (table == nullptr) {
         LOG_WARN("failed to get table from field expression");
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       value.set_float(0.0);  // 无法在编译期获取分数，返回默认值0.0
     } break;
@@ -494,7 +494,15 @@ RC VecDistanceExpr::try_get_value(Value &value) const
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
-  return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  auto spec = TupleCellSpec(table_name(), field_name());
+  LOG_DEBUG("expr name: %s", name());
+  // if (!string(this->name()).empty()) { // 暂时先这样
+  //   spec.set_table_alias(name());
+  // }
+  if (!table_alias_std_string().empty()) {
+    spec.set_table_alias(table_alias_std_string());
+  }
+  return tuple.find_cell(spec, value);
 }
 
 bool FieldExpr::equal(const Expression &other) const
@@ -656,7 +664,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
     } break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);
-      rc = RC::INTERNAL;
+      rc = RC_WITH_LOCATION(RC::INTERNAL, "");
     } break;
   }
 
@@ -681,7 +689,7 @@ RC ComparisonExpr::try_get_value(Value &cell) const
     return rc;
   }
 
-  return RC::INVALID_ARGUMENT;
+  return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
 }
 
 RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
@@ -701,7 +709,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     Value _test;
     if (left_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
       LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     rc = right_->get_value(tuple, right_value, trx);
     if (rc != RC::SUCCESS) {
@@ -710,7 +718,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     }
     if (right_->get_value(tuple, _test, trx) != RC::RECORD_EOF) {
       LOG_WARN("we only support 1 rows for subquery result rc=%s", strrc(rc));
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     bool bool_value = false;
     rc              = compare_value(left_value, right_value, bool_value);
@@ -779,7 +787,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
     }
 
-    if (rc == RC::INVALID_ARGUMENT || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
+    if (rc == RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "") || rc == RC::SUB_QUERY_VALUES_DISMATCH) {
       if (subquery_expr->close_physical_operator() != RC::SUCCESS) {
         LOG_WARN("failed to close physical operator.");
       }
@@ -851,7 +859,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       } else if (comp_ == CompOp::EQUAL_TO || comp_ == CompOp::NOT_EQUAL) {
         if (has_sub_queried_) {
           has_sub_queried_ = false;
-          rc               = RC::INVALID_ARGUMENT;
+          rc               = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
           break;
         } else {
           has_sub_queried_ = true;
@@ -869,7 +877,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
     }
 
-    // if (rc == RC::INVALID_ARGUMENT)
+    // if (rc == RC_WITH_LOCATION(RC::INVALID_ARGUMENT, ""))
     //   return rc;
 
     // EOF判断
@@ -895,7 +903,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
     // exists 和 not exists 不应该走到这里，TA们是用于子查询的。
     if (comp_ == EXISTS_OP || comp_ == NOT_EXISTS_OP) {
       LOG_WARN("exists and not exists should be used in subquery");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     rc = left_->get_value(tuple, left_value, trx);
@@ -941,7 +949,7 @@ RC ComparisonExpr::eval(Chunk &chunk, vector<uint8_t> &select)
   }
   if (left_column.attr_type() != right_column.attr_type()) {
     LOG_WARN("cannot compare columns with different types");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (left_column.attr_type() == AttrType::INTS) {
     rc = compare_column<int>(left_column, right_column, select);
@@ -968,7 +976,7 @@ RC ComparisonExpr::eval(Chunk &chunk, vector<uint8_t> &select)
 
   } else {
     LOG_WARN("unsupported data type %d", left_column.attr_type());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return rc;
 }
@@ -1099,7 +1107,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     } break;
 
     default: {
-      rc = RC::INTERNAL;
+      rc = RC_WITH_LOCATION(RC::INTERNAL, "");
       LOG_WARN("unsupported arithmetic type. %d", arithmetic_type_);
     } break;
   }
@@ -1295,7 +1303,7 @@ RC AggregateExpr::get_column(Chunk &chunk, Column &column)
   if (pos_ != -1) {
     column.reference(chunk.column(pos_));
   } else {
-    rc = RC::INTERNAL;
+    rc = RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return rc;
 }
@@ -1363,7 +1371,7 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   } else if (0 == strcasecmp(type_str, "min")) {
     type = Type::MIN;
   } else {
-    rc = RC::INVALID_ARGUMENT;
+    rc = RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   return rc;
 }
@@ -1376,7 +1384,7 @@ RC SubqueryExpr::open_physical_operator(Tuple *outer_tuple) const
 {
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   // 将外层的 tuple 传递给子查询算子，以达到查外层表的目的
   // proj -> orderby -> predicate 普通
@@ -1394,7 +1402,7 @@ RC SubqueryExpr::close_physical_operator() const
 {
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   RC rc = physical_operator_->close();
   if (rc != RC::SUCCESS) {
@@ -1416,7 +1424,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
 
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   trx_ = trx;
@@ -1451,7 +1459,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
   // if (tuple_->cell_num() > 1) {
   //   LOG_WARN("tuple cell count is not 1");
   //   close_physical_operator();  // 关闭子查询算子
-  //   return RC::INVALID_ARGUMENT;
+  //   return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   // }
 
   if (tuple_->cell_num() == 0) {

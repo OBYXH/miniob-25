@@ -88,7 +88,7 @@ RC OrderByPhysicalOperator::open(Trx *trx)
 
   if (children_.size() != 1) {
     LOG_WARN("OrderByPhysicalOperator should have exactly one child");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   PhysicalOperator *child = children_[0].get();
@@ -165,7 +165,7 @@ RC OrderByPhysicalOperator::open(Trx *trx)
 RC OrderByPhysicalOperator::next()
 {
   if (!sorter_) {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   vector<Value> result_values;

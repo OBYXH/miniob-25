@@ -21,7 +21,7 @@ RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt 
 {
   StorageFormat storage_format = get_storage_format(create_table.storage_format.c_str());
   if (storage_format == StorageFormat::UNKNOWN_FORMAT) {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   stmt = new CreateTableStmt(
       create_table.relation_name, create_table.attr_infos, create_table.primary_keys, storage_format);

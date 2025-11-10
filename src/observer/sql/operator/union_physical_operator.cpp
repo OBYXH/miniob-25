@@ -27,7 +27,7 @@ RC UnionPhysicalOperator::validate_schema_compatibility()
 {
   if (children_.empty()) {
     LOG_WARN("union operator has no children");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // 获取第一个子算子的 schema 作为基准
@@ -41,7 +41,7 @@ RC UnionPhysicalOperator::validate_schema_compatibility()
   int base_cell_num = base_schema.cell_num();
   if (base_cell_num == 0) {
     LOG_WARN("first child has empty schema");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   // 验证后续子算子的 schema 与第一个子算子兼容
@@ -68,7 +68,7 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
 {
   if (children_.empty()) {
     LOG_WARN("union operator has no children");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   bool first_child = true;
@@ -96,7 +96,7 @@ RC UnionPhysicalOperator::execute_child_operators(Trx *trx)
       if (tuple == nullptr) {
         LOG_WARN("child operator returned null tuple");
         child->close();
-        return RC::INTERNAL;
+        return RC_WITH_LOCATION(RC::INTERNAL, "");
       }
       
       int cell_num = tuple->cell_num();
@@ -258,7 +258,7 @@ RC UnionPhysicalOperator::tuple_schema(TupleSchema &schema) const
 {
   if (children_.empty()) {
     LOG_WARN("union operator has no children");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   
   // 直接使用第一个子算子的 schema

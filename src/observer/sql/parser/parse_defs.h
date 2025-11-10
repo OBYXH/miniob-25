@@ -202,8 +202,9 @@ struct CalcSqlNode
  */
 struct InsertSqlNode
 {
-  string        relation_name;  ///< Relation to insert into
-  vector<Value> values;         ///< 要插入的值
+  string        relation_name;         ///< Relation to insert into
+  std::vector<std::string> attrs_name; ///< 要插入的属性名称列表
+  vector<Value> values;                ///< 要插入的值
 };
 
 /**
@@ -277,6 +278,15 @@ struct CreateTableSqlNode
   // TODO: integrate to CreateTableOptions
   string storage_format;  ///< storage format
   string storage_engine;  ///< storage engine
+};
+
+typedef class ParsedSqlNode SubSelectSqlNode;
+struct CreateViewSqlNode
+{
+  std::string view_name;
+  SubSelectSqlNode* sub_select = nullptr;
+  std::string description;
+  std::vector<std::string> attrs_name;      ///< 视图的属性名称列表
 };
 
 /**
@@ -422,6 +432,7 @@ enum SqlCommandFlag
   SCF_SET_VARIABLE,  ///< 设置变量
   SCF_ALTER,         ///< 修改表结构
   SCF_UNION,         ///< union 语句
+  SCF_CREATE_VIEW,  ///< create view 语句
 };
 /**
  * @brief 表示一个SQL语句
@@ -449,6 +460,7 @@ public:
   SetVariableSqlNode  set_variable;
   AlterSqlNode        alter_table;
   UnionSqlNode        union_node;
+  CreateViewSqlNode   create_view;
 
 public:
   ParsedSqlNode();

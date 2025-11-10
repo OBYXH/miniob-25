@@ -59,6 +59,48 @@ enum class ExprType
   SPECIAL,      ///< 特殊表达式，先留着
 };
 
+inline const char* expr_type_to_string(ExprType type)
+{
+  switch (type) {
+    case ExprType::NONE:
+      return "NONE";
+    case ExprType::STAR:
+      return "STAR";
+    case ExprType::UNBOUND_FIELD:
+      return "UNBOUND_FIELD";
+    case ExprType::UNBOUND_AGGREGATION:
+      return "UNBOUND_AGGREGATION";
+    case ExprType::FIELD:
+      return "FIELD";
+    case ExprType::VALUE:
+      return "VALUE";
+    case ExprType::CAST:
+      return "CAST";
+    case ExprType::COMPARISON:
+      return "COMPARISON";
+    case ExprType::CONJUNCTION:
+      return "CONJUNCTION";
+    case ExprType::ARITHMETIC:
+      return "ARITHMETIC";
+    case ExprType::AGGREGATION:
+      return "AGGREGATION";
+    case ExprType::DISTANCE:
+      return "DISTANCE";
+    case ExprType::FUNCTION:
+      return "FUNCTION";
+    case ExprType::VECTOSTRING:
+      return "VECTOSTRING";
+    case ExprType::SUBQUERY:
+      return "SUBQUERY";
+    case ExprType::VALUES:
+      return "VALUES";
+    case ExprType::SPECIAL:
+      return "SPECIAL";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 /**
  * @brief 表达式的抽象描述
  * @ingroup Expression
@@ -143,6 +185,10 @@ public:
    */
   virtual RC eval(Chunk &chunk, vector<uint8_t> &select) { return RC::UNIMPLEMENTED; }
 
+  void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
+  const char *table_alias() const { return table_alias_.c_str(); }
+  const std::string table_alias_std_string() const { return table_alias_; }
+  
 protected:
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -154,7 +200,9 @@ protected:
 
 private:
   string name_;
-  string filed_alias_;
+  string filed_alias_; // 实际上就是表达式别名
+  std::string table_alias_;
+  
 };
 
 class VectorToStringExpr : public Expression
@@ -315,7 +363,7 @@ public:
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 
-  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
@@ -597,7 +645,7 @@ public:
 
   unique_ptr<Expression> &child() { return child_; }
 
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
   AttrType value_type() const override { return child_->value_type(); }
 
 private:
@@ -641,9 +689,9 @@ public:
   int value_length() const override
   {
     if (aggregate_type_ == Type::COUNT) {
-      return sizeof(int);
+      return sizeof(int) + 1; // 暂时先这样?
     } else if (aggregate_type_ == Type::AVG) {
-      return sizeof(float);
+      return sizeof(float) + 1; // 暂时先这样?
     } else {
       return child_->value_length();
     }
@@ -750,6 +798,6 @@ public:
 
   ExprType type() const override { return ExprType::SPECIAL; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
-  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC::INTERNAL; }
+  RC       get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
   unique_ptr<Expression> copy() const override { return make_unique<SpecialPlaceholderExpr>(); }
 };

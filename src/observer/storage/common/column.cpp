@@ -104,11 +104,11 @@ RC Column::append(const char *data, int count)
 {
   if (!own_) {
     LOG_WARN("append data to non-owned column");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (count_ + count > capacity_) {
     LOG_WARN("append data to full column");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   // Using a larger integer type to avoid overflow
   size_t total_bytes = static_cast<size_t>(count) * static_cast<size_t>(attr_len_);
@@ -122,11 +122,11 @@ RC Column::append_value(const Value &value)
 {
   if (!own_) {
     LOG_WARN("append data to non-owned column");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (count_ >= capacity_) {
     LOG_WARN("append data to full column");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   size_t total_bytes = std::min(value.length(), attr_len_);

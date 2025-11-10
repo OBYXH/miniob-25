@@ -55,18 +55,18 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
 {
   if (table_id < 0) {
     LOG_WARN("invalid table id. table_id=%d, table_name=%s", table_id, name);
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (common::is_blank(name)) {
     LOG_WARN("Name cannot be empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
   LOG_INFO("Begin to create table %s:%s", base_dir, name);
 
   if (attributes.size() == 0) {
     LOG_WARN("Invalid arguments. table_name=%s, attribute_count=%d", name, attributes.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = RC::SUCCESS;
@@ -189,7 +189,7 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   if (table_meta_.deserialize(fs) < 0) {
     LOG_ERROR("Failed to deserialize table meta. file name=%s", meta_file_path.c_str());
     fs.close();
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   fs.close();
 
@@ -328,7 +328,9 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   }
   LOG_INFO("set value to record, field name:%s, field offset:%d, field len:%d, value len:%d, copy len:%d",
     field->name(), field->offset(), field->len(), value.length(), copy_len);
-  memcpy(record_data + field->offset(), value.data(), copy_len);
+  if (value.data() != nullptr) {
+    memcpy(record_data + field->offset(), value.data(), copy_len);
+  }
   return RC::SUCCESS;
 }
 

@@ -42,7 +42,7 @@ RC ExecuteStage::handle_request(SQLStageEvent *sql_event)
     rc = command_executor.execute(sql_event);
     session_event->sql_result()->set_return_code(rc);
   } else {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   return rc;
 }

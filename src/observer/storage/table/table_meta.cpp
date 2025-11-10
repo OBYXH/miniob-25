@@ -54,12 +54,12 @@ RC TableMeta::init(int32_t table_id, const char *name, const vector<FieldMeta> *
 {
   if (common::is_blank(name)) {
     LOG_ERROR("Name cannot be empty");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (attributes.size() == 0) {
     LOG_ERROR("Invalid argument. name=%s, field_num=%d", name, attributes.size());
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   RC rc = RC::SUCCESS;
@@ -146,6 +146,7 @@ const FieldMeta *TableMeta::trx_field() const { return &fields_[0]; }
 span<const FieldMeta> TableMeta::trx_fields() const { return span<const FieldMeta>(fields_.data(), sys_field_num()); }
 
 const FieldMeta *TableMeta::field(int index) const { return &fields_[index]; }
+FieldMeta *TableMeta::mut_field(int index) { return &fields_[index]; }
 const FieldMeta *TableMeta::field(const char *name) const
 {
   if (nullptr == name) {

@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/clog/disk_log_handler.h"
 #include "storage/buffer/double_write_buffer.h"
 #include "oblsm/include/ob_lsm.h"
+#include "storage/table/view.h"
 
 class Table;
 class LogHandler;
@@ -91,6 +92,10 @@ public:
    */
   Table *find_table(int32_t table_id) const;
 
+  View *find_view(const char *view_name) const;
+  RC add_view(const char *view_name, const vector<string> attrs_name, const char *view_description, bool is_update_allowed,
+      bool is_insert_allowed, bool is_delete_allowed);
+
   /// @brief 当前数据库的名称
   const char *name() const;
 
@@ -119,6 +124,8 @@ public:
 private:
   /// @brief 打开所有的表。在数据库初始化的时候会执行
   RC open_all_tables();
+  /// @brief 打开所有的视图。在数据库初始化的时候会执行
+  RC open_all_views();
   /// @brief 恢复数据。在数据库初始化的时候运行。
   RC recover();
 
@@ -149,6 +156,7 @@ private:
   string                         name_;                 ///< 数据库名称
   string                         path_;                 ///< 数据库文件存放的目录
   unordered_map<string, Table *> opened_tables_;        ///< 当前所有打开的表
+  unordered_map<string, View *>  opened_views_;         ///< 当前所有打开的视图
   unique_ptr<BufferPoolManager>  buffer_pool_manager_;  ///< 当前数据库的buffer pool管理器
   unique_ptr<LogHandler>         log_handler_;          ///< 当前数据库的日志处理器
   unique_ptr<TrxKit>             trx_kit_;              ///< 当前数据库的事务管理器
@@ -156,6 +164,9 @@ private:
 
   /// 给每个table都分配一个ID，用来记录日志。这里假设所有的DDL都不会并发操作，所以相关的数据都不上锁
   int32_t next_table_id_ = 0;
+
+  // 给每个 View 都分配一个ID
+  int32_t next_view_id_ = 720;  ///< 从一个较大的数开始，避免和 table id 冲突
 
   LSN    check_point_lsn_ = 0;  ///< 当前数据库的检查点LSN。会记录到磁盘中。
   string storage_engine_;

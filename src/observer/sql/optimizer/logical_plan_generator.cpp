@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/optimizer/logical_plan_generator.h"
 
+#include "common/lang/vector.h"
 #include "common/log/log.h"
 
 #include "common/sys/rc.h"
@@ -41,8 +42,10 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/update_stmt.h"
+#include "sql/stmt/create_view_stmt.h"
 
 #include "sql/expr/expression_iterator.h"
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -94,6 +97,17 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
 
       rc = create_plan(explain_stmt, logical_operator);
     } break;
+
+    case StmtType::CREATE_VIEW: {
+      auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+      if (create_view_stmt->select_stmt() != nullptr) {
+        // create view xx as select ...
+        auto stmt_ = create_view_stmt->select_stmt();
+        return create_plan(stmt_, logical_operator);
+      }
+      return RC::UNIMPLEMENTED;
+    } break;
+
     default: {
       rc = RC::UNIMPLEMENTED;
     }
@@ -147,9 +161,12 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   const vector<Table *> &tables = select_stmt->tables();
+  const vector<string> &table_aliases = select_stmt->table_alias_;
+  size_t i = 0;
   for (Table *table : tables) {
-
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+    auto table_get_oper_raw(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+    table_get_oper_raw->set_table_alias(table_aliases[i]);
+    unique_ptr<LogicalOperator> table_get_oper(table_get_oper_raw);
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -158,6 +175,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       join_oper->add_child(std::move(table_get_oper));
       table_oper = unique_ptr<LogicalOperator>(join_oper);
     }
+    i++;
   }
 
   if (predicate_oper) {
@@ -316,6 +334,7 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
   vector<Value> values(insert_stmt->values(), insert_stmt->values() + insert_stmt->value_amount());
 
   InsertLogicalOperator *insert_operator = new InsertLogicalOperator(table, values);
+  insert_operator->set_attrs_name(insert_stmt->attrs_name());
   logical_operator.reset(insert_operator);
   return RC::SUCCESS;
 }
@@ -482,7 +501,7 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 
   if (found_unbound_column) {
     LOG_WARN("column must appear in the GROUP BY clause or must be part of an aggregate function");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 如果只需要聚合，但是没有group by 语句，需要生成一个空的group by 语句

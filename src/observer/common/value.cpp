@@ -94,6 +94,9 @@ Value::Value(const Value &other)
       this->value_ = other.value_;
     } break;
   }
+  this->slot_num_ = other.slot_num_;
+  this->page_num_ = other.page_num_;
+  this->table_name_ = other.table_name_;
 }
 
 // 所有权转移机制
@@ -425,6 +428,10 @@ char *Value::data() const
 string Value::to_string() const
 {
   string res;
+  if (this->attr_type_ == AttrType::BOOLEANS) {
+    res = this->get_boolean() ? "true" : "false";
+    return res;
+  }
   RC     rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to convert value to string. type=%s", attr_type_to_string(this->attr_type_));

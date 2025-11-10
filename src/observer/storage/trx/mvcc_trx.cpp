@@ -527,7 +527,7 @@ RC find_table(Db *db, const LogEntry &log_entry, Table *&table)
       table                = db->find_table(trx_log_record->table_id);
       if (nullptr == table) {
         LOG_WARN("no such table to redo. log record=%s", trx_log_record->to_string().c_str());
-        return RC::SCHEMA_TABLE_NOT_EXIST;
+        return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
       }
     } break;
     default: {
@@ -575,7 +575,7 @@ RC MvccTrx::redo(Db *db, const LogEntry &log_entry)
 
     default: {
       ASSERT(false, "unsupported redo log. log_record=%s", log_entry.to_string().c_str());
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     } break;
   }
 

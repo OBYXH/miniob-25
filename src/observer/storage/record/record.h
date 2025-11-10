@@ -46,6 +46,11 @@ struct RID
     return ss.str();
   }
 
+  static bool is_valid(const RID &rid)
+  {
+    return rid.page_num >= 0 && rid.slot_num >= 0;
+  }
+
   static RID from_string(const string &str)
   {
     RID rid;
@@ -237,11 +242,11 @@ public:
   {
     if (!owner_) {
       LOG_ERROR("cannot set field when record does not own the memory");
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (field_offset + field_len > len_) {
       LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_len, len_);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     // 实际数据长度
@@ -264,7 +269,7 @@ public:
 
     if (field_offset + field_meta.len() > len_) {
       LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_meta.len(), len_);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     value.set_type(field_meta.type());
@@ -294,11 +299,11 @@ public:
   {
     if (!owner_) {
       LOG_ERROR("cannot set field when record does not own the memory");
-      return RC::INTERNAL;
+      return RC_WITH_LOCATION(RC::INTERNAL, "");
     }
     if (field_offset + field_len > len_) {
       LOG_ERROR("invalid offset or length. offset=%d, length=%d, total length=%d", field_offset, field_len, len_);
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
 
     memset(data_ + field_offset, 0, field_len);

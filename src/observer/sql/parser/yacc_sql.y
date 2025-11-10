@@ -164,7 +164,6 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         SET
         ON
         LOAD
-        DATA
         UNIQUE
         INFILE
         EXPLAIN
@@ -218,6 +217,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         WITH
         PARSER
         TOKENIZE
+        VIEW
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -324,11 +324,11 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            begin_stmt
 %type <sql_node>            commit_stmt
 %type <sql_node>            rollback_stmt
-%type <sql_node>            load_data_stmt
 %type <sql_node>            explain_stmt
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
+%type <sql_node>            create_view_stmt
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
@@ -366,12 +366,12 @@ command_wrapper:
   | begin_stmt
   | commit_stmt
   | rollback_stmt
-  | load_data_stmt
   | explain_stmt
   | set_variable_stmt
   | help_stmt
   | exit_stmt
   | alter_stmt
+  | create_view_stmt
     ;
 
 exit_stmt:      
@@ -491,7 +491,36 @@ create_table_stmt:    /*create table 语句的语法解析树*/
       }
     }
     ;
-    
+
+create_view_stmt:
+    CREATE VIEW ID AS select_stmt
+    {
+      LOG_DEBUG("Enter CREATE VIEW parsing.");
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      create_view.sub_select = $5;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
+    }
+    | CREATE VIEW ID LBRACE attr_list RBRACE AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+
+      std::vector<std::string> *src_attrs = $5;
+      if (src_attrs != nullptr) {
+        create_view.attrs_name.swap(*src_attrs);
+        delete src_attrs;
+      }
+      
+      create_view.sub_select = $8;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @8.first_column, @8.last_column - @8.first_column + 1);
+    }
+    ;
+
 attr_def_list:
     attr_def
     {
@@ -662,6 +691,20 @@ insert_stmt:        /*insert   语句的语法解析树*/
       $$->insertion.relation_name = $3;
       $$->insertion.values.swap(*$6);
       delete $6;
+    }
+    | INSERT INTO ID LBRACE attr_list RBRACE VALUES LBRACE value_list RBRACE
+     {
+      $$ = new ParsedSqlNode(SCF_INSERT);
+      $$->insertion.relation_name = $3;
+      
+      // fields list
+      if ($5 != nullptr) {
+        $$->insertion.attrs_name.swap(*$5);
+        delete $5;
+      }
+
+      $$->insertion.values.swap(*$9);
+      delete $9;
     }
     ;
 
@@ -1335,27 +1378,6 @@ group_by:
       // group by 的表达式范围与select查询值的表达式范围是不同的，比如group by不支持 *
       // 但是这里没有处理。
       $$ = $3;
-    }
-    ;
-load_data_stmt:
-    LOAD DATA INFILE SSS INTO TABLE ID fields_terminated_by enclosed_by
-    {
-      char *tmp_file_name = common::substr($4, 1, strlen($4) - 2);
-      
-      $$ = new ParsedSqlNode(SCF_LOAD_DATA);
-      $$->load_data.relation_name = $7;
-      $$->load_data.file_name = tmp_file_name;
-      if ($8 != nullptr) {
-        char *tmp = common::substr($8,1,strlen($8)-2);
-        $$->load_data.terminated = $8;
-        free(tmp);
-      }
-      if ($9 != nullptr) {
-        char *tmp = common::substr($9,1,strlen($9)-2);
-        $$->load_data.enclosed = $9;
-        free(tmp);
-      }
-      free(tmp_file_name);
     }
     ;
 

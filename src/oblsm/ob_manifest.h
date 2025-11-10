@@ -97,7 +97,7 @@ inline RC JsonConverter::from_json<CompactionType>(const Json::Value &v, Compact
   if (v.isInt()) {
     type_as_int = v.asInt();
   } else {
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   type = static_cast<CompactionType>(type_as_int);

@@ -33,7 +33,7 @@ RC DiskLogHandler::start()
 {
   if (thread_) {
     LOG_ERROR("log has been started");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   running_.store(true);
@@ -46,7 +46,7 @@ RC DiskLogHandler::stop()
 {
   if (!thread_) {
     LOG_ERROR("log has not been started");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   running_.store(false);
@@ -59,12 +59,12 @@ RC DiskLogHandler::await_termination()
 {
   if (!thread_) {
     LOG_ERROR("log has not been started");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   if (running_.load()) {
     LOG_ERROR("log handler is running");
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   thread_->join();
@@ -157,7 +157,7 @@ RC DiskLogHandler::wait_lsn(LSN lsn)
   if (current_flushed_lsn() >= lsn) {
     return RC::SUCCESS;
   } else {
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 }
 

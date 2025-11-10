@@ -39,7 +39,7 @@ RC DefaultHandler::init(
   error_code ec;
   if (!filesystem::is_directory(db_dir) && !filesystem::create_directories(db_dir, ec)) {
     LOG_ERROR("Cannot access base dir: %s. msg=%d:%s", db_dir.c_str(), errno, strerror(errno));
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
 
   base_dir_         = base_dir;
@@ -83,7 +83,7 @@ RC DefaultHandler::create_db(const char *dbname)
 {
   if (nullptr == dbname || common::is_blank(dbname)) {
     LOG_WARN("Invalid db name");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   // 如果对应名录已经存在，返回错误
@@ -101,13 +101,13 @@ RC DefaultHandler::create_db(const char *dbname)
   return RC::SUCCESS;
 }
 
-RC DefaultHandler::drop_db(const char *dbname) { return RC::INTERNAL; }
+RC DefaultHandler::drop_db(const char *dbname) { return RC_WITH_LOCATION(RC::INTERNAL, ""); }
 
 RC DefaultHandler::open_db(const char *dbname)
 {
   if (nullptr == dbname || common::is_blank(dbname)) {
     LOG_WARN("Invalid db name");
-    return RC::INVALID_ARGUMENT;
+    return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
   }
 
   if (opened_dbs_.find(dbname) != opened_dbs_.end()) {

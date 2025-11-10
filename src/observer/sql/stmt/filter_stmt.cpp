@@ -45,7 +45,7 @@ RC get_table_and_field(Db *db, Table *default_table, unordered_map<string, Table
   }
   if (nullptr == table) {
     LOG_WARN("No such table: attr.relation_name: %s", relation_name.c_str());
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC_WITH_LOCATION(RC::SCHEMA_TABLE_NOT_EXIST, "");
   }
 
   field = table->table_meta().field(attribute_name.c_str());
@@ -73,7 +73,7 @@ RC FilterStmt::create(Db *db, Table *default_table, unordered_map<string, Table 
                                      condition.right->type() == ExprType::UNBOUND_AGGREGATION)) {
       // 聚合函数不在这里处理
       LOG_WARN("unexpected aggregation expression in where condition");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
     switch (condition.comp) {
       case EQUAL_TO:

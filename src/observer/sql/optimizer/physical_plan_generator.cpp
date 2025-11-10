@@ -118,7 +118,7 @@ RC PhysicalPlanGenerator::create(
 
     default: {
       ASSERT(false, "unknown logical operator type");
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
   return rc;
@@ -144,7 +144,7 @@ RC PhysicalPlanGenerator::create_vec(
     } break;
     default: {
       LOG_WARN("unknown logical operator type: %d", logical_operator.type());
-      return RC::INVALID_ARGUMENT;
+      return RC_WITH_LOCATION(RC::INVALID_ARGUMENT, "");
     }
   }
   return rc;
@@ -215,6 +215,7 @@ RC PhysicalPlanGenerator::create_plan(
   } else {
     auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.read_write_mode());
     table_scan_oper->set_predicates(std::move(predicates));
+    table_scan_oper->set_table_alias(table_get_oper.table_alias());
     oper = unique_ptr<PhysicalOperator>(table_scan_oper);
     LOG_TRACE("use table scan");
   }
@@ -328,6 +329,7 @@ RC PhysicalPlanGenerator::create_plan(
   Table                  *table           = insert_oper.table();
   vector<Value>          &values          = insert_oper.values();
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
+  insert_phy_oper->set_attrs_name(insert_oper.attrs_name());
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;
 }
@@ -432,7 +434,7 @@ RC PhysicalPlanGenerator::create_plan(
   vector<unique_ptr<LogicalOperator>> &child_opers = join_oper.children();
   if (child_opers.size() != 2) {
     LOG_WARN("join operator should have 2 children, but have %d", child_opers.size());
-    return RC::INTERNAL;
+    return RC_WITH_LOCATION(RC::INTERNAL, "");
   }
   if (session->hash_join_on() && can_use_hash_join(join_oper)) {
     // your code here
