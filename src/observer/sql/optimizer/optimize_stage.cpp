@@ -98,6 +98,7 @@ RC OptimizeStage::handle_view_request(SQLStageEvent *sql_event)
   // 创建 view 的描述的逻辑计划。
   RC rc = RC::SUCCESS;
   
+  // 在使用视图时，生成物理算子，存储在视图对象中。
   for (size_t i = 0; i < sql_event->stmt_views().size(); ++i) {
     unique_ptr<LogicalOperator> logical_operator;
     rc = create_logical_plan_view(sql_event, logical_operator, i);

@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/db/db.h"
 
 RC SqlTaskHandler::handle_event(Communicator *communicator)
@@ -70,46 +71,82 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
-    // check views
-  // 逻辑暂时放在这里，做可行性验证
+  // 递归展开嵌套视图
   if (sql_event->sql_node()->flag == SCF_SELECT || 
-    sql_event->sql_node()->flag == SCF_INSERT ||
-    sql_event->sql_node()->flag == SCF_UPDATE ||
-    sql_event->sql_node()->flag == SCF_DELETE){
+      sql_event->sql_node()->flag == SCF_INSERT ||
+      sql_event->sql_node()->flag == SCF_UPDATE ||
+      sql_event->sql_node()->flag == SCF_DELETE) {
+    
     auto *db = sql_event->session_event()->session()->get_current_db();
     if (db == nullptr) return RC_WITH_LOCATION(RC::INTERNAL, "");
 
-    std::vector<std::string> view_names;
-    switch (sql_event->sql_node()->flag)
-    {
-    case SCF_SELECT:
-      for (auto &relation : sql_event->sql_node()->selection.relations) view_names.push_back(relation.relation_name);
-      break;
-    case SCF_INSERT:
-      view_names.push_back(sql_event->sql_node()->insertion.relation_name);
-      break;
-    case SCF_UPDATE:
-      view_names.push_back(sql_event->sql_node()->update.relation_name);
-    case SCF_DELETE:
-      view_names.push_back(sql_event->sql_node()->deletion.relation_name);
-      break;
-    default:
-      break;
-    }
+    // 递归展开视图，直到没有新的视图需要展开
+    std::set<std::string> expanded_views; // 防止循环引用
+    while (true) {
+      std::vector<std::string> view_names;
+      const ParsedSqlNode *current_sql_node = nullptr;
+      const auto *last_view_node = sql_event->get_last_sql_node_view();
+      if (last_view_node != nullptr) {
+        current_sql_node = last_view_node->get();
+      } else {
+        current_sql_node = sql_event->sql_node().get();
+      }      
+      // 收集当前SQL中的所有表/视图名
+      switch (current_sql_node->flag) {
+        case SCF_SELECT:
+          for (auto &relation : current_sql_node->selection.relations) {
+            view_names.push_back(relation.relation_name);
+          }
+          break;
+        case SCF_INSERT:
+          view_names.push_back(sql_event->sql_node()->insertion.relation_name);
+          break;
+        case SCF_UPDATE:
+          view_names.push_back(sql_event->sql_node()->update.relation_name);
+          break;
+        case SCF_DELETE:
+          view_names.push_back(sql_event->sql_node()->deletion.relation_name);
+          break;
+        default:
+          break;
+      }
 
-    for (auto &view_name : view_names) {
-      View *view = db->find_view(view_name.c_str());
-      if (view == nullptr) continue;
-      sql_event->add_view_sql(view->view_definition());
-      sql_event->add_view_name(view->view_name());
+      // 检查是否有新的视图需要展开
+      bool has_new_views = false;
+      for (auto &view_name : view_names) {
+        if (expanded_views.count(view_name) > 0) {
+          continue; // 已经展开过
+        }
+        
+        View *view = db->find_view(view_name.c_str());
+        if (view == nullptr) {
+          continue; // 不是视图
+        }
+        
+        // 展开视图
+        sql_event->add_view_sql(view->view_definition());
+        sql_event->add_view_name(view->view_name());
+        expanded_views.insert(view_name);
+        has_new_views = true;
+        
+        LOG_DEBUG("expand view: %s", view_name.c_str());
+      }
+      
+      if(!has_new_views) {
+        break; // 没有新的视图需要展开，结束循环
+      }
+
+      // 如果有新视图被展开，需要重新解析
+      if (has_new_views) {
+        rc = parse_stage_.handle_view_request(sql_event);
+        if (OB_FAIL(rc)) {
+          LOG_TRACE("failed to parse view. rc=%s", strrc(rc));
+          return rc;
+        }
+      }
     }
-    LOG_DEBUG("found %d views in your sql", sql_event->sql_views().size());
-    // 解析 View 的 SQL
-    rc = parse_stage_.handle_view_request(sql_event);
-    if (OB_FAIL(rc)) {
-      LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
-      return rc;
-    }
+    
+    LOG_DEBUG("total expanded %zu views", expanded_views.size());
   }
   
   rc = resolve_stage_.handle_request(sql_event);

@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/lang/memory.h"
 #include "sql/operator/physical_operator.h"
+#include <memory>
 
 class SessionEvent;
 class Stmt;
@@ -53,6 +54,12 @@ public:
   void add_view_sql(std::string sql) { sql_views_.push_back(std::move(sql)); }
   void add_view_sql_node(unique_ptr<ParsedSqlNode> sql_node) { sql_node_views_.push_back(std::move(sql_node)); }
   void add_view_stmt(Stmt *stmt) { stmt_views_.push_back(stmt); }
+  const unique_ptr<ParsedSqlNode> * get_last_sql_node_view() const {
+    if (sql_node_views_.empty()) {
+      return nullptr;
+    }
+    return &sql_node_views_.back();
+  }
 
 private:
   SessionEvent                *session_event_ = nullptr;

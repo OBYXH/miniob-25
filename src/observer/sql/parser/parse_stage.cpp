@@ -60,13 +60,16 @@ RC ParseStage::handle_request(SQLStageEvent *sql_event)
   return RC::SUCCESS;
 }
 
+// 解析队列中的最后一个视图SQL
 RC ParseStage::handle_view_request(SQLStageEvent *sql_event)
 {
-  for (const auto &view_sql : sql_event->sql_views()) {
-    ParsedSqlResult parsed_sql_result_view;
-    parse(view_sql.c_str(), &parsed_sql_result_view);
-    sql_event->add_view_sql_node(std::move(parsed_sql_result_view.sql_nodes().front()));
+  if (sql_event->sql_views().empty()) {
+    return RC::SUCCESS;
   }
+  const string &last_view_sql = sql_event->sql_views().back();
+  ParsedSqlResult parsed_sql_result_view;
+  parse(last_view_sql.c_str(), &parsed_sql_result_view);
+  sql_event->add_view_sql_node(std::move(parsed_sql_result_view.sql_nodes().front()));
 
   return RC::SUCCESS;
 }

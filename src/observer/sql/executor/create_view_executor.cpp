@@ -101,12 +101,12 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
 
 
     // 走一遍 select 的物理算子，确保 select 语句没问题才能创建视图
-    rc = create_view_stmt->physical_operator()->open(session->current_trx());
-    while (create_view_stmt->physical_operator()->next() == RC::SUCCESS);
-    if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
-        LOG_ERROR("create view: failed to execute select phy oper. rc=%d", rc);
-        return rc;
-    }
+    // rc = create_view_stmt->physical_operator()->open(session->current_trx());
+    // while (create_view_stmt->physical_operator()->next() == RC::SUCCESS);
+    // if (rc != RC::SUCCESS && rc != RC::RECORD_EOF) {
+    //     LOG_ERROR("create view: failed to execute select phy oper. rc=%d", rc);
+    //     return rc;
+    // }
 
     // 创建视图
     const char *view_name = create_view_stmt->view_name().c_str();
