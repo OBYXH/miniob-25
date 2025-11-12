@@ -10,6 +10,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "common/type/attr_type.h"
 #include "common/type/data_type.h"
 
 /**
@@ -30,7 +31,26 @@ public:
   RC negative(const Value &val, Value &result) const override;
 
   RC cast_to(const Value &val, AttrType type, Value &result) const override;
-
+  int cast_cost(AttrType to) override
+  {
+    if (to == AttrType::INTS) {
+      return 0;  // 同类型，无需转换
+    }
+    
+    switch (to) {
+      case AttrType::FLOATS:
+        return 1;  // int → float: 无损转换，代价很低
+        
+      case AttrType::CHARS:
+        return 100;  // int → string: 需要格式化，代价较高
+        
+      case AttrType::BOOLEANS:
+        return 10;  // int → bool: 简单判断，代价低
+        
+      default:
+        return INT32_MAX;  // 其他类型不支持转换
+    }
+  }
   RC set_value_from_str(Value &val, const string &data) const override;
 
   RC to_string(const Value &val, string &result) const override;
