@@ -249,17 +249,17 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   vector<UpdateField> *                      update_list;
 }
 
-%destructor { delete $$; } <condition>
-%destructor { delete $$; } <value>
-%destructor { delete $$; } <rel_attr>
-%destructor { delete $$; } <attr_infos>
-%destructor { delete $$; } <expression>
-%destructor { delete $$; } <expression_list>
-%destructor { delete $$; } <value_list>
-%destructor { delete $$; } <condition_list>
+// %destructor { delete $$; } <condition>
+// %destructor { delete $$; } <value>
+// %destructor { delete $$; } <rel_attr>
+// %destructor { delete $$; } <attr_infos>
+// %destructor { delete $$; } <expression>
+// %destructor { delete $$; } <expression_list>
+// %destructor { delete $$; } <value_list>
+// %destructor { delete $$; } <condition_list>
 // %destructor { delete $$; } <rel_attr_list>
-%destructor { delete $$; } <relation_list>
-%destructor { delete $$; } <key_list>
+// %destructor { delete $$; } <relation_list>
+// %destructor { delete $$; } <key_list>
 
 %token <number> NUMBER
 %token <floats> FLOAT
