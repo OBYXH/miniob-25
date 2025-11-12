@@ -112,10 +112,40 @@ enum class IndexType
  */
 struct ConditionSqlNode
 {
-  CompOp                 comp;                  ///< comparison operator
-  unique_ptr<Expression> left;                  ///< left expression
-  unique_ptr<Expression> right;                 ///< right expression
-  char                   conjunction_type = 0;  // 0: no conjunction, 1: and, 2: or
+  CompOp                 comp;
+  unique_ptr<Expression> left;
+  unique_ptr<Expression> right;
+  char                   conjunction_type = 0;
+
+  // 显式定义安全的析构函数
+  ~ConditionSqlNode() noexcept {
+    try {
+      // 显式但安全地释放资源
+      left.reset();
+      right.reset();
+    } catch (...) {
+      // 记录日志但抑制异常
+      // LOG_ERROR("Exception during ConditionSqlNode destruction");
+    }
+  }
+  
+  // 同时建议定义移动语义
+  ConditionSqlNode(ConditionSqlNode&& other) noexcept 
+    : comp(other.comp),
+      left(std::move(other.left)),
+      right(std::move(other.right)),
+      conjunction_type(other.conjunction_type) {
+  }
+  
+  ConditionSqlNode& operator=(ConditionSqlNode&& other) noexcept {
+    if (this != &other) {
+      comp = other.comp;
+      left = std::move(other.left);
+      right = std::move(other.right);
+      conjunction_type = other.conjunction_type;
+    }
+    return *this;
+  }
 };
 
 /**
