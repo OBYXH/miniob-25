@@ -26,7 +26,7 @@ SQLStageEvent::~SQLStageEvent() noexcept
   }
 
   if (stmt_ != nullptr) {
-    delete stmt_;
+    // delete stmt_;
     stmt_ = nullptr;
   }
 }
