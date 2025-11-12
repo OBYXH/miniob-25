@@ -43,31 +43,9 @@ inline RC parse_date(const char *str, int &result)
   return RC::SUCCESS;
 }
 
-inline RC parse_float_prefix(const char *str, float &result)
+RC parse_float_prefix(const char *str, float &result)
 {
-  char *end_ptr = nullptr;
-  // 清除 errno，以便检查 strtod 是否发生溢出
-  errno            = 0;
-  double float_val = std::strtod(str, &end_ptr);
-
-  // 检查1: str 和 end_ptr 指向同一位置，说明根本没有解析到数字
-  if (str == end_ptr) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  // 检查2: 检查解析结束后，后面是否还有非空白的垃圾字符
-  while (std::isspace(static_cast<unsigned char>(*end_ptr))) {
-    end_ptr++;
-  }
-  if (*end_ptr != '\0') {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  // 检查3: 检查是否发生溢出
-  if (errno == ERANGE) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  result = static_cast<float>(float_val);
+  char *end = nullptr;
+  result    = strtof(str, &end);
   return RC::SUCCESS;
 }
